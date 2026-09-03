@@ -27,8 +27,8 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 
 複製根目錄的 `.env.example` 為 `.env`：
 
-```powershell
-Copy-Item .env.example .env
+```cmd
+copy .env.example .env
 ```
 
 後端由 `pydantic-settings` 讀取根目錄 `.env`。前端在沒有設定時使用安全的本機預設值 `http://localhost:8000`；若要覆寫，請在 `frontend/.env.local` 設定：
@@ -41,8 +41,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
 ## 前端
 
-```powershell
-Set-Location frontend
+```cmd
+cd /d C:\FutureMode\frontend
 npm install
 npm run dev
 ```
@@ -51,7 +51,8 @@ npm run dev
 
 檢查指令：
 
-```powershell
+```cmd
+cd /d C:\FutureMode\frontend
 npm run lint
 npm run typecheck
 npm run build
@@ -59,8 +60,9 @@ npm run build
 
 ## 後端
 
-```powershell
-Set-Location backend
+```cmd
+cd /d C:\FutureMode\backend
+uv python install 3.12
 uv sync
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -69,7 +71,8 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 檢查指令：
 
-```powershell
+```cmd
+cd /d C:\FutureMode\backend
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
