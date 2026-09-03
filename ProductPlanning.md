@@ -241,12 +241,10 @@ Proximate
 │  └─ 我的行動項目
 ├─ Meetings
 │  ├─ 建立／設定
-│  ├─ 會前 Brief
-│  ├─ In-meeting Side Panel
-│  │  ├─ Meeting Brief／Public State
-│  │  ├─ Private Sidekick
-│  │  └─ Host Controls／AI 舉手
-│  └─ Post-meeting Consensus
+│  └─ Meeting Workspace
+│     ├─ Prepare（會前）
+│     ├─ Live（會中）
+│     └─ Review（會後）
 ├─ Team Memory
 │  ├─ 歷史會議
 │  ├─ 決策與理由
@@ -265,15 +263,13 @@ Proximate
 | MVP | `/sign-in` | 登入 | 所有人 | Clerk 登入、團隊切換與 session 建立 |
 | MVP | `/dashboard` | Dashboard | Host、Member | 近期會議、待確認共識、我的任務、建立會議 |
 | MVP | `/meetings/new` | Meeting Setup | Team Member | 標題、議程、參與者、本場 Host、AI 角色、文件、介入程度與輸入來源 |
-| MVP | `/meetings/[id]/prepare` | Pre-meeting Brief | 全體 | 共識、分歧、未決問題、Sidekick 入口、Delegate 設定 |
-| MVP | `/meetings/[id]/room` | In-meeting Client | 全體 | 供 Google Meet Add-on 載入的會中介面；顯示 Brief、公共狀態與私人 Sidekick |
-| MVP | `/meetings/[id]/consensus` | Post-meeting Consensus | 全體 | 決策、理由、未決問題、任務與逐人確認 |
-| 後續 | `/meetings/[id]/recap` | Meeting Record | 全體 | 摘要、逐字稿、時間軸、AI 介入與來源 |
+| MVP | `/meetings/[id]/prepare` | Meeting Workspace／Prepare | 全體 | 共識、分歧、未決問題、Sidekick 入口、Delegate 設定 |
+| MVP | `/meetings/[id]/audio-setup` | Audio Setup | 需要收音的成員 | 授權麥克風／分頁音訊；啟動後提示回到 Google Meet |
+| MVP | `/meetings/[id]/addon` | Meeting Workspace／Live（Meet Add-on） | 全體 | 供 Google Meet iframe 載入；顯示 Brief、公共狀態與私人 Sidekick |
+| MVP | `/meetings/[id]/review` | Meeting Workspace／Review | 全體 | 摘要、逐字稿、決策、理由、未決問題、任務與逐人確認 |
 | 後續 | `/memory` | Team Memory | 團隊成員 | 搜尋歷史會議、決策、文件與來源 |
 | 後續 | `/memory/decisions/[id]` | Decision Detail | 團隊成員 | 決策內容、理由、否決方案、限制、來源會議 |
-| 後續 | `/settings/team` | Team Settings | Admin | 成員與角色 |
-| 後續 | `/settings/integrations` | Integrations | Admin | Calendar、Drive、Notion、Jira 與會議平台 |
-| 後續 | `/settings/privacy` | Data & Privacy | Admin | 保存期限、刪除、錄音與稽核設定 |
+| 後續 | `/settings` | Settings | Admin | 以 Tabs 管理團隊與成員、整合、隱私與資料保留 |
 
 ### 每場會議的 Host 設定
 
@@ -294,7 +290,7 @@ AI 角色在 `/meetings/new` 的 Meeting Setup 選擇，會前 `/meetings/[id]/p
 
 ### In-meeting Side Panel 版面
 
-會中不應要求使用者離開 Google Meet 再切到獨立 Web App。`/meetings/[id]/room` 應設計成可被 Google Meet Add-on 載入的窄版會中介面，包含三個協作區：
+會中不應要求使用者離開 Google Meet 再切到獨立 Web App。`/meetings/[id]/addon` 應設計成可被 Google Meet Add-on 載入的窄版會中介面，包含三個協作區：
 
 | 區域 | 所有人是否可見 | 內容 |
 | --- | --- | --- |
@@ -318,7 +314,7 @@ AI 角色在 `/meetings/new` 的 Meeting Setup 選擇，會前 `/meetings/[id]/p
 
 使用者在 Google Meet 進行高專注度討論時，不會持續切換到另一個 Web App；獨立頁面的提醒也容易被忽略。因此 Proximate 必須在 Meet 同一個瀏覽器視窗內提供常駐入口，讓使用者在開場看到 Main Agent 整理的共識與待討論議題，會中則直接使用 Private Sidekick。
 
-若黑客松只需在開發者自己的帳號展示，首選是 **Google Meet Add-on Development Deployment**：它能把既有 Web App 直接放進 Meet 的 Activities／Side Panel，不需要先通過公開 Marketplace 審查。正式測試前仍須確認 Google Workspace 管理員政策、OAuth 同意畫面與測試帳號權限。Add-on 可共用 `/meetings/[id]/room` 的窄版前端與同一套後端。
+若黑客松只需在開發者自己的帳號展示，首選是 **Google Meet Add-on Development Deployment**：它能把既有 Web App 直接放進 Meet 的 Activities／Side Panel，不需要先通過公開 Marketplace 審查。正式測試前仍須確認 Google Workspace 管理員政策、OAuth 同意畫面與測試帳號權限。Add-on 可共用 `/meetings/[id]/addon` 的窄版前端與同一套後端。
 
 > [!IMPORTANT]
 「介面出現在 Meet 旁」與「取得 Meet 即時音訊」是兩個不同問題。Meet Add-on 提供原生側邊欄／Main Stage UI，但不等於自動取得會議音訊。因此音訊擷取放在使用者主動開啟的頂層 Web App Capture Page，由每位參與者授權自己的麥克風，再以 WebSocket 傳送到後端。
@@ -447,7 +443,7 @@ flowchart LR
 
 ### 建議演進
 
-1. **Phase 0**：先完成可嵌入的 `/meetings/[id]/room` 與 Capture Page，以分頁音訊驅動 Brief、AI 舉手、Sidekick 與 Consensus；開發期間保留固定逐字稿作為測試資料。
+1. **Phase 0**：先完成可嵌入的 `/meetings/[id]/addon` 與 `/meetings/[id]/audio-setup`，以分頁音訊驅動 Brief、AI 舉手、Sidekick 與 Review；開發期間保留固定逐字稿作為測試資料。
 2. **Phase 1**：建立 Meet Add-on development deployment，在單一開發帳號驗證原生 Side Panel／Main Stage。
 3. **Phase 2**：若團隊同網域，建立 internal staging private listing 驗證多人安裝與 collaborative activity；若權限受阻，優先修正 Cloud project、OAuth 或 Workspace allowlist。
 4. **Phase 3**：完成 Capture Page 的分頁音訊擷取、WebSocket 傳輸與逐人 STT；失敗時使用預先準備的繁中逐字稿。
@@ -686,7 +682,7 @@ flowchart TB
 ## 技術選型
 
 > [!NOTE]
-以下為規劃中的技術棧。Repository 目前沒有 `frontend/`、`backend/`、套件清單或環境變數範本。
+以下為規劃中的技術棧。Repository 已建立 `frontend/` 與 `backend/` 基礎 scaffold；產品頁面、資料庫 CRUD、AI 流程與外部服務仍待實作。
 > 
 
 ### Frontend
@@ -921,7 +917,7 @@ flowchart TB
 
 | 項目 | 狀態 | 目前缺少什麼 | 是否阻塞黑客松 | 建議解法／解除條件 |
 | --- | --- | --- | --- | --- |
-| Web App／會中介面與 User Flow | **Blocked** | Repository 沒有前端專案、元件、設計稿或可執行頁面 | 是 | 先建立 Dashboard、Setup、可嵌入 In-meeting Client、Consensus；使用假資料串成 happy path |
+| Web App／會中介面與 User Flow | **Blocked** | Repository 只有基礎 scaffold，尚未完成產品頁面與元件 | 是 | 先建立 Dashboard、Meeting Workspace（Prepare／Live／Review）與可嵌入 Add-on；使用假資料串成 happy path |
 | Backend、REST 與 WebSocket | **Blocked** | 沒有 FastAPI 專案、schema、migration 或 API contract | 若要多人即時同步則是 | Phase 0 可用前端 fixture＋狀態機；同時先定義 event schema，再以最小 WebSocket room 取代假資料 |
 | 即時分頁音訊擷取 | **Blocked** | 尚無 browser prototype，也沒有實測瀏覽器、OS 與會議平台組合 | 否 | 先完成 Capture Page＋WebSocket spike；無法取得音訊時使用預先準備的繁中逐字稿 |
 | 分散式麥克風 Capture Page | **Blocked** | 尚未實測背景分頁收音、Meet 與 Web App 同時取用麥克風、WebSocket 穩定性與休眠行為 | 否 | 在頂層 Web App 做最小 `getUserMedia()`＋Audio WebSocket spike；Add-on 只顯示狀態，不在 iframe 內要求麥克風 |
@@ -1053,15 +1049,19 @@ Personal Agent 必須知道公共會議內容，卻不能把私人輸入回流�
 
 ## 預計專案結構
 
-目前 Repository 僅有產品規劃文件。開始開發後，建議採一個 repo、前後端分離：
+目前 Repository 已採一個 repo、前後端分離；以下是產品功能完成後的建議結構：
 
 ```
-proximate/
+futuremode/
 ├─ README.md
 ├─ docs/                         # 產品研究與規格
 ├─ frontend/
 │  ├─ app/                       # Next.js routes
-│  │  └─ meetings/[id]/room/     # Google Meet Add-on iframe 入口
+│  │  ├─ meetings/[id]/prepare/  # Meeting Workspace／Prepare
+│  │  ├─ meetings/[id]/live/     # Meeting Workspace／Live（Web fallback）
+│  │  ├─ meetings/[id]/review/   # Meeting Workspace／Review
+│  │  ├─ meetings/[id]/audio-setup/ # 啟動麥克風／分頁音訊
+│  │  └─ addon/meetings/[id]/    # Google Meet Add-on iframe 入口
 │  ├─ components/                # 共用 UI
 │  │  └─ meeting-addon/          # Brief、Sidekick、AI 舉手與 Host 控制
 │  ├─ features/
@@ -1092,19 +1092,20 @@ proximate/
 └─ packages/                     # 可選：前後端共享的 schema／generated client
 ```
 
-### 尚未提供的開發資產
+### 尚待產品實作的開發資產
 
 在建立實際開發環境前，仍需新增：
 
-- `frontend/package.json` 與 Next.js 專案。
-- `backend/pyproject.toml` 或 `requirements.txt` 與 FastAPI 專案。
-- `.env.example`，只列變數名稱與安全範例，不放真實金鑰。
+- 依產品路由建立 Meeting Workspace、Meet Add-on 與 Audio Setup 頁面。
+- 依產品模組建立 FastAPI API、資料庫 migration 與 WebSocket event contract。
+- Meeting BaaS、Google Meet Add-on、OpenAI、Groq、ElevenLabs 等外部服務連線設定。
+- `.env.example` 持續維護，只列變數名稱與安全範例，不放真實金鑰。
 - Database migration、seed／Demo fixture。
 - API schema 與 WebSocket event schema。
 - 測試、lint、type-check、format 與 CI 指令。
 - 本機啟動、部署與資料清除說明。
 
-在這些檔案完成前，本專案沒有可驗證的安裝或啟動指令。
+目前前後端 scaffold 已可依 README 指令啟動；上述產品功能完成前，尚不能視為完整產品 Demo。
 
 ## 目前文件
 
