@@ -1,0 +1,28 @@
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/*.tsbuildinfo
+
+# Backend
+backend/.venv/
+backend/.uv-cache/
+backend/.uv-python/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/.coverage
+backend/htmlcov/
+backend/__pycache__/
+backend/**/*.py[cod]
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
