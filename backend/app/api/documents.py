@@ -287,3 +287,49 @@ async def search_memory(
         }
         for chunk, document, score in rows
     ]
+
+
+@router.get(
+    "/teams/{team_id}/memory/hybrid-search", response_model=list[DocumentSearchResult]
+)
+async def hybrid_search_memory(
+    team_id: UUID,
+    q: str = Query(min_length=1, max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[DocumentSearchResult]:
+    """Search team memory using embedding similarity and lexical matching."""
+    await team_access(team_id, principal, session)
+    try:
+        query_vector = (await embed_texts([q], settings))[0]
+    except EmbeddingConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="embedding provider unavailable") from None
+    distance = DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
+    text_rank = func.ts_rank_cd(
+        func.to_tsvector("simple", DocumentChunk.content),
+        func.plainto_tsquery("simple", q),
+    )
+    hybrid_score = ((1 - distance) * 0.7 + text_rank * 0.3).label("hybrid_score")
+    rows = (
+        await session.execute(
+            select(DocumentChunk, Document, hybrid_score)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(Document.team_id == team_id, DocumentChunk.embedding.is_not(None))
+            .order_by(hybrid_score.desc(), DocumentChunk.position)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        {
+            "chunk_id": str(chunk.id),
+            "document_id": str(document.id),
+            "document_name": document.name,
+            "position": chunk.position,
+            "content": chunk.content,
+            "score": float(score),
+        }
+        for chunk, document, score in rows
+    ]
