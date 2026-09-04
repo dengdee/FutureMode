@@ -38,6 +38,7 @@
 - **步驟 13（第二段）**：已為文件與 chunk 建立 API 補上明確建立結果 schema，OpenAPI 回應格式完整一致。
 - **步驟 12（第四段）**：已加入純文字 ingestion API、固定大小 chunk 切分，以及文件 version／indexing 狀態欄位；尚未接入檔案儲存、embedding provider 與 pgvector hybrid search。
 - **步驟 12（第五段）**：已加入 Embedding provider 的設定欄位與安全範例（預設 OpenAI `text-embedding-3-small`）；尚未執行外部 API 呼叫或建立 vector 欄位。
+- **步驟 12（第六段）**：已加入 pgvector embedding 欄位、Migration 與 OpenAI embedding API；文件可透過 embed endpoint 建立向量並標記為 embedded。
 
 ## 目前發現的缺口與衝突
 

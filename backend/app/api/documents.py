@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.meetings import database_session
 from app.auth.principal import Principal, get_current_principal
+from app.config import get_settings
 from app.models import Document, DocumentChunk, TeamMember, User
 from app.schemas.documents import (
     DocumentChunkCreateResponse,
@@ -20,8 +22,10 @@ from app.schemas.documents import (
     DocumentSummary,
 )
 from app.schemas.meeting import DocumentChunkCreate, DocumentCreate
+from app.services.embeddings import EmbeddingConfigurationError, embed_texts
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
+settings = get_settings()
 
 
 async def team_access(team_id: UUID, principal: Principal, session: AsyncSession) -> User:
@@ -210,6 +214,42 @@ async def ingest_document(
         chunk_count=len(chunks),
         indexed_at=document.indexed_at,
     )
+
+
+@router.post("/documents/{document_id}/embed")
+async def embed_document(
+    document_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, object]:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    chunks = (
+        await session.scalars(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.position)
+        )
+    ).all()
+    if not chunks:
+        raise HTTPException(status_code=409, detail="document has no chunks")
+    try:
+        vectors = await embed_texts([chunk.content for chunk in chunks], settings)
+    except EmbeddingConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="embedding provider unavailable") from None
+    for chunk, vector in zip(chunks, vectors, strict=True):
+        chunk.embedding = vector
+    document.status = "embedded"
+    await session.commit()
+    return {
+        "document_id": str(document_id),
+        "status": document.status,
+        "embedded_chunks": len(chunks),
+    }
 
 
 @router.get(
