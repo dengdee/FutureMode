@@ -259,8 +259,17 @@ async def delete_document(
     if document is None:
         raise HTTPException(status_code=404, detail="document not found")
     await team_access(document.team_id, principal, session)
-    storage_key = document.metadata_json.get("storage_key")
-    if isinstance(storage_key, str) and storage_key:
+    version_keys = (
+        await session.scalars(
+            select(DocumentVersion.storage_key).where(DocumentVersion.document_id == document_id)
+        )
+    ).all()
+    storage_keys = {
+        key
+        for key in [document.metadata_json.get("storage_key"), *version_keys]
+        if isinstance(key, str) and key
+    }
+    for storage_key in storage_keys:
         try:
             await delete_file(storage_key, settings)
         except StorageConfigurationError as exc:
