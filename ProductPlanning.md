@@ -259,13 +259,14 @@ Proximate
 
 | 優先級 | 路由 | 頁面 | 主要使用者 | 核心內容與操作 |
 | --- | --- | --- | --- | --- |
-| MVP | `/` | Landing／產品入口 | 所有人 | 價值主張、進入 Demo；黑客松可直接導向 Dashboard |
-| MVP | `/sign-in` | 登入 | 所有人 | Clerk 登入、團隊切換與 session 建立 |
+| 後續 | `/` | 產品首頁 | 所有人 | 產品價值主張與導向登入；MVP 期間不作主要工作入口 |
+| MVP | `/sign-in` | 登入 | 所有人 | Neon Auth 登入、團隊切換與 session 建立 |
 | MVP | `/dashboard` | Dashboard | Host、Member | 近期會議、待確認共識、我的任務、建立會議 |
 | MVP | `/meetings/new` | Meeting Setup | Team Member | 標題、議程、參與者、本場 Host、AI 角色、文件、介入程度與輸入來源 |
 | MVP | `/meetings/[id]/prepare` | Meeting Workspace／Prepare | 全體 | 共識、分歧、未決問題、Sidekick 入口、Delegate 設定 |
 | MVP | `/meetings/[id]/audio-setup` | Audio Setup | 需要收音的成員 | 授權麥克風／分頁音訊；啟動後提示回到 Google Meet |
 | MVP | `/meetings/[id]/addon` | Meeting Workspace／Live（Meet Add-on） | 全體 | 供 Google Meet iframe 載入；顯示 Brief、公共狀態與私人 Sidekick |
+| MVP | `/meetings/[id]/live` | Meeting Workspace／Live（瀏覽器 fallback） | 全體 | Add-on 不可用或開發期使用；與 Add-on 共用 Live components 與資料 adapter |
 | MVP | `/meetings/[id]/review` | Meeting Workspace／Review | 全體 | 摘要、逐字稿、決策、理由、未決問題、任務與逐人確認 |
 | 後續 | `/memory` | Team Memory | 團隊成員 | 搜尋歷史會議、決策、文件與來源 |
 | 後續 | `/memory/decisions/[id]` | Decision Detail | 團隊成員 | 決策內容、理由、否決方案、限制、來源會議 |
@@ -576,7 +577,7 @@ sequenceDiagram
 
 - `ai_suggestion:new` 是公共 room event，廣播給所有已登入、已加入該 Proximate activity 且 Add-on 正在連線的參與者。
 - 每位參與者載入自己的 Add-on iframe；公共 suggestion 內容相同，Private Sidekick 內容仍依 `user_id` 隔離。
-- 所有參與者看到相同的公開 suggestion，可選擇「支持發言／稍後／忽略」；每位使用者每張卡只能投票一次，後端依在線成員重新計算比例。
+- 所有參與者看到相同的公開 suggestion，可選擇「支持發言／稍後／忽略」；每位使用者每張卡保留一個目前選擇，Member 可重新投票，後端依最新票與在線成員重新計算比例。
 - Host 可設定逐次核准或團隊同意模式，調整人數／比例門檻、暫停 AI、否決單次發言與執行緊急靜音；後端必須驗證 Host role。
 - 未安裝 Add-on、未加入 collaborative activity、Add-on 已關閉或斷線的參與者不會看到卡片；Voice Bot 真正發言後，他們仍可從 Meet 公共音訊聽見。
 - Bot 只能朗讀通過政策與門檻的 immutable text 與版本；若內容需更新，必須建立新版本並重新取得門檻支持。
@@ -650,7 +651,7 @@ flowchart TB
 
 | 模組 | 責任 | 主要輸出 |
 | --- | --- | --- |
-| Auth & Team（身分與團隊） | Clerk 登入、團隊、角色與會議存取權 | User／Team Context |
+| Auth & Team（身分與團隊） | Neon Auth 登入、團隊、角色與會議存取權 | User／Team Context |
 | Meeting Session（會議工作階段） | 會議生命週期、議程、參與者與介入程度 | Meeting ID 與狀態 |
 | Speech Pipeline（語音處理流程） | VAD、音訊切段、STT、講者映射 | Transcript Event |
 | Context Engine（會議脈絡引擎） | 增量更新議題、立場、問題、決策與任務 | Meeting State |
@@ -723,8 +724,8 @@ flowchart TB
 
 | 活動工具 | 活動提供內容 | Proximate 用法 | 使用原則 |
 | --- | --- | --- | --- |
-| **OpenAI** | 每位參賽者提供 API credits（活動頁面標示 US$100） | Main Agent、Personal Agent、結構化 Meeting State、AI 發言卡與會後共識 | API Key 只放 Railway 後端；所有輸出通過 structured schema 驗證 |
-| **ElevenLabs** | 每位參賽者提供 110k credits | Voice Bot 的 TTS；將通過政策與支持門檻的文字轉成語音 | API Key 只放 Railway 後端；設定單場字數與用量上限 |
+| **OpenAI** | 每位參賽者提供 API credits（活動頁面標示 US$100） | Main Agent、Personal Agent、結構化 Meeting State、AI 發言卡與會後共識 | API Key 只放 Vercel 後端；所有輸出通過 structured schema 驗證 |
+| **ElevenLabs** | 每位參賽者提供 110k credits | Voice Bot 的 TTS；將通過政策與支持門檻的文字轉成語音 | API Key 只放 Vercel 後端；設定單場字數與用量上限 |
 
 本專案的主要 AI 服務鏈為：`Capture Page → WebSocket → STT → OpenAI → 產生結構化發言文字 → ElevenLabs（或 Meeting BaaS 可用的 TTS）→ Meeting BaaS → 播放 Voice Bot 語音`。Meeting BaaS 的音訊／逐字稿串流可作為 Capture Page 失敗時的備援輸入。任何服務額度用完、API 失敗或音訊輸出不可用時，Voice Bot 回退為 Meet Add-on 的公開文字卡片，不中斷逐字稿與共識流程。
 
