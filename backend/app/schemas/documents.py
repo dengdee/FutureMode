@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DocumentSummary(BaseModel):
@@ -18,6 +18,19 @@ class DocumentCreateResponse(BaseModel):
     status: str
 
 
+class DocumentIngestRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5_000_000)
+    chunk_size: int = Field(default=4_000, ge=500, le=20_000)
+
+
+class DocumentIngestResponse(BaseModel):
+    id: UUID
+    version: int
+    status: str
+    chunk_count: int
+    indexed_at: datetime | None
+
+
 class DocumentChunkCreateResponse(BaseModel):
     id: UUID
     document_id: UUID
@@ -27,6 +40,9 @@ class DocumentChunkCreateResponse(BaseModel):
 class DocumentDetail(DocumentSummary):
     metadata: dict[str, object]
     chunk_count: int
+    version: int
+    indexed_at: datetime | None
+    index_error: str | None
     created_at: datetime | None
 
 

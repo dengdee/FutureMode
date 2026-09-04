@@ -36,6 +36,7 @@
 - **步驟 12（第三段）**：已補齊文件詳情與 chunk metadata 查詢 API，提供來源追溯與 chunk 數量資訊；尚未接入 embedding provider、pgvector hybrid ranking 與檔案 ingestion。
 - **步驟 13（第一段）**：已為文件清單、詳情、chunks 與 Memory search 補上明確 OpenAPI response schema；前端可由 `/docs` 取得穩定欄位定義。
 - **步驟 13（第二段）**：已為文件與 chunk 建立 API 補上明確建立結果 schema，OpenAPI 回應格式完整一致。
+- **步驟 12（第四段）**：已加入純文字 ingestion API、固定大小 chunk 切分，以及文件 version／indexing 狀態欄位；尚未接入檔案儲存、embedding provider 與 pgvector hybrid search。
 
 ## 目前發現的缺口與衝突
 

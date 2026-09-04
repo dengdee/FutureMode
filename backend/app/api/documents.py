@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +14,8 @@ from app.schemas.documents import (
     DocumentChunkSummary,
     DocumentCreateResponse,
     DocumentDetail,
+    DocumentIngestRequest,
+    DocumentIngestResponse,
     DocumentSearchResult,
     DocumentSummary,
 )
@@ -160,8 +163,53 @@ async def get_document(
         "status": document.status,
         "metadata": document.metadata_json,
         "chunk_count": int(chunk_count or 0),
+        "version": document.version,
+        "indexed_at": document.indexed_at,
+        "index_error": document.index_error,
         "created_at": document.created_at,
     }
+
+
+@router.post(
+    "/documents/{document_id}/ingest",
+    response_model=DocumentIngestResponse,
+)
+async def ingest_document(
+    document_id: UUID,
+    payload: DocumentIngestRequest,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> DocumentIngestResponse:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    document.status = "indexing"
+    document.index_error = None
+    document.version += 1
+    await session.flush()
+    await session.execute(
+        DocumentChunk.__table__.delete().where(DocumentChunk.document_id == document_id)
+    )
+    chunks = [
+        DocumentChunk(
+            document_id=document_id,
+            position=index,
+            content=payload.content[start : start + payload.chunk_size],
+        )
+        for index, start in enumerate(range(0, len(payload.content), payload.chunk_size), start=1)
+    ]
+    session.add_all(chunks)
+    document.status = "ready"
+    document.indexed_at = datetime.now(UTC)
+    await session.commit()
+    return DocumentIngestResponse(
+        id=document.id,
+        version=document.version,
+        status=document.status,
+        chunk_count=len(chunks),
+        indexed_at=document.indexed_at,
+    )
 
 
 @router.get(
