@@ -18,7 +18,7 @@ from app.api.teams import router as teams_router
 from app.api.transcripts import router as transcripts_router
 from app.config import get_settings
 from app.db.session import database_check
-from app.meetbot import router as meetbot_router
+from app.api.meetbot import router as meetbot_router
 
 settings = get_settings()
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
