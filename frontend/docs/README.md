@@ -11,6 +11,7 @@
 | 文件 | 用途 |
 | --- | --- |
 | [進度表](progress.md) | 已完成、進行中與待後端支援的製作清單 |
+| [產品對照](product-alignment.md) | ProductPlanning 與目前 Web App 的符合度、缺口與資訊架構決策 |
 | [頁面與路由](routes.md) | URL、頁面責任、共用版面與響應式規則 |
 | [API 串接](api.md) | Axios client、功能 API 檔案、目前 OpenAPI 對照 |
 | [後端契約確認](backend-api-handoff.md) | Participants UUID 與團隊成員識別碼方案 |

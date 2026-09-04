@@ -6,7 +6,7 @@
 - Noto Sans TC 可變字體已套用全站；表單控制項使用共用 `control-primary` 與 `rounded-primary` 樣式。
 - Neon Auth 前端骨架已建立：server auth、`/api/auth/[...path]`、`proxy.ts`、登入／註冊 email/password UI。
 - Landing Page `/`。
-- Dashboard `/dashboard`：左右分欄、側欄收合、手機 Drawer 與近期會議列表；服務健康檢查不列入產品畫面。
+- Dashboard `/dashboard`：工作總覽、我的團隊數、跨團隊近期會議與快速建立會議入口；服務健康檢查、團隊記憶、待確認共識與行動項目不列入跨團隊畫面。
 - 會議相關 UI：`/meetings/new`、`prepare`、`audio-setup`、`addon`、`live`、`review`。
 - Memory、Settings、Sign-in、loading、error、404 UI。
 - Axios 共用 client、錯誤轉換，以及 Neon Auth session JWT 的 Bearer header 注入。
@@ -31,6 +31,6 @@
 | 檢查 | 狀態 |
 | --- | --- |
 | TypeScript `tsc --noEmit` | 通過 |
-| ESLint | 通過 |
+| ESLint | 尚未驗證（目前 shell 的 `npm` 不在 PATH） |
 | `git diff --check` | 通過 |
 | Next production build | 受本機 Windows Turbopack 子程序權限阻擋，需在可 spawn 子程序的環境重試 |

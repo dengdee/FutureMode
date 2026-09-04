@@ -28,9 +28,9 @@
 | Endpoint 群組 | Web App 使用位置 | 狀態 |
 | --- | --- | --- |
 | health／ready | 系統診斷工具 | API function 保留；Dashboard 不再顯示健康檢查 |
-| me | App Shell 身分區 | 已接入 |
+| me | 後端身分診斷（保留 function） | App Shell 與 Settings 改由 Neon Auth client session 取得基本資料 |
 | teams／members | 工作區清單、成員顯示、建立會議的工作區選擇 | 已接入 |
-| meetings | Dashboard、工作區、建立會議、會前準備 | 已接入 |
+| meetings | Dashboard 總覽、團隊頁、建立會議、會前準備 | 已接入 |
 | agenda | 建立會議、會前準備的新增／修改／刪除／狀態更新 | 已接入 |
 | participants | 會前準備的讀取／出席狀態更新／移除 | 已接入（新增受下列契約缺口阻擋） |
 | meetbot/join | API function 保留供整合測試；正式 Prepare UI 不直接觸發 | 已封裝，產品操作待 meeting-scoped contract |

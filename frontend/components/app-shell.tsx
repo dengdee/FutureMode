@@ -13,13 +13,14 @@ import {
 } from "@tabler/icons-react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const navigation = [
   [IconLayoutDashboard, "儀表板", "/dashboard"],
@@ -40,12 +41,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const contentRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const meetingPhase = pathname.startsWith("/meetings/")
     ? ({ new: "建立會議", prepare: "會前準備", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
     : undefined;
-  const breadcrumbGroup = meetingPhase ? "會議" : undefined;
-  const breadcrumb = meetingPhase ?? ({ "/dashboard": "儀表板", "/teams": "團隊", "/workspaces": "團隊", "/memory": "團隊記憶", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面";
+  const memoryScope = searchParams.get("scope");
+  const breadcrumbGroup = meetingPhase
+    ? pathname === "/meetings/new" ? "團隊" : "會議"
+    : pathname === "/memory" ? "團隊" : undefined;
+  const breadcrumb = meetingPhase ?? (pathname === "/memory"
+    ? memoryScope === "meeting" ? "會議文件" : memoryScope === "shared" ? "共用文件" : "團隊記憶"
+    : ({ "/dashboard": "工作總覽", "/teams": "團隊", "/workspaces": "團隊", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面");
 
   useGSAP(
     () => {
@@ -92,6 +99,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       revertOnUpdate: true,
     },
   );
+
+  useGSAP(() => {
+    const content = contentRef.current;
+    if (!content || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const sections = Array.from(content.children);
+    if (!sections.length) return;
+    gsap.set(sections, { autoAlpha: 0, y: 18 });
+    ScrollTrigger.batch(sections, {
+      scroller: content,
+      start: "top 88%",
+      once: true,
+      onEnter: (elements) => gsap.to(elements, { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.08, ease: "power2.out", overwrite: "auto" }),
+    });
+    ScrollTrigger.refresh();
+  }, { dependencies: [pathname], scope: shellRef, revertOnUpdate: true });
 
   useGSAP(
     () => {
@@ -218,9 +240,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           className={`border-t border-[#e6e6e3] px-4 py-4 ${sidebarCollapsed ? "md:px-2" : ""}`}
         >
           <div
-            className={`flex items-center justify-between gap-3 ${sidebarCollapsed ? "flex-col md:flex-row md:justify-center" : ""}`}
+            className={`flex items-center justify-between gap-3 ${sidebarCollapsed ? "flex-col md:justify-center md:gap-3" : ""}`}
           >
-            <div className={`flex items-center gap-2 ${sidebarCollapsed ? "md:flex-col md:gap-0" : ""}`}>
+            <div className={`flex items-center gap-2 ${sidebarCollapsed ? "md:flex-col md:gap-2" : ""}`}>
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0f9f8a] text-xs font-semibold text-white"
                 title="Proximate"

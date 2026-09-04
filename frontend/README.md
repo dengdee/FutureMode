@@ -17,7 +17,7 @@
 | UI 元件庫與動效 | 尚未使用 shadcn/ui 元件；已安裝 Radix primitives、Tabler Icons 與 GSAP／`@gsap/react`，用於可及性元件與導覽動效 |
 | 狀態管理 | 尚未使用 Zustand、React Context 或其他全域狀態方案 |
 | 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
-| 現有頁面 | `/` 導向 `/dashboard`；Dashboard 顯示 API 狀態與正式資料尚未提供時的空狀態 |
+| 現有頁面 | `/` Landing、`/dashboard` 工作總覽、`/workspaces` 團隊管理與各 Meeting Workspace 路由 |
 | 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 會議清單 UI |
 | 尚未完成 | WebSocket、Google Meet Add-on／音訊實作、AI 即時狀態、Review／投票／Memory API；未提供 endpoint 的能力維持明確 placeholder |
 
@@ -27,7 +27,7 @@
 
 - `app/layout.tsx`：`lang="zh-Hant"`、Metadata 與全域 CSS 入口。
 - `app/globals.css`：`--background`、`--foreground`、`--surface`、`--accent`、`--muted` 五個基本色彩 token。
-- `app/page.tsx`：可保留為開發期 scaffold；產品首頁日後另建，Dashboard 正式入口固定為 `/dashboard`。
+- `app/page.tsx`：產品 Landing Page；Dashboard 正式入口固定為 `/dashboard`。
 - `tsconfig.json`：已設定 `@/*` 路徑別名。
 - `.env.example`：僅有 `NEXT_PUBLIC_API_BASE_URL`；不可在 `NEXT_PUBLIC_` 變數放 API key、Meet／Meeting BaaS token 或任何私人資料。
 
@@ -39,7 +39,7 @@
 | 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
 | 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已依功能拆分 `system.ts`、`meetbot.ts`、`me.ts`、`teams.ts`、`meetings.ts`、`participants.ts`、`agenda.ts`；全部使用 Axios 與正式 API，不使用 Mock Data |
 | 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊與 API client JWT 注入已完成；FastAPI issuer／audience／JWKS 與正式測試帳號需由環境設定 |
-| 05 | Dashboard 與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings`，未登入／空資料／錯誤狀態分開呈現；健康檢查僅保留為診斷 API，不顯示於產品 UI |
+| 05 | 工作總覽與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings` 與 `GET /api/v1/teams`，只呈現跨團隊近期會議與導覽；健康檢查僅保留為診斷 API |
 | 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
 | 07–11 | Prepare、Audio、Add-on、Live、Review | UI scaffold 完成／API 待補 | 頁面 UI 已建立；後端尚未提供 Brief、音訊、Live Snapshot、投票、Review 等 endpoint |
 | 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成 | 目前 OpenAPI 的 REST endpoint 已集中封裝並接入 Web App；WebSocket、重連、事件 envelope 尚未由後端提供 |
@@ -63,8 +63,7 @@
 
 ### UI 已使用
 
-- `/dashboard` 已透過 `getHealth` 顯示服務狀態。
-- `/dashboard` 已透過 `listMeetings` 顯示近期會議；未登入、空清單或請求失敗時顯示可理解的空狀態。
+- `/dashboard` 已透過 `listMeetings` 與 `listTeams` 顯示跨團隊近期會議、團隊數與工作區入口；不顯示健康檢查、待確認共識或行動項目。
 - 所有 API 請求統一經由 `lib/api/client.ts` 的 Axios instance 與錯誤轉換，不在頁面散落 endpoint 字串。
 - `/api/v1/*` 請求會從 Neon Auth session 取得短效 JWT；FastAPI 錯誤 envelope `{ error: { code, message, request_id } }` 會被轉成可供 UI 使用的 `ApiClientError`。
 
@@ -75,7 +74,7 @@
 - Prepare 尚未接 Brief、Personal Sidekick 與公開觀點 endpoint；目前後端未提供。
 - Audio Setup、Live、Meet Add-on 尚未接 Access Token、Live Snapshot、投票與 WebSocket；目前後端未提供。
 - Review 尚未接摘要、逐字稿、共識與行動項目 endpoint；目前後端未提供。
-- Memory 與 Settings 尚未接 RAG／設定 API；目前後端未提供。
+- Memory 與 Settings 尚未接 RAG／設定 API；目前後端未提供。團隊名稱、成員與會議政策由 `/workspaces` 管理，不放在 Settings。
 - `POST /meetbot/join` 的 response 尚未有穩定 schema，且目前未綁定 meeting、政策、投票與 Host 授權；API function 保留供整合測試，正式 Prepare UI 不直接觸發 Voice Bot。
 - Team members 回傳 `external_id`，participant create 要求內部 UUID；前端不顯示 UUID 輸入，新增參與者等待後端提供可安全選取的契約。
 
@@ -83,7 +82,7 @@
 
 1. 正式登入採用 **Neon Auth**；Clerk 不列入目前實作方案。
 2. API 正式部署採用 **Vercel**；FastAPI WebSocket 長連線必須先完成 staging 壓力與斷線重連驗證。
-3. Dashboard 正式路由為 **`/dashboard`**；產品首頁日後另建立，不與 Dashboard 混用。
+3. Dashboard 正式路由為 **`/dashboard`**；產品首頁為 `/`，不與工作總覽混用。
 4. Google Meet Add-on 入口固定為 **`/meetings/[id]/addon`**。
 5. 建立瀏覽器 fallback **`/meetings/[id]/live`**，供無法使用 Add-on 或開發期測試時承載 Live UI。
 6. Member 可以修改自己的投票；「稍後」與「忽略」可重新投票。
@@ -138,10 +137,10 @@ backend/
 
 ## 目標資訊架構
 
-主導覽只保留四個入口：Dashboard、Meetings、Team Memory、Settings。單一會議是同一個 Meeting Workspace，不把會前、會中、會後拆成互不相干的產品。
+主導覽保留 Dashboard、團隊與 Settings。Dashboard 只做跨團隊入口；團隊頁集中管理成員、團隊記憶與會議；單一會議是同一個 Meeting Workspace，不把會前、會中、會後拆成互不相干的產品。行動項目與共識只屬於單一會議，放在 Review。
 
 ```text
-/                         # 產品首頁（後續建立）
+/                         # 產品首頁
 /dashboard                # Dashboard 正式入口
 /sign-in                  # 技術性登入入口
 /meetings/new             # 建立會議
@@ -151,7 +150,7 @@ backend/
 /meetings/[id]/live       # Add-on 不可用時的瀏覽器 fallback／開發期測試頁
 /meetings/[id]/review     # Meeting Workspace：會後
 /memory                   # Team Memory
-/settings                 # Team／Integrations／Privacy 三個 Tabs
+/settings                 # 登入者帳號資訊；團隊管理在 /workspaces
 ```
 
 > [!NOTE]
@@ -255,7 +254,7 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **目標**：提供登入後的單一入口：近期會議、待確認共識、我的行動項目與建立會議。
 - **使用者情境**：Member 進入後找到下一場會議；Host 可建立會議；使用者看到自己待回覆的 Consensus。
 - **功能內容**：Meeting list、狀態 badge、日期、參與者摘要、待確認卡、行動項目卡、Empty Dashboard。
-- **頁面／路由**：`/dashboard`，連往 `/meetings/new`、`/meetings/[id]/prepare`、`/meetings/[id]/review`。
+- **頁面／路由**：`/dashboard` 僅作近期會議總覽；建立會議入口位於 `/workspaces`，再導向 `/meetings/new`。
 - **元件規劃**：`MeetingCard`、`MeetingList`、`PendingConsensusList`、`ActionItemList`、`EmptyState`。
 - **狀態管理**：頁面資料、篩選／排序的區域狀態。
 - **資料來源**：正式 API repository；目前僅能取得 `/health`，會議／共識／行動項目在正式 endpoint 提供前顯示空狀態。

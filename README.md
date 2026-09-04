@@ -42,7 +42,7 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 /meetings/[id]/live          # Add-on 不可用時的瀏覽器 fallback／開發期測試頁
 /meetings/[id]/review        # 會後摘要、逐字稿、決策、行動項目與成員確認
 /memory                      # Team Memory
-/settings                    # 團隊、整合與隱私設定
+/settings                    # 登入者帳號資訊（團隊管理在 /workspaces）
 ```
 
 `/meetings/[id]/addon` 是嵌入 Google Meet 的窄版 iframe；會議中不要求使用者切回完整 Web App。Voice Bot 由後端透過 [Meeting BaaS Google Meet Bot API](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet) 加入會議並輸出語音。主要逐人收音仍由 Audio Setup／Capture 流程提供，Meeting BaaS 音訊串流可作為備援。
@@ -137,7 +137,8 @@ uv run pytest
 
 ## 已採用的產品決策
 
-- 正式登入採 **Neon Auth**；Dashboard 使用 `/dashboard`，產品首頁日後另建。
+- 正式登入採 **Neon Auth**；`/dashboard` 是跨團隊工作總覽，產品首頁為 `/`。
+- 共識與行動項目屬於單一會議，放在 `/meetings/[id]/review`，不放在跨團隊 Dashboard。
 - Web App 與 FastAPI API 正式部署目標為 **Vercel**；FastAPI WebSocket 長連線需先完成部署驗證。
 - Google Meet 會中介面採 Meet Add-on `/meetings/[id]/addon`，並保留瀏覽器 fallback `/meetings/[id]/live`。
 - Audio Setup 開始後需持續收音；Capture Page 保持開啟並回報 track／WebSocket 中斷。
