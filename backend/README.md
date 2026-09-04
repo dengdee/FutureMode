@@ -44,6 +44,7 @@
 - **步驟 12（第九段）**：已加入不可變文件版本紀錄、內容 hash 與版本查詢 API；不保存原始全文。
 - **步驟 12（第十段）**：已加入 UTF-8 純文字／Markdown multipart upload，限制 5 MB 並沿用既有 ingestion 流程；PDF 與雲端檔案儲存待後續外部方案確認。
 - **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；尚未接入逐字稿持久化、VAD、串流與 TTS。
+- **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 
 ## 目前發現的缺口與衝突
 

@@ -1,16 +1,17 @@
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
 from app.db.session import get_session
-from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, User
+from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, Transcript, User
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
@@ -391,4 +392,31 @@ async def transcribe_meeting_audio(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="speech provider unavailable") from None
-    return TranscriptionResponse(meeting_id=meeting_id, text=text, model=settings.groq_stt_model)
+    latest_sequence = await session.scalar(
+        select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_id)
+    )
+    sequence = int(latest_sequence or 0) + 1
+    now = datetime.now(UTC)
+    segment = Transcript(
+        meeting_id=meeting_id,
+        speaker_label="unknown",
+        sequence=sequence,
+        started_at=now,
+        ended_at=now,
+        text=text,
+        source="groq",
+    )
+    session.add(segment)
+    try:
+        await session.commit()
+        await session.refresh(segment)
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail="transcript could not be saved") from None
+    return TranscriptionResponse(
+        meeting_id=meeting_id,
+        transcript_id=segment.id,
+        sequence=segment.sequence,
+        text=text,
+        model=settings.groq_stt_model,
+    )
