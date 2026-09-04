@@ -19,8 +19,8 @@
 - **步驟 1**：已完成設定容錯、CORS allowlist、request ID、統一錯誤回應、`/ready` 與基礎測試。
 - **步驟 2**：已完成 SQLAlchemy async engine、asyncpg、Alembic migration 基線與資料庫就緒檢查。
 - **步驟 3**：已建立 users、teams、team_members、meetings、meeting_participants、agenda_items ORM 模型與 Alembic migration。
-- **步驟 4**：已完成 Neon Auth JWT 驗證、`/me`、團隊列表／成員查詢與角色授權基礎。
-- **步驟 5**：已完成會議建立、列表、單筆查詢、修改、參與者、議程與開始／結束生命週期 API。
+- **步驟 4**：已完成 Neon Auth JWT 驗證、`/me`、使用者設定、團隊列表／成員查詢、團隊建立與角色授權基礎。
+- **步驟 5**：已完成會議建立、列表、單筆查詢、修改、參與者、議程、開始／結束與取消生命週期 API。
 
 ## 目前發現的缺口與衝突
 
