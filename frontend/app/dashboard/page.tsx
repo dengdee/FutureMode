@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../components/app-shell";
-import { systemRepository } from "../../lib/data/repositories";
+import { getHealth } from "../../lib/api/system";
+import { listMeetings } from "../../lib/api/meetings";
+import type { MeetingSummary } from "../../types/api";
 
 type ServiceStatus = "checking" | "connected" | "disconnected";
 
 export default function DashboardPage() {
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
   const [environment, setEnvironment] = useState<string | null>(null);
+  const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
+  const [meetingsLoaded, setMeetingsLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
-    systemRepository
-      .getHealth()
+    getHealth()
       .then((result) => {
         if (!active) return;
         setEnvironment(result.environment);
@@ -22,6 +25,16 @@ export default function DashboardPage() {
       })
       .catch(() => {
         if (active) setServiceStatus("disconnected");
+      });
+
+    listMeetings()
+      .then((result) => {
+        if (!active) return;
+        setMeetings(result);
+        setMeetingsLoaded(true);
+      })
+      .catch(() => {
+        if (active) setMeetingsLoaded(true);
       });
 
     return () => {
@@ -56,8 +69,8 @@ export default function DashboardPage() {
         {serviceStatus === "disconnected" && <p className="mt-3 text-sm text-red-700">請確認後端是否以 `127.0.0.1:8000` 啟動。</p>}
       </section>
       <section className="mt-10">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">近期會議</h2><span className="text-sm text-[var(--muted)]">尚無正式會議 API</span></div>
-        <div className="rounded-2xl border border-dashed border-black/10 bg-[var(--surface)] p-8 text-center"><p className="font-medium">目前沒有可顯示的會議</p><p className="mt-2 text-sm text-[var(--muted)]">後端提供 `GET /v1/meetings` 後，這裡會顯示會議清單。</p><Link href="/meetings/new" className="mt-5 inline-block rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white">建立會議</Link></div>
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">近期會議</h2><span className="text-sm text-[var(--muted)]">{meetingsLoaded ? `${meetings.length} 場` : "載入中…"}</span></div>
+        {meetings.length > 0 ? <div className="grid gap-3">{meetings.map((meeting) => <Link key={meeting.id} href={`/meetings/${meeting.id}/prepare`} className="rounded-2xl border border-black/5 bg-[var(--surface)] p-5 transition hover:-translate-y-0.5 hover:ring-1 hover:ring-[var(--accent)]"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold">{meeting.title}</h3><span className="rounded-full bg-[#e7f7ef] px-3 py-1 text-xs text-[#1d6b4d]">{meeting.status}</span></div><p className="mt-2 text-sm text-[var(--muted)]">{meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString("zh-TW") : "尚未排程"}</p></Link>)}</div> : <div className="rounded-2xl border border-dashed border-black/10 bg-[var(--surface)] p-8 text-center"><p className="font-medium">目前沒有可顯示的會議</p><p className="mt-2 text-sm text-[var(--muted)]">建立第一場會議後，這裡會顯示正式資料。</p><Link href="/meetings/new" className="mt-5 inline-block rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white">建立會議</Link></div>}
       </section>
     </AppShell>
   );

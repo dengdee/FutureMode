@@ -1,15 +1,15 @@
-import axios from "axios";
+import axios, { type AxiosResponse } from "axios";
 import type { ApiError, HealthResponse, JoinMeetingRequest, MeetingBotResponse } from "../../types/api";
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
-const http = axios.create({
+export const http = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10_000,
   headers: { Accept: "application/json" },
 });
 
-async function request<T>(operation: () => Promise<{ data: T }>): Promise<T> {
+export async function request<T>(operation: () => Promise<AxiosResponse<T>>): Promise<T> {
   try {
     const response = await operation();
     return response.data;
@@ -27,6 +27,5 @@ async function request<T>(operation: () => Promise<{ data: T }>): Promise<T> {
 
 export const apiClient = {
   health: () => request<HealthResponse>(() => http.get("/health")),
-  joinMeeting: (payload: JoinMeetingRequest) =>
-    request<MeetingBotResponse>(() => http.post("/meetbot/join", payload)),
+  joinMeeting: (payload: JoinMeetingRequest) => request<MeetingBotResponse>(() => http.post("/meetbot/join", payload)),
 };

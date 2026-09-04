@@ -10,12 +10,12 @@
 | 框架與語言 | Next.js `16.3.0` App Router、React `19.2.0`、TypeScript `5.9` |
 | 套件管理 | npm；已存在 `package-lock.json` |
 | 樣式 | Tailwind CSS `4.1`；`app/globals.css` 定義少量 CSS variables |
-| UI 元件庫與動效 | 尚未安裝 shadcn/ui、Radix；已安裝 Tabler Icons 與 GSAP／`@gsap/react`，用於導覽與 Sidebar 動效 |
+| UI 元件庫與動效 | 尚未使用 shadcn/ui 元件；已安裝 Radix primitives、Tabler Icons 與 GSAP／`@gsap/react`，用於可及性元件與導覽動效 |
 | 狀態管理 | 尚未使用 Zustand、React Context 或其他全域狀態方案 |
-| 資料請求 | `lib/api/client.ts` 與 repository 已串接 `/health`、`/meetbot/join` |
+| 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
 | 現有頁面 | `/` 導向 `/dashboard`；Dashboard 顯示 API 狀態與正式資料尚未提供時的空狀態 |
 | 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 健康檢查 UI |
-| 尚未完成 | Neon Auth、正式 Meeting CRUD、表單、WebSocket、Google Meet Add-on、音訊、AI、外部服務完整整合 |
+| 尚未完成 | Neon Auth、WebSocket、Google Meet Add-on／音訊實作、AI 即時狀態、Review／投票／Memory API；部分 UI 尚未接上正式 endpoint |
 
 ### 現有檔案與可沿用基礎
 
@@ -31,12 +31,44 @@
 | --- | --- | --- | --- |
 | 01 | 前端基礎與設計語言 | 部分完成 | 已有 Tailwind token、Landing Page 與 `AppShell`；完整 Design System 與所有 route shell 尚未完成 |
 | 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
-| 03 | Domain 型別、API Client 與資料狀態 | 已完成（目前 API 範圍） | 已建立 `types/api.ts`、`lib/api/client.ts`、repositories；串接 `/health`、`/meetbot/join`，不使用 Mock Data |
-| 04 | 登入狀態、角色與存取邊界 | 尚未執行 | Neon Auth、`/v1/me`、角色與 route guard 尚未實作 |
-| 05 | Dashboard 與會議清單 | 部分完成 | Dashboard 已顯示真實 `/health` 結果與 API 未提供時的空狀態；會議清單 API 尚未存在 |
-| 06–16 | 建立會議、Prepare、Audio、Add-on、Live、Review、Realtime、測試與部署 | 尚未執行 | 需等待對應後端 API／外部服務契約後依序實作 |
+| 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已依功能拆分 `system.ts`、`meetbot.ts`、`me.ts`、`teams.ts`、`meetings.ts`、`participants.ts`、`agenda.ts`；全部使用 Axios 與正式 API，不使用 Mock Data |
+| 04 | 登入狀態、角色與存取邊界 | UI 未完成／API 已封裝 | 已有 `me.ts` 的 `GET /api/v1/me`；Neon Auth session、route guard 與 token handoff 尚未實作 |
+| 05 | Dashboard 與會議清單 | 部分完成 | Dashboard 已顯示真實 `/health`；已具備 `GET /api/v1/meetings` function，但清單 UI 尚未接上 |
+| 06 | 建立與編輯會議 | UI 部分完成／API 已封裝 | 已具備 Meeting CRUD、參與者與議程 API functions；建立會議表單尚未送出正式 request |
+| 07–11 | Prepare、Audio、Add-on、Live、Review | UI scaffold 完成／API 待補 | 頁面 UI 已建立；後端尚未提供 Brief、音訊、Live Snapshot、投票、Review 等 endpoint |
+| 12 | 正式 REST／WebSocket adapter 切換 | REST 部分完成 | 現有 REST endpoint 已集中封裝；WebSocket、重連、事件 envelope 尚未提供／實作 |
+| 13–16 | 驗收、Memory、Settings、外部服務文件 | 尚未完成 | 需依正式契約完成互動、測試、ACL 與部署設定 |
 
 > 狀態只代表 repository 中已完成且可驗證的程式碼。每完成一個步驟，需同步更新本表、步驟內容與驗證結果。
+
+## API 製作清單（依目前後端 OpenAPI）
+
+### 已完成
+
+| 檔案 | 已封裝 function | 對應 endpoint |
+| --- | --- | --- |
+| `lib/api/system.ts` | `getHealth`、`getReady` | `GET /health`、`GET /ready` |
+| `lib/api/meetbot.ts` | `joinMeetingBot` | `POST /meetbot/join` |
+| `lib/api/me.ts` | `getCurrentUser` | `GET /api/v1/me` |
+| `lib/api/teams.ts` | `listTeams`、`listTeamMembers` | `GET /api/v1/teams`、`GET /api/v1/teams/{team_id}/members` |
+| `lib/api/meetings.ts` | `listMeetings`、`getMeeting`、`createMeeting`、`updateMeeting`、`startMeeting`、`endMeeting` | `/api/v1/meetings` 全部目前 REST 操作 |
+| `lib/api/participants.ts` | `addParticipant`、`listParticipants`、`updateParticipant`、`removeParticipant` | `/api/v1/meetings/{meeting_id}/participants` 全部操作 |
+| `lib/api/agenda.ts` | `addAgendaItem`、`listAgendaItems`、`updateAgendaItem`、`removeAgendaItem` | `/api/v1/meetings/{meeting_id}/agenda` 全部操作 |
+
+### UI 已使用
+
+- `/dashboard` 已透過 `getHealth` 顯示服務狀態。
+- `/dashboard` 已透過 `listMeetings` 顯示近期會議；未登入、空清單或請求失敗時顯示可理解的空狀態。
+- 所有 API 請求統一經由 `lib/api/client.ts` 的 Axios instance 與錯誤轉換，不在頁面散落 endpoint 字串。
+
+### 尚未完成／等待後端契約
+
+- `/meetings/new` 表單尚未將送出動作接至 `createMeeting`，需先確認 Neon Auth 使用者的 active team 與權限流程。
+- Prepare 尚未接 Brief、Personal Sidekick 與公開觀點 endpoint；目前後端未提供。
+- Audio Setup、Live、Meet Add-on 尚未接 Access Token、Live Snapshot、投票與 WebSocket；目前後端未提供。
+- Review 尚未接摘要、逐字稿、共識與行動項目 endpoint；目前後端未提供。
+- Memory 與 Settings 尚未接 RAG／設定 API；目前後端未提供。
+- `POST /meetbot/join` 的 response 尚未有穩定 schema，UI 不依賴未知欄位。
 
 ## 已確認的架構決策
 
@@ -83,7 +115,7 @@ backend/
 └─ .env.example
 ```
 
-本計畫不得修改後端 API、資料庫、Migration、驗證、CORS、部署或測試。現有後端只有 `GET /health`，其餘產品 API 都尚未存在。
+本計畫不得修改後端 API、資料庫、Migration、驗證、CORS、部署或測試。後端目前已提供健康檢查、Meeting BaaS join、身分／團隊、會議 CRUD、參與者與議程 REST API；Realtime 與產品 AI API 尚未提供。
 
 ### 前後端共用檔案與注意事項
 
@@ -92,7 +124,7 @@ backend/
 | 根目錄 `README.md`、`ProductPlanning.md` | 專案共用文件 | 前端改動若使產品契約過期，先提出差異；未經要求不直接改規劃文件。 |
 | `frontend/.env.example` | 前端 | 只能加入公開 URL、feature flag 等可公開值；不得加入秘密。 |
 | `backend/.env.example` | 後端 | 禁止修改；前端僅可在計畫中列出需要後端提供的設定。 |
-| REST／WebSocket schema | 前後端契約 | 目前已存在 `GET /health` 與 `POST /meetbot/join`；其餘產品 API／WebSocket 尚未建立，型別與 repository 只先覆蓋實際 endpoint。 |
+| REST／WebSocket schema | 前後端契約 | 目前已存在健康檢查、Meeting BaaS、身分／團隊、Meeting CRUD、參與者與議程 REST；產品 WebSocket 與 AI API 尚未建立。 |
 | `package.json`／lockfile | 前端 | 只有使用者批准新套件時才可變更。 |
 
 ## 目標資訊架構
@@ -179,8 +211,8 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **頁面／路由**：無特定路由，供全站使用。
 - **元件規劃**：無產品元件；可沿用共用 `DataState` 顯示正式 API 的載入、空資料與錯誤狀態。
 - **狀態管理**：先以 React state／async function 介面；是否採 Zustand 待批准。
-- **資料來源**：正式後端 API；目前僅有 `/health` 與 `/meetbot/join`，不建立 Mock Data。
-- **API 串接**：`GET /health`、`POST /meetbot/join`；其他產品 endpoint 等後端提供後再加入 repository。
+- **資料來源**：正式後端 API，不建立 Mock Data。
+- **API 串接**：目前以 `lib/api/` 封裝健康檢查、Meeting BaaS、身分／團隊、Meeting CRUD、參與者與議程；其他產品 endpoint 等後端提供後再加入 repository。
 - **畫面狀態**：loading、成功、空回應、網路錯誤、HTTP 錯誤；尚無正式登入／權限 endpoint，暫不宣稱 unauthorized 已完成。
 - **互動細節**：API 錯誤需轉為可讀訊息；API key 僅留在後端，前端不可接觸。
 - **響應式需求**：無。
@@ -359,7 +391,7 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **前置條件**：步驟 03、05–11，以及後端提供契約與測試環境。
 - **驗證方式**：正式 API contract、斷線重連、事件重播、兩個瀏覽器視窗同步。
 - **完成標準**：UI 元件不需因 API 接入而大幅重寫；連線／錯誤有可理解回饋。
-- **注意事項**：目前後端只存在 `/health`，本步不能開始，直到後端人員提供 endpoint、認證與 WebSocket 契約。
+- **注意事項**：REST 基礎 endpoint 已可接入；Realtime、Access Token、認證與產品 AI API 仍需後端契約後才能開始。
 
 ### 步驟 13｜響應式、無障礙與前端驗收
 
@@ -441,16 +473,20 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 
 ## 需要後端提供的 API 與契約
 
-目前只有 `GET /health` 可用。以下皆是前端所需的**待確認**契約，不代表既有 API：
+目前健康檢查與下列 REST API 已可用；表格中標示「待確認」者仍不是既有 endpoint：
 
 | 功能 | 預期 endpoint | 前端最低 response／事件需求 |
 | --- | --- | --- |
-| 身分與角色 | `GET /v1/me` | `user`、active team、role、session 狀態 |
+| 身分與角色 | `GET /api/v1/me` | 已封裝 `getCurrentUser`；response 欄位待正式定義 |
 | Meeting access token | `POST /v1/meetings/:id/access-token` | 短效 token、`expiresAt`、meeting／user scope；供 Add-on 與 `/live` 建立連線 |
-| Dashboard | `GET /v1/meetings`、`/v1/consensus`、`/v1/action-items` | 清單、狀態、權限與 pagination |
-| 建立會議 | `POST /v1/meetings` | meeting、agenda、participants、host、policy |
-| Meeting BaaS Bot | `POST /meetbot/join` | request `{ meeting_url }`；目前回傳 Meeting BaaS 原始 response，Bot lifecycle／status 尚未封裝 |
-| Prepare | `GET /v1/meetings/:id`、`/brief` | meeting snapshot、Brief、可讀資料範圍 |
+| 團隊 | `GET /api/v1/teams`、`GET /api/v1/teams/:teamId/members` | 已封裝 `listTeams`、`listTeamMembers`；response 欄位待正式定義 |
+| Dashboard | `GET /api/v1/meetings` | 已封裝 `listMeetings`；共識／行動項目 endpoint 尚未提供 |
+| 建立會議 | `POST/PATCH /api/v1/meetings` | 已封裝 `createMeeting`、`updateMeeting`；支援 `team_id`、`title`、`scheduled_at`、`ai_intervention_level` |
+| Meeting lifecycle | `GET/PATCH /api/v1/meetings/:id`、`POST .../start`、`POST .../end` | 已封裝取得、更新、開始與結束 |
+| 參與者 | `GET/POST/PATCH/DELETE /api/v1/meetings/:id/participants...` | 已封裝新增、列表、更新與移除 |
+| 議程 | `GET/POST/PATCH/DELETE /api/v1/meetings/:id/agenda...` | 已封裝新增、列表、更新與移除 |
+| Meeting BaaS Bot | `POST /meetbot/join` | 已封裝 `joinMeetingBot`；request `{ meeting_url }`，回傳仍是後端轉發的非固定 object |
+| Prepare | `GET /api/v1/meetings/:id`；`/brief` 尚未提供 | Meeting summary 已可取得；Brief 仍待後端 endpoint |
 | Personal Sidekick | `GET/POST /v1/meetings/:id/personal-agent/messages` | 私人 thread、message、draft、error；依 user 隔離 |
 | 公開觀點 | `POST /v1/meetings/:id/public-contributions` | 送出後的 public contribution；不可回傳私人原文給其他人 |
 | Live Snapshot | `GET /v1/meetings/:id/live-snapshot` | meeting state、participants、suggestions、policy |
@@ -461,10 +497,9 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 
 ### 後端現況對前端的直接影響
 
-- `backend/app/main.py` 尚未加入 CORS middleware；前端從 `localhost:3000` 呼叫後端前，需先確認跨來源請求策略。
-- `backend/app/config.py` 的 `cors_origins` 目前只是設定欄位，尚未實際套用；前端不可假設正式環境已能跨來源呼叫。
+- 後端目前透過 `/api/v1/*` 提供身分／團隊、Meeting CRUD、參與者與議程 API；前端 function 已完整對應這些路徑。
 - `/meetbot/join` 直接轉發 Meeting BaaS response，沒有穩定的前端 response schema；前端型別因此保留可擴充欄位，正式 UI 不應依賴未知欄位。
-- 後端尚未提供 `/v1/me`、Meeting CRUD、Access Token、Live Snapshot、投票、Review 或 WebSocket；對應前端步驟維持未完成。
+- 後端尚未提供 access token、Brief、Live Snapshot、投票、Review、Memory 或 WebSocket；對應 UI 仍維持明確 placeholder。
 
 ## 待確認問題與衝突
 
@@ -478,7 +513,7 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 
 ## 主要風險
 
-- 目前後端僅有健康檢查與 Meeting BaaS join API；其他前端產品功能必須等待正式契約，不以假資料冒充完成。
+- 後端已有基礎 REST 與 Meeting BaaS join API；其他前端產品功能必須等待正式契約，不以假資料冒充完成。
 - 私人 Sidekick 的安全不能只靠前端：必須等待後端 user／team／meeting ACL。
 - Meet Add-on 與 Audio Capture 是兩種不同瀏覽器情境；Add-on iframe 不應自行假設可取得麥克風。
 - Meeting BaaS、Google Meet、STT 與 TTS 整合皆可能受帳號、額度、部署 URL 與平台政策影響；核心 Demo 必須保留文字卡回退。

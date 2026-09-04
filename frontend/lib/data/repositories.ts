@@ -1,5 +1,5 @@
-import { apiClient } from "../api/client";
+import { getHealth } from "../api/system";
 
 export const systemRepository = {
-  getHealth: () => apiClient.health(),
+  getHealth,
 };
