@@ -46,3 +46,8 @@ async def create_download_url(key: str, settings: Settings) -> str:
         Params={"Bucket": settings.r2_bucket_name, "Key": key},
         ExpiresIn=settings.r2_presigned_expiry_seconds,
     )
+
+
+async def delete_file(key: str, settings: Settings) -> None:
+    client = _client(settings)
+    await asyncio.to_thread(client.delete_object, Bucket=settings.r2_bucket_name, Key=key)
