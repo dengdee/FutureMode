@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -107,6 +107,22 @@ class DelegateProfileCreate(BaseModel):
     stance: str = Field(min_length=1, max_length=20_000)
     constraints: str | None = Field(default=None, max_length=20_000)
     must_raise: str | None = Field(default=None, max_length=20_000)
+
+
+class ConsensusCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=50_000)
+
+
+class ConsensusFeedbackCreate(BaseModel):
+    decision: str = Field(pattern="^(agree|revise|reject)$")
+    comment: str | None = Field(default=None, max_length=20_000)
+
+
+class ActionItemCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    assignee_user_id: UUID | None = None
+    due_date: date | None = None
+    status: str = Field(default="open", pattern="^(open|in_progress|done|cancelled)$")
 
 
 class MeetingSummary(BaseModel):

@@ -21,6 +21,9 @@ def test_core_tables_are_registered() -> None:
         "personal_agent_messages",
         "public_contributions",
         "delegate_profiles",
+        "consensus_versions",
+        "consensus_feedback",
+        "action_items",
     }.issubset(Base.metadata.tables)
 
 
