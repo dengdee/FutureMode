@@ -1,32 +1,297 @@
-import type { ReactNode } from "react";
-import { MainNav } from "./layout/main-nav";
+"use client";
+
+import {
+  IconUsersGroup,
+  IconChevronRight,
+  IconLayoutDashboard,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconLogout,
+  IconMenu2,
+  IconSettings,
+  IconX,
+} from "@tabler/icons-react";
+import { useGSAP } from "@gsap/react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Tooltip } from "./ui/tooltip";
+import { authClient } from "../lib/auth/client";
+
+gsap.registerPlugin(useGSAP, ScrollTrigger);
+
+const navigation = [
+  [IconLayoutDashboard, "儀表板", "/dashboard"],
+  [IconUsersGroup, "團隊", "/teams"],
+  [IconSettings, "設定", "/settings"],
+] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { data: authSession } = authClient.useSession();
+  const profileName = authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
+  const profileInitial = Array.from(profileName.trim())[0]?.toUpperCase() ?? "P";
+  const shellRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLButtonElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLElement>(null);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const meetingPhase = pathname.startsWith("/meetings/")
+    ? ({ new: "建立會議", prepare: "會前準備", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
+    : undefined;
+  const memoryScope = searchParams.get("scope");
+  const breadcrumbGroup = meetingPhase
+    ? pathname === "/meetings/new" ? "團隊" : "會議"
+    : pathname === "/memory" ? "團隊" : undefined;
+  const breadcrumb = meetingPhase ?? (pathname === "/memory"
+    ? memoryScope === "meeting" ? "會議文件" : memoryScope === "shared" ? "共用文件" : "團隊記憶"
+    : ({ "/dashboard": "工作總覽", "/teams": "團隊", "/workspaces": "團隊", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面");
+
+  useGSAP(
+    () => {
+      const sidebar = sidebarRef.current;
+      const backdrop = backdropRef.current;
+      if (!sidebar || !backdrop) return;
+
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const duration = reducedMotion ? 0 : 0.24;
+
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        gsap.set(backdrop, { autoAlpha: 0, pointerEvents: "none" });
+        gsap.to(sidebar, {
+          width: sidebarCollapsed ? 68 : 240,
+          x: 0,
+          duration,
+          ease: "power2.out",
+        });
+        return;
+      }
+
+      gsap.to(sidebar, {
+        x: sidebarOpen ? 0 : "-100%",
+        duration,
+        ease: "power2.out",
+      });
+      if (sidebarOpen) {
+        gsap.set(backdrop, { pointerEvents: "auto" });
+        gsap.to(backdrop, { autoAlpha: 1, duration, ease: "power1.out" });
+      } else {
+        gsap.to(backdrop, {
+          autoAlpha: 0,
+          duration,
+          ease: "power1.out",
+          onComplete: () => gsap.set(backdrop, { pointerEvents: "none" }),
+        });
+      }
+    },
+    {
+      dependencies: [sidebarCollapsed, sidebarOpen],
+      scope: shellRef,
+      revertOnUpdate: true,
+    },
+  );
+
+  useGSAP(() => {
+    const content = contentRef.current;
+    if (!content || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const sections = Array.from(content.children);
+    if (!sections.length) return;
+    gsap.set(sections, { autoAlpha: 0, y: 18 });
+    ScrollTrigger.batch(sections, {
+      scroller: content,
+      start: "top 88%",
+      once: true,
+      onEnter: (elements) => gsap.to(elements, { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.08, ease: "power2.out", overwrite: "auto" }),
+    });
+    ScrollTrigger.refresh();
+  }, { dependencies: [pathname], scope: shellRef, revertOnUpdate: true });
+
+  useGSAP(
+    () => {
+      const content = contentRef.current;
+      if (
+        !content ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      )
+        return;
+      gsap.fromTo(
+        content,
+        { autoAlpha: 0, y: 8 },
+        { autoAlpha: 1, y: 0, duration: 0.28, ease: "power2.out" },
+      );
+    },
+    { dependencies: [pathname], scope: shellRef },
+  );
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [sidebarOpen]);
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push("/sign-in");
+  }
+
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <header className="border-b border-black/5 bg-[var(--surface)]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
-          <a href="/dashboard" className="shrink-0 text-lg font-semibold tracking-tight text-[var(--foreground)] no-underline">Proximate</a>
-          <MainNav />
-          <div className="hidden items-center gap-3 md:flex">
-            <span className="text-sm text-[var(--muted)]">開發期工作區</span>
-            <a href="/sign-in" className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium no-underline transition hover:border-[var(--accent)] hover:bg-[var(--surface-muted)]">登入</a>
+    <div
+      ref={shellRef}
+      className="min-h-screen bg-[#fbfbfa] text-[#1f1f1f] md:flex"
+    >
+      <button
+        ref={backdropRef}
+        type="button"
+        aria-label="關閉導覽"
+        onClick={() => setSidebarOpen(false)}
+        className="pointer-events-none fixed inset-0 z-30 bg-black/35 opacity-0 md:hidden"
+      />
+      <aside
+        ref={sidebarRef}
+        className={`fixed inset-y-0 left-0 z-40 flex w-[min(250px,calc(100vw-16px))] -translate-x-full flex-col overflow-y-auto border-r border-[#e6e6e3] bg-[#f7f7f5] md:sticky md:top-0 md:z-auto md:h-screen md:w-60 md:translate-x-0 ${sidebarCollapsed ? "md:w-[68px]" : ""}`}
+      >
+        <div
+          className={`relative flex items-center justify-between px-5 py-5 ${sidebarCollapsed ? "md:px-3 md:justify-center" : ""}`}
+        >
+          <div className={sidebarCollapsed ? "md:hidden" : ""}>
+            <Link
+              href="/dashboard"
+              onClick={() => setSidebarOpen(false)}
+              className="text-base font-semibold tracking-tight"
+            >
+              Proximate
+            </Link>
+            <span className="mt-1 block text-xs text-[#9b9a97]">
+              AI meeting workspace
+            </span>
+          </div>
+          <Tooltip content={sidebarCollapsed ? "展開側邊欄" : "收合側邊欄"}>
+            <button
+              type="button"
+              aria-label={sidebarCollapsed ? "展開側邊欄" : "收合側邊欄"}
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              className={`absolute top-3 hidden h-9 w-9 items-center justify-center rounded-md text-[#787774] hover:text-[#1f1f1f] md:inline-flex ${sidebarCollapsed ? "md:left-1/2 md:right-auto md:-translate-x-1/2" : "md:right-2"}`}
+            >
+              {sidebarCollapsed ? (
+                <IconLayoutSidebarLeftExpand size={20} stroke={1.8} />
+              ) : (
+                <IconLayoutSidebarLeftCollapse size={20} stroke={1.8} />
+              )}
+            </button>
+          </Tooltip>
+          <Tooltip content="關閉導覽">
+            <button
+              type="button"
+              aria-label="關閉導覽"
+              onClick={() => setSidebarOpen(false)}
+              className="cursor-pointer rounded p-1 text-[#787774] hover:bg-[#e9e9e7] md:hidden"
+            >
+              <IconX size={20} stroke={1.8} />
+            </button>
+          </Tooltip>
+        </div>
+        <nav
+          aria-label="主要導覽"
+          className="flex-1 space-y-2 px-3 pt-2 text-sm"
+        >
+          {navigation.map(([Icon, label, href]) => {
+            const isActive =
+              href === "/dashboard"
+                ? pathname === href
+                : pathname.startsWith(href);
+            return (
+              <Tooltip key={href} content={label}>
+                <Link
+                  href={href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 ${sidebarCollapsed ? "md:justify-center md:px-2" : ""} ${isActive ? "bg-[#e9e9e7] font-medium" : "text-[#787774] hover:bg-[#e9e9e7] hover:text-[#1f1f1f]"}`}
+                >
+                  <Icon size={20} stroke={1.8} className="shrink-0" />
+                  <span className={sidebarCollapsed ? "md:hidden" : ""}>
+                    {label}
+                  </span>
+                </Link>
+              </Tooltip>
+            );
+          })}
+        </nav>
+        <div
+          className={`border-t border-[#e6e6e3] px-4 py-4 ${sidebarCollapsed ? "md:px-2" : ""}`}
+        >
+          <div
+            className={`flex items-center justify-between gap-3 ${sidebarCollapsed ? "flex-col md:justify-center md:gap-3" : ""}`}
+          >
+            <div className={`flex items-center gap-2 ${sidebarCollapsed ? "md:flex-col md:gap-2" : ""}`}>
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0f9f8a] text-xs font-semibold text-white"
+                title="Proximate"
+              >
+                {profileInitial}
+              </span>
+              <div className={sidebarCollapsed ? "md:hidden" : ""}>
+                <p className="max-w-28 truncate text-sm font-medium">{profileName}</p>
+              </div>
+            </div>
+            <Tooltip content="登出">
+              <button
+                type="button"
+                aria-label="登出"
+                onClick={handleSignOut}
+                className="ml-auto cursor-pointer rounded-md p-2 text-[#787774] hover:bg-[#e9e9e7] hover:text-[#1f1f1f] md:ml-0"
+              >
+                <IconLogout size={19} stroke={1.8} />
+              </button>
+            </Tooltip>
           </div>
         </div>
-      </header>
-      <div className="mx-auto max-w-7xl px-4 py-8 pb-24 sm:px-6 lg:px-8 lg:py-10 lg:pb-10">{children}</div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col md:h-screen">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-[#e6e6e3] bg-[#fbfbfa]/95 px-4 backdrop-blur">
+          <Tooltip content="開啟導覽">
+            <button
+              ref={menuTriggerRef}
+              type="button"
+              aria-label="開啟或收合導覽"
+              aria-expanded={sidebarOpen}
+              onClick={() => setSidebarOpen((open) => !open)}
+              className="rounded-md p-2 text-[#4b4b48] hover:bg-[#e9e9e7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f9f8a] md:hidden"
+            >
+              <IconMenu2 size={20} stroke={1.8} />
+            </button>
+          </Tooltip>
+          <div className="flex items-center gap-2 text-sm">
+            {breadcrumbGroup && <><span className="hidden text-[#9b9a97] md:inline">{breadcrumbGroup}</span><IconChevronRight size={15} stroke={1.8} className="hidden text-[#b5b5b1] md:inline" /></>}
+            <span className="font-medium">{breadcrumb}</span>
+          </div>
+        </header>
+        <main
+          ref={contentRef}
+          className="min-w-0 flex-1 px-5 py-8 sm:px-8 md:overflow-y-auto md:px-10 md:py-10"
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
-}
-
-export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode }) {
-  return <div className="flex flex-col justify-between gap-5 border-b border-[var(--border)] pb-7 sm:flex-row sm:items-end"><div>{eyebrow ? <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">{eyebrow}</p> : null}<h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>{description ? <p className="mt-3 max-w-2xl text-[var(--muted)]">{description}</p> : null}</div>{actions ? <div className="shrink-0">{actions}</div> : null}</div>;
-}
-
-export function MeetingWorkspaceHeader({ meetingId, title = "會議工作區" }: { meetingId: string; title?: string }) {
-  return <div className="mb-8 flex flex-col gap-4 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-center sm:justify-between"><div><a href="/dashboard" className="text-sm font-medium no-underline">← 返回 Dashboard</a><p className="mt-3 text-lg font-semibold">{title}</p><p className="text-sm text-[var(--muted)]">Meeting ID：{meetingId}</p></div><nav aria-label="會議工作區" className="flex flex-wrap gap-2 text-sm"><a href={`/meetings/${meetingId}/prepare`} className="rounded-lg px-3 py-2 font-medium no-underline hover:bg-[var(--surface-muted)]">會前準備</a><a href={`/meetings/${meetingId}/live`} className="rounded-lg px-3 py-2 font-medium no-underline hover:bg-[var(--surface-muted)]">即時會議</a><a href={`/meetings/${meetingId}/review`} className="rounded-lg px-3 py-2 font-medium no-underline hover:bg-[var(--surface-muted)]">會後回顧</a></nav></div>;
-}
-
-export function PlaceholderState({ title, description }: { title: string; description: string }) {
-  return <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center sm:p-12"><h2 className="text-xl font-semibold">{title}</h2><p className="mx-auto mt-3 max-w-lg text-[var(--muted)]">{description}</p></section>;
 }

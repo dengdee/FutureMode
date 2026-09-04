@@ -1,91 +1,53 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Noto Sans TC";
+  src: url("/fonts/NotoSansTC-VF.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --background: #f4f7f6;
   --foreground: #15201d;
   --surface: #ffffff;
-  --surface-muted: #eaf0ee;
-  --accent: #2f6f5e;
-  --accent-strong: #245747;
-  --accent-contrast: #ffffff;
+  --accent: #0f9f8a;
   --muted: #60706b;
-  --border: #d6e0dc;
-  --danger: #b42318;
-  --focus-ring: #86b9a8;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  min-width: 320px;
-  scroll-behavior: smooth;
+button:not(:disabled),
+a {
+  cursor: pointer;
 }
 
 body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, "Noto Sans TC", "PingFang TC", sans-serif;
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
+  font-family: "Noto Sans TC", sans-serif;
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
-
-a {
-  color: var(--accent-strong);
-}
-
-::selection {
-  background: var(--focus-ring);
-  color: var(--foreground);
-}
-
-:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
-}
-
-.skip-link {
-  position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 50;
-  padding: 0.625rem 0.875rem;
-  border-radius: 0.5rem;
-  background: var(--foreground);
-  color: var(--accent-contrast);
-  transform: translateY(-200%);
-  transition: transform 150ms ease;
-}
-
-.skip-link:focus {
-  transform: translateY(0);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
+@layer components {
+  .rounded-primary { border-radius: 0.75rem; }
+  .control-primary {
+    width: 100%;
+    border: 1px solid #dededb;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.6875rem 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
   }
-
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
+  .control-primary:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+  select.control-primary, input[type="date"].control-primary, input[type="datetime-local"].control-primary { appearance: none; -webkit-appearance: none; }
+  select.control-primary { padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787774' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .75rem center; background-size: 1rem; }
 }
+

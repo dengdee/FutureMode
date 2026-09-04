@@ -8,7 +8,7 @@
 
 Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協作系統。它從會前開始理解議程、成員想法與歷史決策，在會中協助團隊發現分歧、盲點、風險與反例，並在會後讓所有成員確認對決策與下一步的理解一致。
 
-本專案目前處於 **黑客松產品定義與技術驗證階段**。Repository 內尚無可執行程式碼；本文件統整現有六份規劃文件，將產品定位、使用者流程、資訊架構、會中整合方案、MVP 範圍與預計技術架構整理為單一產品藍圖。
+本專案目前處於 **黑客松產品定義與技術驗證階段**。Repository 已有可執行的前後端 scaffold、Neon Auth 前端骨架，以及第一批身分／團隊／會議 REST API；本文件仍作為完整產品藍圖，未標示完成的 AI、即時與外部整合功能不可視為已實作。
 
 > [!IMPORTANT]
 本文件中的頁面、路由、資料表與 API 是建議規格，不代表已完成實作。標示為「MVP」的項目是黑客松建議範圍；「後續」項目不應阻塞核心展示。
@@ -57,6 +57,10 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 | **AI Teammate** | 在重要決策形成時提出問題、反例、風險、歷史資訊與替代方案 | 提升決策品質，而非只提升紀錄效率 |
 | **Personal Sidekick** | 每位成員擁有私密 AI 幕僚，把模糊想法整理成可討論的觀點 | 降低發言門檻，保留心理安全感 |
 | **Team Memory** | 保存決策、理由、被否決方案與限制，並在未來討論中附來源取回 | 避免每次會議重新開始 |
+
+### 行動項目定義
+
+「行動項目」是會議結束後，從已確認決策拆出的可執行工作，例如「由產品負責人在 9 月 12 日前提交 API 方案」。它必須隸屬於單一會議，包含負責人、期限與狀態；因此不放在跨團隊的 Dashboard，應在該場會議的 Review／會後回顧中顯示。
 | **AI Delegate** | 缺席者事前設定立場、限制與必須提醒條件，由 AI 代表提出 | 讓缺席不等於退出討論，但不讓 AI 擅自決策 |
 
 ### 名詞表
@@ -236,9 +240,9 @@ Proximate
 │  ├─ 登入
 │  └─ 團隊建立／選擇
 ├─ Dashboard
-│  ├─ 近期會議
-│  ├─ 待確認共識
-│  └─ 我的行動項目
+│  ├─ 我的團隊入口
+│  ├─ 跨團隊近期會議
+│  └─ 快速建立會議（建立時仍選擇工作區）
 ├─ Meetings
 │  ├─ 建立／設定
 │  └─ Meeting Workspace
@@ -255,13 +259,27 @@ Proximate
    └─ 隱私與資料保留
 ```
 
+目前採用的 Web App 工作區資訊架構如下；工作區是團隊與會議的容器，單次會議文件不與其他會議混用：
+
+```text
+工作區
+├─ 團隊成員
+├─ 團隊記憶
+│  ├─ 共用文件
+│  └─ 會議文件（每場會議各自獨立）
+└─ 會議
+   ├─ 會前準備
+   ├─ 會議進行
+   └─ 會後回顧
+```
+
 ### 建議路由
 
 | 優先級 | 路由 | 頁面 | 主要使用者 | 核心內容與操作 |
 | --- | --- | --- | --- | --- |
 | 後續 | `/` | 產品首頁 | 所有人 | 產品價值主張與導向登入；MVP 期間不作主要工作入口 |
 | MVP | `/sign-in` | 登入 | 所有人 | Neon Auth 登入、團隊切換與 session 建立 |
-| MVP | `/dashboard` | Dashboard | Host、Member | 近期會議、待確認共識、我的任務、建立會議 |
+| MVP | `/dashboard` | 工作總覽 | Host、Member | 我的團隊數、跨團隊近期會議與快速建立會議入口；建立時選擇工作區，不承載團隊記憶、單一會議共識或行動項目 |
 | MVP | `/meetings/new` | Meeting Setup | Team Member | 標題、議程、參與者、本場 Host、AI 角色、文件、介入程度與輸入來源 |
 | MVP | `/meetings/[id]/prepare` | Meeting Workspace／Prepare | 全體 | 共識、分歧、未決問題、Sidekick 入口、Delegate 設定 |
 | MVP | `/meetings/[id]/audio-setup` | Audio Setup | 需要收音的成員 | 授權麥克風／分頁音訊；啟動後提示回到 Google Meet |
@@ -271,6 +289,8 @@ Proximate
 | 後續 | `/memory` | Team Memory | 團隊成員 | 搜尋歷史會議、決策、文件與來源 |
 | 後續 | `/memory/decisions/[id]` | Decision Detail | 團隊成員 | 決策內容、理由、否決方案、限制、來源會議 |
 | 後續 | `/settings` | Settings | Admin | 以 Tabs 管理團隊與成員、整合、隱私與資料保留 |
+
+工作區內頁使用 `/workspaces/[workspaceId]` 作為正式根路由：`members` 對應團隊成員、`memory/shared` 對應共用文件、`memory/meetings/[meetingId]` 對應該場會議文件，`meetings/[meetingId]/prepare|live|review` 對應會前、會中與會後。前端目前以相容導向保留既有短路由，待後端提供 workspace-scoped API 後再完全切換。
 
 ### 每場會議的 Host 設定
 
@@ -685,7 +705,7 @@ flowchart TB
 ## 技術選型
 
 > [!NOTE]
-以下為規劃中的技術棧。Repository 已建立 `frontend/` 與 `backend/` 基礎 scaffold；產品頁面、資料庫 CRUD、AI 流程與外部服務仍待實作。
+以下為規劃中的技術棧。Repository 已建立 `frontend/` 與 `backend/` 基礎 scaffold，且已有 Neon Auth、Teams、Meetings、Agenda 的第一批 REST 串接；AI 流程、即時事件、文件索引與外部服務仍待實作。
 > 
 
 ### Frontend
@@ -695,6 +715,7 @@ flowchart TB
 | Next.js 16.3 App Router | Web App 頁面、路由與 BFF 能力；以 `next@latest` 建立專案時鎖定當時最新穩定版 |
 | React 19 + TypeScript | 元件、互動與型別安全 |
 | Tailwind CSS | 樣式與設計 token |
+| Noto Sans TC Variable Font | 全站繁體中文與介面字體，檔案位於 `frontend/public/fonts/NotoSansTC-VF.ttf` |
 | shadcn/ui + Radix UI | 可及性的 Dialog、Tabs、Dropdown、Toast 等元件 |
 | Zustand | 即時會議、私人聊天與 UI 狀態 |
 | React Hook Form + Zod | 議程、Delegate 與會議設定表單驗證 |
@@ -920,20 +941,20 @@ flowchart TB
 
 | 項目 | 狀態 | 目前缺少什麼 | 是否阻塞黑客松 | 建議解法／解除條件 |
 | --- | --- | --- | --- | --- |
-| Web App／會中介面與 User Flow | **Blocked** | Repository 只有基礎 scaffold，尚未完成產品頁面與元件 | 是 | 先建立 Dashboard、Meeting Workspace（Prepare／Live／Review）與可嵌入 Add-on；使用假資料串成 happy path |
-| Backend、REST 與 WebSocket | **Blocked** | 沒有 FastAPI 專案、schema、migration 或 API contract | 若要多人即時同步則是 | Phase 0 可用前端 fixture＋狀態機；同時先定義 event schema，再以最小 WebSocket room 取代假資料 |
+| Web App／會中介面與 User Flow | **In progress** | Web App 已有 Landing、工作總覽、工作區、Meeting Prepare、Live／Add-on／Review 路由；後三者仍是 UI scaffold | 是，若要完成核心 Demo | 先以目前 REST API 驗證工作區與會前流程；等待 WebSocket、Live Snapshot、投票與 Review API 後再完成會中閉環 |
+| Backend、REST 與 WebSocket | **In progress** | FastAPI 與第一批 Auth／Teams／Meetings／Agenda REST API 已存在；尚無即時事件、AI、文件與共識 API | 若要多人即時同步則是 | 依 `frontend/docs/backend-api-handoff.md` 補齊 WebSocket、Snapshot、投票與 Review endpoint |
 | 即時分頁音訊擷取 | **Blocked** | 尚無 browser prototype，也沒有實測瀏覽器、OS 與會議平台組合 | 否 | 先完成 Capture Page＋WebSocket spike；無法取得音訊時使用預先準備的繁中逐字稿 |
 | 分散式麥克風 Capture Page | **Blocked** | 尚未實測背景分頁收音、Meet 與 Web App 同時取用麥克風、WebSocket 穩定性與休眠行為 | 否 | 在頂層 Web App 做最小 `getUserMedia()`＋Audio WebSocket spike；Add-on 只顯示狀態，不在 iframe 內要求麥克風 |
 | 備援的麥克風＋分頁音訊混合 | **Blocked** | 尚未驗證回音、重複音訊、取樣率與時間同步 | 否 | 分散式麥克風成功時不使用混合方案；只有未加入 Proximate 的人需要補錄時，才以 Host 分頁音訊作 fallback，並做 timestamp 對齊與去重 |
 | Speaker Identification | **Blocked** | 混合音訊未必保留每位講者身分，也沒有 diarization 評估 | 否 | Demo transcript 直接附 speaker；真人測試用 Meet 字幕名稱或使用者手動校正，不承諾聲紋辨識 |
 | LLM／STT 實際品質與延遲 | **Blocked** | 尚未建立 prompt、取得 API key 或量測資料 | 部分 | 以 GPT-4o structured output 與錄製好的 10–15 分鐘繁中會議樣本，測 STT、Meeting State、舉手品質、P50／P95 延遲與單場成本 |
 | RAG 歷史提醒 | **Blocked** | 沒有可授權的測試語料、chunk、embedding 與評估題目 | 否 | 建立 3–5 份合成決策文件，至少包含一個與 Demo 提案衝突的成本限制；先以 deterministic fixture 展示來源，再接 pgvector |
-| 多使用者權限隔離 | **Blocked** | 沒有 Auth、team membership 與 API 測試 | 若展示私人 Sidekick 則是 | Demo 可使用三個固定角色，但資料層仍要以 user ID 分區；至少寫一個「A 無法讀取 B 私訊」整合測試 |
+| 多使用者權限隔離 | **In progress** | Neon Auth 前端 session 已接入；後端 Bearer token 與 team／meeting 權限仍需完整驗證 | 若展示私人 Sidekick 則是 | 補齊後端 token 驗證與「A 無法讀取 B 私訊」整合測試 |
 | Google Meet 即時官方媒體接入 | **Blocked** | Meet Media API 仍在 Developer Preview，且不提供穩定的會議 outbound audio／舉手控制 | 否 | 不納入黑客松依賴；採每位使用者 Capture Page + WebSocket；必要時以預錄音訊做 Voice Bot spike |
 | Google Meet Add-on Development Deployment | **Blocked** | 沒有已部署 Web App、Cloud project、manifest、HTTP deployment 或帳號政策測試 | **是，若要符合原生 Meet 會中體驗** | 先以私人測試帳號安裝未發布 deployment；驗證 Add-on UI 與 collaborative activity，音訊輸入另行處理 |
 | Voice Bot 發言與音訊輸出 | **Experimental** | Meeting BaaS Speaking／Audio API、Google Meet 相容性、延遲與自訂 TTS 輸入仍需以測試帳號驗證 | 否 | 先完成政策、投票門檻與 Add-on 狀態同步；失敗時回退成公開文字卡片 |
 | 競品最新功能與定價 | **Blocked** | 現有內容是研究筆記，未逐項記錄查核日期與官方方案 | 否 | Pitch 前建立一張日期化、附官方來源的 feature matrix；避免宣稱競品「完全沒有」某能力 |
-| 安裝、啟動與部署 | **Blocked** | 沒有 dependency manifests、`.env.example`、CI 或部署設定 | 是 | Scaffold 完成後立刻補上本機啟動、seed、測試與部署指令；在此之前不要聲稱專案可執行 |
+| 安裝、啟動與部署 | **In progress** | 前端已有 dependency manifest、`.env.example` 與本機啟動文件；正式部署與 CI 尚未驗證 | 是 | 依 `frontend/docs/setup.md` 啟動；部署前補上正式環境 Auth、API URL、HTTPS 與 CI 檢查 |
 
 ### User Flow 預設方案
 
@@ -993,7 +1014,7 @@ Personal Agent 必須知道公共會議內容，卻不能把私人輸入回流�
 
 | 順序 | Spike | 時間盒 | 成功條件 | 失敗時做法 |
 | --- | --- | --- | --- | --- |
-| 1 | 核心前端 Happy Path | 0.5–1 天 | 5 個核心畫面可完成整段 Demo | 刪除 Dashboard，直接從 Brief 開始 |
+| 1 | 核心前端 Happy Path | 0.5–1 天 | 工作區 → 建立會議 → Brief／Prepare 可完成基本流程 | Dashboard 保留為跨團隊導覽，不承載單一會議狀態 |
 | 2 | Meeting State＋AI 舉手 | 0.5–1 天 | 固定 transcript 能穩定觸發一張正確卡片 | 以 deterministic rule／fixture 觸發 |
 | 3 | Personal Sidekick 隔離 | 0.5 天 | A 私訊不出現在 B 或公共事件 | Demo 改為單裝置角色切換，但保留資料分區 |
 | 4 | Consensus Version | 0.5 天 | 一人修正可產生新版並保留前版 | 只保留 draft＋confirmed 兩態 |
@@ -1108,7 +1129,7 @@ futuremode/
 - 測試、lint、type-check、format 與 CI 指令。
 - 本機啟動、部署與資料清除說明。
 
-目前前後端 scaffold 已可依 README 指令啟動；上述產品功能完成前，尚不能視為完整產品 Demo。
+目前前後端 scaffold 已可依 README 指令啟動，前端已完成第一批 REST 驗證與主要流程 UI；上述 AI、即時、文件索引與會後閉環完成前，尚不能視為完整產品 Demo。
 
 ## 目前文件
 
