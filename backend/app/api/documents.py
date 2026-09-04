@@ -35,6 +35,7 @@ from app.services.storage import (
     create_download_url,
     delete_file,
     file_exists,
+    get_file,
     put_file,
 )
 
@@ -432,6 +433,46 @@ async def list_document_versions(
         )
     ).all()
     return list(versions)
+
+
+@router.post(
+    "/documents/{document_id}/versions/{version}/restore",
+    response_model=DocumentIngestResponse,
+)
+async def restore_document_version(
+    document_id: UUID,
+    version: int,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> DocumentIngestResponse:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    source = await session.scalar(
+        select(DocumentVersion).where(
+            DocumentVersion.document_id == document_id, DocumentVersion.version == version
+        )
+    )
+    if source is None or not source.storage_key:
+        raise HTTPException(status_code=404, detail="version source file not found")
+    try:
+        raw_content = await get_file(source.storage_key, settings)
+    except StorageConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (BotoCoreError, ClientError):
+        raise HTTPException(status_code=502, detail="file storage is unavailable") from None
+    try:
+        if document.source_type == "pdf_upload":
+            reader = PdfReader(BytesIO(raw_content))
+            content = "\n".join(page.extract_text() or "" for page in reader.pages)
+        else:
+            content = raw_content.decode("utf-8")
+    except (UnicodeDecodeError, Exception):
+        raise HTTPException(status_code=400, detail="could not restore document version") from None
+    return await ingest_document(
+        document_id, DocumentIngestRequest(content=content), principal, session
+    )
 
 
 @router.post("/documents/{document_id}/embed")

@@ -63,3 +63,9 @@ async def file_exists(key: str, settings: Settings) -> bool:
             return False
         raise
     return True
+
+
+async def get_file(key: str, settings: Settings) -> bytes:
+    client = _client(settings)
+    response = await asyncio.to_thread(client.get_object, Bucket=settings.r2_bucket_name, Key=key)
+    return await asyncio.to_thread(response["Body"].read)
