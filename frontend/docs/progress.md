@@ -12,7 +12,7 @@
 
 ## API 已完成、UI 尚待接入
 
-- 建立／更新 Meeting 表單尚未送出 `createMeeting`／`updateMeeting`。
+- 建立 Meeting 表單已送出 `createMeeting`，成功後導向 Prepare；更新表單與議程／參與者完整編輯尚未完成。
 - 參與者與議程 API 已封裝，但尚未在 Prepare／建立會議頁完成完整互動。
 - `getCurrentUser`、團隊與成員 API 已封裝，Neon Auth session 與 route guard 尚未完成。
 

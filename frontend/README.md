@@ -34,7 +34,7 @@
 | 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已依功能拆分 `system.ts`、`meetbot.ts`、`me.ts`、`teams.ts`、`meetings.ts`、`participants.ts`、`agenda.ts`；全部使用 Axios 與正式 API，不使用 Mock Data |
 | 04 | 登入狀態、角色與存取邊界 | UI 未完成／API 已封裝 | 已有 `me.ts` 的 `GET /api/v1/me`；Neon Auth session、route guard 與 token handoff 尚未實作 |
 | 05 | Dashboard 與會議清單 | 部分完成 | Dashboard 已顯示真實 `/health`；已具備 `GET /api/v1/meetings` function，但清單 UI 尚未接上 |
-| 06 | 建立與編輯會議 | UI 部分完成／API 已封裝 | 已具備 Meeting CRUD、參與者與議程 API functions；建立會議表單尚未送出正式 request |
+| 06 | 建立與編輯會議 | 部分完成 | 建立會議表單已送出 `POST /api/v1/meetings` 並成功後導向 Prepare；參與者／議程互動與完整編輯流程尚未完成 |
 | 07–11 | Prepare、Audio、Add-on、Live、Review | UI scaffold 完成／API 待補 | 頁面 UI 已建立；後端尚未提供 Brief、音訊、Live Snapshot、投票、Review 等 endpoint |
 | 12 | 正式 REST／WebSocket adapter 切換 | REST 部分完成 | 現有 REST endpoint 已集中封裝；WebSocket、重連、事件 envelope 尚未提供／實作 |
 | 13–16 | 驗收、Memory、Settings、外部服務文件 | 尚未完成 | 需依正式契約完成互動、測試、ACL 與部署設定 |
@@ -63,7 +63,7 @@
 
 ### 尚未完成／等待後端契約
 
-- `/meetings/new` 表單尚未將送出動作接至 `createMeeting`，需先確認 Neon Auth 使用者的 active team 與權限流程。
+- `/meetings/new` 已將送出動作接至 `createMeeting`；目前需手動填入 Team ID，待 Neon Auth active team 後改為團隊選擇器。
 - Prepare 尚未接 Brief、Personal Sidekick 與公開觀點 endpoint；目前後端未提供。
 - Audio Setup、Live、Meet Add-on 尚未接 Access Token、Live Snapshot、投票與 WebSocket；目前後端未提供。
 - Review 尚未接摘要、逐字稿、共識與行動項目 endpoint；目前後端未提供。
