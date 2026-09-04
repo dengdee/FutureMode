@@ -341,8 +341,20 @@ async def embed_document(
     ).all()
     if not chunks:
         raise HTTPException(status_code=409, detail="document has no chunks")
+    if len(chunks) > settings.embedding_max_chunks:
+        raise HTTPException(status_code=413, detail="document has too many chunks to embed")
     try:
-        vectors = await embed_texts([chunk.content for chunk in chunks], settings)
+        vectors: list[list[float]] = []
+        for start in range(0, len(chunks), settings.embedding_batch_size):
+            vectors.extend(
+                await embed_texts(
+                    [
+                        chunk.content
+                        for chunk in chunks[start : start + settings.embedding_batch_size]
+                    ],
+                    settings,
+                )
+            )
     except EmbeddingConfigurationError as exc:
         document.status = "failed"
         document.index_error = str(exc)
