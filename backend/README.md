@@ -40,6 +40,7 @@
 - **步驟 12（第五段）**：已加入 Embedding provider 的設定欄位與安全範例（預設 OpenAI `text-embedding-3-small`）；尚未執行外部 API 呼叫或建立 vector 欄位。
 - **步驟 12（第六段）**：已加入 pgvector embedding 欄位、Migration 與 OpenAI embedding API；文件可透過 embed endpoint 建立向量並標記為 embedded。
 - **步驟 12（第七段）**：已加入 Embedding 相似度與全文檢索混合排序 API；未設定 Embedding provider 時保留純全文搜尋並讓 hybrid endpoint 回傳設定錯誤。
+- **步驟 12（第八段）**：已加入 Embedding 失敗狀態、錯誤摘要與 retry count；再次呼叫 embed endpoint 可重試既有 chunks。
 
 ## 目前發現的缺口與衝突
 

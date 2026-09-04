@@ -29,6 +29,7 @@ class DocumentIngestResponse(BaseModel):
     status: str
     chunk_count: int
     indexed_at: datetime | None
+    retry_count: int = 0
 
 
 class DocumentChunkCreateResponse(BaseModel):
@@ -43,6 +44,7 @@ class DocumentDetail(DocumentSummary):
     version: int
     indexed_at: datetime | None
     index_error: str | None
+    retry_count: int
     created_at: datetime | None
 
 

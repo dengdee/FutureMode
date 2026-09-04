@@ -170,6 +170,7 @@ async def get_document(
         "version": document.version,
         "indexed_at": document.indexed_at,
         "index_error": document.index_error,
+        "retry_count": document.retry_count,
         "created_at": document.created_at,
     }
 
@@ -213,6 +214,7 @@ async def ingest_document(
         status=document.status,
         chunk_count=len(chunks),
         indexed_at=document.indexed_at,
+        retry_count=document.retry_count,
     )
 
 
@@ -238,12 +240,21 @@ async def embed_document(
     try:
         vectors = await embed_texts([chunk.content for chunk in chunks], settings)
     except EmbeddingConfigurationError as exc:
+        document.status = "failed"
+        document.index_error = str(exc)
+        document.retry_count += 1
+        await session.commit()
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.HTTPError:
+        document.status = "failed"
+        document.index_error = "embedding provider unavailable"
+        document.retry_count += 1
+        await session.commit()
         raise HTTPException(status_code=502, detail="embedding provider unavailable") from None
     for chunk, vector in zip(chunks, vectors, strict=True):
         chunk.embedding = vector
     document.status = "embedded"
+    document.index_error = None
     await session.commit()
     return {
         "document_id": str(document_id),
