@@ -12,6 +12,18 @@ class DocumentSummary(BaseModel):
     status: str
 
 
+class DocumentCreateResponse(BaseModel):
+    id: UUID
+    team_id: UUID
+    status: str
+
+
+class DocumentChunkCreateResponse(BaseModel):
+    id: UUID
+    document_id: UUID
+    position: int
+
+
 class DocumentDetail(DocumentSummary):
     metadata: dict[str, object]
     chunk_count: int

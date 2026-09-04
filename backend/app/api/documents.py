@@ -9,7 +9,9 @@ from app.api.meetings import database_session
 from app.auth.principal import Principal, get_current_principal
 from app.models import Document, DocumentChunk, TeamMember, User
 from app.schemas.documents import (
+    DocumentChunkCreateResponse,
     DocumentChunkSummary,
+    DocumentCreateResponse,
     DocumentDetail,
     DocumentSearchResult,
     DocumentSummary,
@@ -31,13 +33,17 @@ async def team_access(team_id: UUID, principal: Principal, session: AsyncSession
     return user
 
 
-@router.post("/teams/{team_id}/documents", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/teams/{team_id}/documents",
+    response_model=DocumentCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_document(
     team_id: UUID,
     payload: DocumentCreate,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
-) -> dict[str, str]:
+) -> DocumentCreateResponse:
     user = await team_access(team_id, principal, session)
     document = Document(
         team_id=team_id,
@@ -71,13 +77,17 @@ async def list_documents(
     ]
 
 
-@router.post("/documents/{document_id}/chunks", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/documents/{document_id}/chunks",
+    response_model=DocumentChunkCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_chunk(
     document_id: UUID,
     payload: DocumentChunkCreate,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
-) -> dict[str, object]:
+) -> DocumentChunkCreateResponse:
     document = await session.scalar(select(Document).where(Document.id == document_id))
     if document is None:
         raise HTTPException(status_code=404, detail="document not found")
