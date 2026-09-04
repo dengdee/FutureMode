@@ -11,12 +11,19 @@
 - 已完成 API：`GET /health`、`POST /meetbot/join`。
 - 已完成測試：健康檢查測試。
 - 已存在的 Meeting BaaS 實作：`backend/app/meetbot.py` 直接呼叫 Meeting BaaS v2 Bot API，尚未形成完整 adapter、政策驗證、idempotency 或完整錯誤模型。
-- 尚未存在：資料庫、ORM、migration、認證、團隊權限、會議 CRUD、WebSocket room、逐字稿管線、AI runtime、RAG、共識流程、正式 observability 與部署設定。
+- 尚未存在：認證、團隊權限、會議 CRUD、WebSocket room、逐字稿管線、AI runtime、RAG、共識流程、正式 observability 與部署設定。
 
 ### 已完成步驟
 
 - **步驟 0**：已確認 Neon Auth、逐人麥克風與 Vercel；分頁音訊列為備援。
 - **步驟 1**：已完成設定容錯、CORS allowlist、request ID、統一錯誤回應、`/ready` 與基礎測試。
+- **步驟 2**：已完成 SQLAlchemy async engine、asyncpg、Alembic migration 基線與資料庫就緒檢查；尚未建立業務資料表。
+- **步驟 3**：已建立 users、teams、team_members、meetings、meeting_participants、agenda_items ORM 模型與 Alembic migration；尚未提供 CRUD API。
+- **步驟 4**：已建立 Neon Auth JWT 驗證依賴與 `GET /api/v1/me`；團隊查詢與角色授權矩陣待後續 API 步驟補齊。
+- **步驟 4a**：已建立受 JWT 保護的 `GET /api/v1/teams`，依目前使用者 external ID 回傳所屬團隊與角色。
+- **步驟 5a**：已建立受 JWT 與 team membership 保護的會議建立、列表 API。
+- **步驟 5b**：已建立會議單筆查詢與更新 API，更新限制 Host／Owner／Admin。
+- **步驟 5c**：已建立團隊成員查詢、參與者與議程新增，以及會議開始／結束狀態轉換 API。
 
 ## 目前發現的缺口與衝突
 
@@ -69,6 +76,13 @@
 - **完成標準**：新環境可由 lockfile 安裝並執行 migration；不使用 reset 或 rollback 破壞既有資料。
 - **注意事項**：連線字串只在後端；migration 必須可審查、不可在啟動時偷偷改 schema。
 
+Migration 指令（在 `backend/` 執行，需先設定 `DATABASE_URL`）：
+
+```cmd
+uv run alembic upgrade head
+uv run alembic current
+```
+
 ### 步驟 3｜核心資料模型與第一批 Migration
 
 - **目標**：以最小可用模型支撐團隊、會議與權限範圍。
@@ -96,7 +110,7 @@
 - **注意事項**：Private Sidekick 的隔離必須在 service/repository 層強制，不只靠路由。
 
 ### 步驟 5｜會議設定與生命週期 API
-
+P
 - **目標**：完成建立、設定、開始與結束一場會議的核心 REST 流程。
 - **功能內容**：標題、時間、議程、參與者、Host、AI 角色、介入程度、Voice policy 與 required participants。
 - **預計異動範圍**：`app/api/meetings.py`、`app/services/meeting_service.py`、`app/schemas/meeting.py`、`app/models/`、migration、tests。
