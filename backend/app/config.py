@@ -9,22 +9,12 @@ class Settings(BaseSettings):
     api_port: int = 8000
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
-    database_url: str | None = None
-    db_pool_size: int = 5
-    db_max_overflow: int = 10
 
     meeting_baas_api_key: str | None = None
-    neon_auth_issuer: str | None = None
-    neon_auth_audience: str | None = None
-    neon_auth_jwks_url: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
-
-    @property
-    def database_configured(self) -> bool:
-        return bool(self.database_url)
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -6,11 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.me import router as identity_router
-from app.api.meetings import router as meetings_router
-from app.api.teams import router as teams_router
 from app.config import get_settings
-from app.db.session import database_check
 from app.meetbot import router as meetbot_router
 
 settings = get_settings()
@@ -98,19 +94,15 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready", tags=["system"])
 async def ready() -> dict[str, object]:
-    db_status = await database_check(settings)
     return {
-        "status": "ok" if db_status in {"ok", "not_configured"} else "degraded",
+        "status": "ok",
         "environment": settings.app_env,
         "checks": {
             "api": "ok",
-            "database": db_status,
+            "database": "not_configured",
             "meeting_baas": "configured" if settings.meeting_baas_api_key else "not_configured",
         },
     }
 
 
 app.include_router(meetbot_router)
-app.include_router(identity_router)
-app.include_router(teams_router)
-app.include_router(meetings_router)

@@ -10,7 +10,8 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 .
 ├─ frontend/        # Next.js 16.3、React 19、TypeScript、Tailwind CSS
 │  ├─ app/           # Dashboard 與 Meeting Workspace routes
-│  │  └─ meetings/[id]/addon/ # Google Meet Add-on iframe 入口
+│  │  ├─ meetings/[id]/addon/ # Google Meet Add-on iframe 入口
+│  │  └─ meetings/[id]/live/  # 瀏覽器 fallback／開發期 Live UI
 │  └─ .env.example  # 前端環境變數範例
 ├─ backend/         # FastAPI、Pydantic settings、pytest、Ruff
 │  ├─ app/           # API 與服務模組
@@ -34,12 +35,15 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 /meetings/[id]/prepare       # 會前 Brief、議程、AI 角色與 Personal Agent
 /meetings/[id]/audio-setup   # 啟動麥克風／分頁音訊後回到 Google Meet
 /meetings/[id]/addon         # Google Meet Add-on：Brief、Live State、Sidekick、Host Controls
+/meetings/[id]/live          # Add-on 不可用時的瀏覽器 fallback／開發期測試頁
 /meetings/[id]/review        # 會後摘要、逐字稿、決策、行動項目與成員確認
 /memory                      # Team Memory
 /settings                    # 團隊、整合與隱私設定
 ```
 
 `/meetings/[id]/addon` 是嵌入 Google Meet 的窄版 iframe；會議中不要求使用者切回完整 Web App。Voice Bot 由後端透過 [Meeting BaaS Google Meet Bot API](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet) 加入會議並輸出語音。主要逐人收音仍由 Audio Setup／Capture 流程提供，Meeting BaaS 音訊串流可作為備援。
+
+Add-on 不在 iframe 內重新登入。已登入的 Web App 會向後端取得綁定使用者與會議的短效 meeting token，交給 `/meetings/[id]/addon` 建立連線。Web App、`/meetings/[id]/live` 與 Add-on 共用同一份公共 Meeting State；同一使用者也能看到自己的 Personal Sidekick，但 Add-on 只使用窄版版面，不會把長效 session 或 API key 放入 iframe。
 
 ## Voice Bot 整合
 
@@ -127,8 +131,16 @@ uv run ruff format --check .
 uv run pytest
 ```
 
+## 已採用的產品決策
+
+- 正式登入採 **Neon Auth**；Dashboard 使用 `/dashboard`，產品首頁日後另建。
+- Web App 與 FastAPI API 正式部署目標為 **Vercel**；FastAPI WebSocket 長連線需先完成部署驗證。
+- Google Meet 會中介面採 Meet Add-on `/meetings/[id]/addon`，並保留瀏覽器 fallback `/meetings/[id]/live`。
+- Audio Setup 開始後需持續收音；Capture Page 保持開啟並回報 track／WebSocket 中斷。
+- Member 可在每張 AI 發言卡重新投票；「稍後／忽略」不是永久終止狀態。
+- 前端優先採用 ProductPlanning.md 列出的套件；安裝前仍需逐批驗證相容性。
+
 ## 尚待正式開發前確認
 
-- 規劃文件同時出現 Clerk 與 Neon Auth；登入實作前需確定唯一方案。
-- 規劃中的 FastAPI WebSocket 若部署於 Vercel，需先驗證長連線支援或調整 API hosting。
-- Neon、Google Meet Add-on、Meeting BaaS、OpenAI、Groq、ElevenLabs 與 Sentry 均未建立或連線。
+- FastAPI WebSocket 在 Vercel 的長連線、timeout、重連與替代部署方案。
+- Neon Auth、Google Meet Add-on、Meeting BaaS、OpenAI、Groq、ElevenLabs 與 Sentry 的帳號、金鑰及 development deployment 尚未建立或連線。
