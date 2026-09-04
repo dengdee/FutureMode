@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1536
     embedding_batch_size: int = 64
     embedding_max_chunks: int = 500
+    r2_endpoint_url: str | None = None
+    r2_access_key_id: str | None = None
+    r2_secret_access_key: str | None = None
+    r2_bucket_name: str | None = None
     groq_api_key: str | None = None
     groq_stt_model: str = "whisper-large-v3-turbo"
     neon_auth_issuer: str | None = None
