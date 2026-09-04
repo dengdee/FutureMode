@@ -27,7 +27,7 @@
 
 | Endpoint 群組 | Web App 使用位置 | 狀態 |
 | --- | --- | --- |
-| health／ready | Dashboard 服務狀態 | 已接入 |
+| health／ready | 系統診斷工具 | API function 保留；Dashboard 不再顯示健康檢查 |
 | me | App Shell 身分區 | 已接入 |
 | teams／members | 工作區清單、成員顯示、建立會議的工作區選擇 | 已接入 |
 | meetings | Dashboard、工作區、建立會議、會前準備 | 已接入 |

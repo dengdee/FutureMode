@@ -18,7 +18,7 @@
 | 狀態管理 | 尚未使用 Zustand、React Context 或其他全域狀態方案 |
 | 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
 | 現有頁面 | `/` 導向 `/dashboard`；Dashboard 顯示 API 狀態與正式資料尚未提供時的空狀態 |
-| 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 健康檢查 UI |
+| 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 會議清單 UI |
 | 尚未完成 | WebSocket、Google Meet Add-on／音訊實作、AI 即時狀態、Review／投票／Memory API；未提供 endpoint 的能力維持明確 placeholder |
 
 > **與後端目前實作對齊（2026-09-05）**：後端已提供 `/health`、`/ready`、Neon JWT 保護的 `/api/v1/me`、teams、members、meetings、participants、agenda，以及未綁定 meeting scope 的 `/meetbot/join`。下方早期步驟中的「預期 endpoint」仍是產品規格，不代表後端已提供；以 `frontend/docs/api.md` 的接入表為準。
@@ -39,7 +39,7 @@
 | 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
 | 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已依功能拆分 `system.ts`、`meetbot.ts`、`me.ts`、`teams.ts`、`meetings.ts`、`participants.ts`、`agenda.ts`；全部使用 Axios 與正式 API，不使用 Mock Data |
 | 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊與 API client JWT 注入已完成；FastAPI issuer／audience／JWKS 與正式測試帳號需由環境設定 |
-| 05 | Dashboard 與會議清單 | 已完成 API 接入 | Dashboard 使用 `/health`、`/ready` 與 `GET /api/v1/meetings`，未登入／空資料／錯誤狀態分開呈現 |
+| 05 | Dashboard 與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings`，未登入／空資料／錯誤狀態分開呈現；健康檢查僅保留為診斷 API，不顯示於產品 UI |
 | 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
 | 07–11 | Prepare、Audio、Add-on、Live、Review | UI scaffold 完成／API 待補 | 頁面 UI 已建立；後端尚未提供 Brief、音訊、Live Snapshot、投票、Review 等 endpoint |
 | 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成 | 目前 OpenAPI 的 REST endpoint 已集中封裝並接入 Web App；WebSocket、重連、事件 envelope 尚未由後端提供 |

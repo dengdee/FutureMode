@@ -18,22 +18,21 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
-import { getCurrentUser } from "../lib/api/me";
 import { authClient } from "../lib/auth/client";
 
 gsap.registerPlugin(useGSAP);
 
 const navigation = [
-  [IconLayoutDashboard, "Dashboard", "/dashboard"],
+  [IconLayoutDashboard, "儀表板", "/dashboard"],
   [IconBriefcase, "工作區", "/workspaces"],
-  [IconBook, "Team Memory", "/memory"],
+  [IconBook, "團隊記憶", "/memory"],
   [IconSettings, "設定", "/settings"],
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [profileName, setProfileName] = useState("Proximate");
+  const { data: authSession } = authClient.useSession();
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const backdropRef = useRef<HTMLButtonElement>(null);
@@ -42,16 +41,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const contentRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const router = useRouter();
-  const breadcrumb =
-    pathname === "/dashboard"
-      ? "Dashboard"
-      : pathname === "/workspaces"
-        ? "Workspaces"
-        : pathname.startsWith("/meetings")
-          ? "Meetings"
-          : pathname === "/memory"
-            ? "Team Memory"
-            : "Settings";
+  const meetingPhase = pathname.startsWith("/meetings/")
+    ? ({ new: "建立會議", prepare: "會前準備", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
+    : undefined;
+  const breadcrumbGroup = meetingPhase ? "會議" : undefined;
+  const breadcrumb = meetingPhase ?? ({ "/dashboard": "儀表板", "/workspaces": "工作區", "/memory": "團隊記憶", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面";
 
   useGSAP(
     () => {
@@ -133,16 +127,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       previousFocusRef.current?.focus();
     };
   }, [sidebarOpen]);
-
-  useEffect(() => {
-    let active = true;
-    getCurrentUser().then((user) => {
-      if (!active) return;
-      const name = user.claims.name ?? user.claims.email ?? user.id;
-      setProfileName(typeof name === "string" ? name : "Proximate");
-    }).catch(() => undefined);
-    return () => { active = false; };
-  }, []);
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -244,8 +228,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 YC
               </span>
               <div className={sidebarCollapsed ? "md:hidden" : ""}>
-                <p className="max-w-28 truncate text-sm font-medium">{profileName}</p>
-                <p className="text-xs text-[#9b9a97]">Admin</p>
+                <p className="max-w-28 truncate text-sm font-medium">{authSession?.user?.name ?? authSession?.user?.email ?? "Proximate"}</p>
               </div>
             </div>
             <Tooltip content="登出">
@@ -276,12 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </Tooltip>
           <div className="flex items-center gap-2 text-sm">
-            <span className="hidden text-[#9b9a97] md:inline">Workspace</span>
-            <IconChevronRight
-              size={15}
-              stroke={1.8}
-              className="hidden text-[#b5b5b1] md:inline"
-            />
+            {breadcrumbGroup && <><span className="hidden text-[#9b9a97] md:inline">{breadcrumbGroup}</span><IconChevronRight size={15} stroke={1.8} className="hidden text-[#b5b5b1] md:inline" /></>}
             <span className="font-medium">{breadcrumb}</span>
           </div>
         </header>

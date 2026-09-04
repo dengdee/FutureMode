@@ -18,7 +18,7 @@ npm run lint
 npm run build
 ```
 
-可在 `http://localhost:8000/docs` 查看後端 Swagger；前端 Dashboard 的服務狀態會呼叫 `GET /health`。
+可在 `http://localhost:8000/docs` 查看後端 Swagger；`GET /health` 與 `GET /ready` 僅供系統診斷，不會在 Dashboard 顯示。
 
 ## 環境變數規則
 

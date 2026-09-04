@@ -17,6 +17,7 @@
 ## Client／Server import 邊界
 
 - Client Components（登入、註冊、App Shell 與 API client）只能引用 `lib/auth/client.ts`。該檔案使用目前已安裝版本提供的 `@neondatabase/auth/next` browser-safe client entrypoint。
+- App Shell 的顯示名稱直接讀取 `authClient.useSession()` 的 `data.user.name`，缺少名稱時依序 fallback 到 Email 與 `Proximate`；不依賴後端 `/api/v1/me` 提供 username。
 - `lib/auth/server.ts` 只能由 `proxy.ts` 與 `app/api/auth/[...path]/route.ts` 引用，使用 `@neondatabase/auth/next/server`；不可從任何標示 `"use client"` 的元件或其相依模組引入。
 - 目前套件版本沒有 `@neondatabase/auth/next/client` export；若升級至提供該子路徑的版本，再依官方 API 替換 client entrypoint，不應自行建立同名 alias。
 

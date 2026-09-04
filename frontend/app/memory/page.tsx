@@ -1,14 +1,26 @@
 "use client";
 
-import { IconFileText, IconFolderOpen, IconSearch, IconUpload } from "@tabler/icons-react";
+import { IconFileText, IconFolder, IconSearch } from "@tabler/icons-react";
+import { useEffect, useState, type DragEvent } from "react";
 import { AppShell } from "../../components/app-shell";
 import { PageHeader } from "../../components/page-header";
-import { useRef, useState } from "react";
+import { listTeams } from "../../lib/api/teams";
+import type { Team } from "../../types/api";
 
 export default function MemoryPage() {
-  const inputRef = useRef<HTMLInputElement>(null); const [uploadedFiles, setUploadedFiles] = useState<string[]>([]); const [collection, setCollection] = useState("全部文件");
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) setUploadedFiles((files) => [...files, file.name]); event.target.value = ""; };
-  return <AppShell><PageHeader eyebrow="Team memory" title="團隊記憶" description="集中管理 AI 在會議中可引用的團隊文件與既有決策。" actions={<><input ref={inputRef} className="hidden" type="file" accept=".pdf,.txt" onChange={handleFileChange} /><button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"><IconUpload size={18} />上傳文件</button></>} />
-    <div className="mt-8 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]"><aside className="rounded-2xl border border-[#e6e6e3] bg-white p-3"><p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#8b8b87]">Collections</p>{["全部文件", "會議決策", "產品研究", "團隊規範"].map((item) => <button type="button" onClick={() => setCollection(item)} key={item} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm ${collection === item ? "bg-[#efefec] font-medium" : "text-[#787774] hover:bg-[#f7f7f5]"}`}><IconFolderOpen size={17} />{item}</button>)}</aside><section><label className="relative block"><IconSearch className="absolute left-3 top-3 text-[#8b8b87]" size={18} /><input className="w-full rounded-xl border border-[#e0e0dd] bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[var(--accent)]" placeholder="搜尋文件、決策或關鍵字" /></label><div className="mt-5 rounded-2xl border border-[#e6e6e3] bg-white p-5">{uploadedFiles.length > 0 ? <div className="space-y-2">{uploadedFiles.map((file) => <div key={file} className="flex items-center gap-3 rounded-xl bg-[#f7f7f5] px-4 py-3 text-sm"><IconFileText className="text-[var(--accent)]" size={20} /><span className="truncate">{file}</span><span className="ml-auto text-xs text-[#8b8b87]">已加入團隊記憶</span></div>)}</div> : <div className="py-12 text-center"><IconFileText className="mx-auto text-[#8b8b87]" size={32} /><h2 className="mt-4 font-semibold">還沒有可用的團隊文件</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">首版支援 PDF 與純文字上傳。請使用右上角「上傳文件」加入團隊共用資料。</p></div>}</div></section></div>
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamId, setTeamId] = useState("");
+  const [scope, setScope] = useState<"shared" | "meeting">("shared");
+  const [files, setFiles] = useState<string[]>([]);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => { listTeams().then((result) => { setTeams(result.teams); setTeamId(result.teams[0]?.id ?? ""); }).catch(() => undefined); }, []);
+  function acceptFiles(fileList: FileList | null) { if (fileList) setFiles((current) => [...current, ...Array.from(fileList).map((file) => file.name)]); }
+  function onDrop(event: DragEvent<HTMLDivElement>) { event.preventDefault(); setDragging(false); acceptFiles(event.dataTransfer.files); }
+
+  return <AppShell><PageHeader eyebrow="Team memory" title="團隊記憶" description="依工作區整理共用文件與單次會議資料，讓 AI 使用正確的脈絡。" />
+    <div className="mt-8 flex flex-wrap items-center gap-3"><label className="text-sm font-medium">目前工作區<select value={teamId} onChange={(event) => setTeamId(event.target.value)} className="control-primary ml-3 inline-block w-auto min-w-52 cursor-pointer"><option value="">選擇工作區</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
+    <div className="mt-5 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]"><aside className="rounded-2xl border border-[#e6e6e3] bg-white p-3"><p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#8b8b87]">文件範圍</p>{[["shared", "團隊共用文件"], ["meeting", "單次會議文件"]].map(([value, label]) => <button key={value} type="button" onClick={() => setScope(value as "shared" | "meeting")} className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm ${scope === value ? "bg-[#efefec] font-medium" : "text-[#787774] hover:bg-[#f7f7f5]"}`}><IconFolder size={17} />{label}</button>)}</aside>
+      <section><label className="relative block"><IconSearch className="absolute left-3 top-3 text-[#8b8b87]" size={18} /><input className="control-primary w-full pl-10" placeholder="搜尋文件、決策或關鍵字" /></label><div onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={onDrop} className={`mt-5 rounded-2xl border-2 border-dashed bg-white p-10 text-center transition-colors ${dragging ? "border-[#0f9f8a] bg-[#f0fbf8]" : "border-[#e6e6e3]"}`}><IconFileText className="mx-auto text-[#0f9f8a]" size={32} /><h2 className="mt-4 font-semibold">將文件拖曳到這裡</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">目前區域：{scope === "shared" ? "團隊共用文件" : "單次會議文件"}。支援 PDF 與純文字檔案。</p><input id="memory-file-picker" className="sr-only" type="file" accept=".pdf,.txt" multiple onChange={(event) => acceptFiles(event.target.files)} /><label htmlFor="memory-file-picker" className="mt-5 inline-block cursor-pointer rounded-primary border border-[#d8d8d5] bg-white px-4 py-2 text-sm font-medium hover:bg-[#f7f7f5]">或選擇檔案</label>{files.length > 0 && <div className="mx-auto mt-6 max-w-xl space-y-2 text-left">{files.map((file, index) => <div key={`${file}-${index}`} className="flex items-center gap-3 rounded-xl bg-[#f7f7f5] px-4 py-3 text-sm"><IconFileText className="text-[#0f9f8a]" size={19} /><span className="truncate">{file}</span><span className="ml-auto text-xs text-[#8b8b87]">待上傳</span></div>)}</div>}</div></section></div>
   </AppShell>;
 }

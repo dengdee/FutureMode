@@ -3,7 +3,7 @@
 | 路由 | 使用者位置 | 頁面責任 | 狀態 |
 | --- | --- | --- | --- |
 | `/` | 瀏覽器 | 產品 Landing Page | 已完成 |
-| `/dashboard` | Web App | 服務狀態、近期會議、建立入口 | system／meetings API 已接 |
+| `/dashboard` | Web App | 近期會議與建立入口 | meetings API 已接；不顯示健康檢查 |
 | `/sign-in` | Web App | Neon Auth 登入入口 | 已接 Neon Auth |
 | `/sign-up` | Web App | 建立帳號入口 | 已接 Neon Auth |
 | `/workspaces` | Web App | 查看團隊、成員與工作區會議；以表格準備邀請名單 | Team／Member／Meeting 讀取 API 已接；建立／邀請寫入 API 待提供 |
