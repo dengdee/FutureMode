@@ -24,6 +24,8 @@ def test_core_tables_are_registered() -> None:
         "consensus_versions",
         "consensus_feedback",
         "action_items",
+        "documents",
+        "document_chunks",
     }.issubset(Base.metadata.tables)
 
 
@@ -35,9 +37,7 @@ def test_join_tables_have_composite_primary_keys() -> None:
 
 def test_agenda_positions_are_unique_per_meeting() -> None:
     table = Base.metadata.tables["agenda_items"]
-    assert any(
-        constraint.name == "uq_agenda_meeting_position" for constraint in table.constraints
-    )
+    assert any(constraint.name == "uq_agenda_meeting_position" for constraint in table.constraints)
 
 
 def test_core_foreign_keys_use_safe_delete_actions() -> None:

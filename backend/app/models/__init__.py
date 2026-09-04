@@ -2,6 +2,7 @@
 
 from app.models.consensus import ActionItem, ConsensusFeedback, ConsensusVersion
 from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
+from app.models.document import Document, DocumentChunk
 from app.models.personal import DelegateProfile, PersonalAgentMessage, PublicContribution
 from app.models.realtime import MeetingEventCursor, MeetingState
 from app.models.suggestion import AISuggestion, SuggestionVote
@@ -25,6 +26,8 @@ __all__ = [
     "ActionItem",
     "ConsensusFeedback",
     "ConsensusVersion",
+    "Document",
+    "DocumentChunk",
     "Team",
     "TeamMember",
     "User",

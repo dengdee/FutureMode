@@ -132,6 +132,18 @@ class ActionItemUpdate(BaseModel):
     status: str | None = Field(default=None, pattern="^(open|in_progress|done|cancelled)$")
 
 
+class DocumentCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    source_type: str = Field(default="text", min_length=1, max_length=32)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class DocumentChunkCreate(BaseModel):
+    position: int = Field(ge=1)
+    content: str = Field(min_length=1, max_length=100_000)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 
