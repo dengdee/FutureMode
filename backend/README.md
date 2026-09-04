@@ -13,13 +13,18 @@
 - 已存在的 Meeting BaaS 實作：`backend/app/meetbot.py` 直接呼叫 Meeting BaaS v2 Bot API，尚未形成完整 adapter、政策驗證、idempotency 或完整錯誤模型。
 - 尚未存在：資料庫、ORM、migration、認證、團隊權限、會議 CRUD、WebSocket room、逐字稿管線、AI runtime、RAG、共識流程、正式 observability 與部署設定。
 
+### 已完成步驟
+
+- **步驟 0**：已確認 Neon Auth、逐人麥克風與 Vercel；分頁音訊列為備援。
+- **步驟 1**：已完成設定容錯、CORS allowlist、request ID、統一錯誤回應、`/ready` 與基礎測試。
+
 ## 目前發現的缺口與衝突
 
-1. `Settings` 已要求 `MEETING_BAAS_API_KEY`，但 `backend/.env.example` 尚未列出此欄位；在未設定金鑰時，應用程式載入會失敗。後續應先決定「開發環境是否允許空值／mock」及安全的錯誤訊息。
-2. 規劃文件的模組責任寫 Clerk，部署與技術選型又寫 Neon Auth；認證實作前必須二選一，不能同時假設兩者存在。
+1. `MEETING_BAAS_API_KEY` 在本機可為空；呼叫 Meeting BaaS 時會回傳未設定錯誤，正式環境仍必須使用 Secret 管理。
+2. 認證方案已確認採 Neon Auth；正式實作仍需取得 issuer、audience、JWKS 與測試帳號設定。
 3. 規劃文件建議 `backend/integrations/meetingbaas/`、`voice_bot/`，目前實際程式位於 `backend/app/meetbot.py`；後續應以現有程式為基礎重構，不直接覆蓋。
-4. 規劃同時描述分頁音訊與每位使用者麥克風兩種輸入方式；MVP 應先決定一個主要來源，另一個只能作備援。
-5. FastAPI WebSocket 部署到 Vercel 的長連線能力仍待驗證，不應在驗證前把 Vercel 當成唯一 API hosting。
+4. 音訊主要來源已確認採逐人麥克風；分頁音訊僅作備援，仍需在步驟 8 驗證瀏覽器權限與斷線行為。
+5. API hosting 已選定 Vercel；WebSocket 長連線能力仍需在步驟 7 實測，不預先宣稱已支援。
 
 ## 開發順序
 
@@ -46,9 +51,9 @@
 - **資料庫變更**：無。
 - **API 規格**：`GET /health`（程序存活）；`GET /ready`（依賴就緒，未接 DB 前可明確回報未啟用）；錯誤統一包含 `code`、`message`、`request_id`，不得包含 stack trace 或機密。
 - **前置條件**：步驟 0。
-- **環境設定**：`APP_ENV`、`API_HOST`、`API_PORT`、`CORS_ORIGINS`；確認 `MEETING_BAAS_API_KEY` 的 optional／required 策略。
+- **環境設定**：`APP_ENV`、`API_HOST`、`API_PORT`、`CORS_ORIGINS`、`LOG_LEVEL`；`MEETING_BAAS_API_KEY` 在本機可為空，呼叫功能時回傳未設定錯誤。
 - **驗證方式**：正常啟動、錯誤設定、未知路由、驗證錯誤、CORS、log redaction 測試。
-- **完成標準**：所有錯誤有穩定格式，敏感正文不出現在 log，既有 `/health` 行為不退化。
+- **完成標準**：所有錯誤有穩定格式，敏感正文不出現在 log，既有 `/health` 行為不退化；`/ready` 能明確標示尚未啟用的依賴。
 - **注意事項**：CORS 不可使用 production wildcard；不要在錯誤中回傳 provider 原始 token 或完整 request body。
 
 ### 步驟 2｜資料庫連線、ORM 與 Migration 基礎
