@@ -85,6 +85,19 @@ class SuggestionStatusUpdate(BaseModel):
     status: str = Field(pattern="^(pending|expanded|deferred|ignored|accepted)$")
 
 
+class PersonalMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+
+
+class PersonalMessageSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 

@@ -18,6 +18,8 @@ def test_core_tables_are_registered() -> None:
         "transcripts",
         "ai_suggestions",
         "suggestion_votes",
+        "personal_agent_messages",
+        "public_contributions",
     }.issubset(Base.metadata.tables)
 
 

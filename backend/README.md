@@ -28,6 +28,7 @@
 - **步驟 8（第二段）**：已修正每場會議 transcript sequence 唯一約束，並加入 `limit`／`after_sequence` 分頁查詢。
 - **步驟 9（第一段）**：已建立 `ai_suggestions`、`suggestion_votes` 模型、Migration、建議列表與投票 API；尚未接入 LLM provider 與 Host 控制流程。
 - **步驟 9（第二段）**：已加入 Suggestion 狀態控制與投票結果查詢；LLM provider 尚未接入。
+- **步驟 10（第一段）**：已建立私人 Sidekick 訊息模型、Migration 與 user／meeting 隔離的新增／查詢 API；公開貢獻與 Delegate 尚未完成。
 
 ## 目前發現的缺口與衝突
 

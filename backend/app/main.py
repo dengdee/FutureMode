@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.auth import router as auth_router
 from app.api.me import router as identity_router
 from app.api.meetings import router as meetings_router
+from app.api.personal import router as personal_router
 from app.api.suggestions import router as suggestions_router
 from app.api.teams import router as teams_router
 from app.api.transcripts import router as transcripts_router
@@ -119,4 +120,5 @@ app.include_router(auth_router)
 app.include_router(teams_router)
 app.include_router(transcripts_router)
 app.include_router(suggestions_router)
+app.include_router(personal_router)
 app.include_router(meetings_router)

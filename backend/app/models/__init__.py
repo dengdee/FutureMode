@@ -1,6 +1,7 @@
 """Database models used by the backend."""
 
 from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
+from app.models.personal import PersonalAgentMessage, PublicContribution
 from app.models.realtime import MeetingEventCursor, MeetingState
 from app.models.suggestion import AISuggestion, SuggestionVote
 from app.models.transcript import Transcript
@@ -17,6 +18,8 @@ __all__ = [
     "Transcript",
     "AISuggestion",
     "SuggestionVote",
+    "PersonalAgentMessage",
+    "PublicContribution",
     "Team",
     "TeamMember",
     "User",
