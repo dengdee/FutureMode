@@ -107,7 +107,7 @@ uv run alembic current
 - **注意事項**：Private Sidekick 的隔離必須在 service/repository 層強制，不只靠路由。
 
 ### 步驟 5｜會議設定與生命週期 API
-P
+
 - **目標**：完成建立、設定、開始與結束一場會議的核心 REST 流程。
 - **功能內容**：標題、時間、議程、參與者、Host、AI 角色、介入程度、Voice policy 與 required participants。
 - **預計異動範圍**：`app/api/meetings.py`、`app/services/meeting_service.py`、`app/schemas/meeting.py`、`app/models/`、migration、tests。
