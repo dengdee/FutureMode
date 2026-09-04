@@ -375,11 +375,20 @@ async def transcribe_meeting_audio(
     meeting_id: UUID,
     file: UploadFile = File(...),
     speaker_label: str = Form(default="unknown", max_length=255),
+    speaker_user_id: UUID | None = Form(default=None),
     started_at: datetime | None = Form(default=None),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> TranscriptionResponse:
     await authorized_meeting(meeting_id, principal, session)
+    if speaker_user_id is not None:
+        member = await session.scalar(
+            select(TeamMember)
+            .join(Meeting, Meeting.team_id == TeamMember.team_id)
+            .where(Meeting.id == meeting_id, TeamMember.user_id == speaker_user_id)
+        )
+        if member is None:
+            raise HTTPException(status_code=400, detail="speaker is not a meeting team member")
     content = await file.read(25_000_001)
     if len(content) > 25_000_000:
         raise HTTPException(status_code=413, detail="audio file is too large")
@@ -401,6 +410,7 @@ async def transcribe_meeting_audio(
     now = datetime.now(UTC)
     segment = Transcript(
         meeting_id=meeting_id,
+        speaker_user_id=speaker_user_id,
         speaker_label=speaker_label.strip() or "unknown",
         sequence=sequence,
         started_at=started_at or now,
@@ -424,6 +434,7 @@ async def transcribe_meeting_audio(
                 )
                 segment = Transcript(
                     meeting_id=meeting_id,
+                    speaker_user_id=speaker_user_id,
                     speaker_label=speaker_label.strip() or "unknown",
                     sequence=int(latest_sequence or 0) + 1,
                     started_at=started_at or now,

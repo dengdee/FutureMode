@@ -58,6 +58,7 @@
 - **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。
+- **步驟 8（第四段）**：STT 上傳 API 支援 `speaker_user_id`，並驗證使用者屬於會議 team 後寫入 transcript，完成基本 speaker identity 對應。
 
 ## 目前發現的缺口與衝突
 
