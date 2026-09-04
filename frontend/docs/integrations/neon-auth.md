@@ -2,14 +2,14 @@
 
 ## 目前狀態
 
-產品正式登入選 Neon Auth；目前前端只有 `/sign-in` UI，尚未安裝或接入 Neon Auth SDK。
+產品正式登入選 Neon Auth；目前已安裝 `@neondatabase/auth`，並建立 server auth、API handler、`proxy.ts` 路由保護，以及 `/sign-in`／`/sign-up` 的 email/password UI。
 
 ## 手動設定清單（待確認）
 
 1. 由專案管理者建立 Neon Auth 專案與登入方式。
-2. 確認前端使用的 SDK、登入 callback、session refresh 與 sign-out API。
-3. 在本機與 Vercel 設定必要的公開 application URL；secret 由後端／平台管理，不放前端 bundle。
-4. 設定允許的本機與正式 callback URL。
-5. 登入後以後端 `GET /api/v1/me` 驗證 active team 與角色。
+2. 在 `frontend/.env` 與 Vercel 設定 `NEON_AUTH_BASE_URL`、`NEON_AUTH_COOKIE_SECRET`（至少 32 字元）。
+3. 本機啟動後測試 `/sign-up`、`/sign-in`、登出與受保護路由。
+4. 登入後以後端 `GET /api/v1/me` 驗證 active team 與角色。
+5. FastAPI 需補上 Bearer token 驗證；目前前端 auth cookie 與 API server 的跨服務 token transport 尚待後端確認。
 
-在 SDK、callback 與 token transport 確認前，不要自行建立 Auth provider 或假造登入成功狀態。
+目前未設定 Neon Auth 環境變數時，`proxy.ts` 會暫時放行頁面以支援本機 UI 開發；正式環境必須設定環境變數並啟用驗證。

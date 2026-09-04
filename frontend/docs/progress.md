@@ -4,6 +4,7 @@
 
 - Next.js 16 App Router、TypeScript、Tailwind CSS 4、Tabler Icons、GSAP 基礎。
 - Noto Sans TC 可變字體已套用全站；表單控制項使用共用 `control-primary` 與 `rounded-primary` 樣式。
+- Neon Auth 前端骨架已建立：server auth、`/api/auth/[...path]`、`proxy.ts`、登入／註冊 email/password UI。
 - Landing Page `/`。
 - Dashboard `/dashboard`：左右分欄、側欄收合、手機 Drawer、服務健康檢查與近期會議列表。
 - 會議相關 UI：`/meetings/new`、`prepare`、`audio-setup`、`addon`、`live`、`review`。
