@@ -104,7 +104,42 @@ async def list_chunks(
             .order_by(DocumentChunk.position)
         )
     ).all()
-    return [{"id": str(c.id), "position": c.position, "content": c.content} for c in rows]
+    return [
+        {
+            "id": str(c.id),
+            "position": c.position,
+            "content": c.content,
+            "metadata": c.metadata_json,
+        }
+        for c in rows
+    ]
+
+
+@router.get("/documents/{document_id}")
+async def get_document(
+    document_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, object]:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    chunk_count = await session.scalar(
+        select(func.count()).select_from(DocumentChunk).where(
+            DocumentChunk.document_id == document_id
+        )
+    )
+    return {
+        "id": str(document.id),
+        "team_id": str(document.team_id),
+        "name": document.name,
+        "source_type": document.source_type,
+        "status": document.status,
+        "metadata": document.metadata_json,
+        "chunk_count": int(chunk_count or 0),
+        "created_at": document.created_at,
+    }
 
 
 @router.get("/teams/{team_id}/memory/search")
