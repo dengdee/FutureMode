@@ -1,6 +1,6 @@
 # Proximate Backend 開發流程
 
-本文件是後端開發的執行順序與驗收基準。它根據根目錄的 `ProductPlanning.md` 與目前 `backend/` 程式碼整理而成；本階段只建立規劃，不代表下列功能已完成。
+本文件記錄後端目前的實際狀態、啟動方式與後續開發順序。內容已依根目錄的 `ProductPlanning.md` 及目前 `backend/` 程式碼更新。
 
 ## 目前後端狀態
 
@@ -8,10 +8,18 @@
 - 套件管理：`uv`，依賴與版本鎖定在 `pyproject.toml`、`uv.lock`。
 - 入口：`backend/app/main.py`。
 - 設定：`backend/app/config.py`，目前讀取 `backend/.env`。
-- 已完成 API：`GET /health`、`POST /meetbot/join`。
-- 已完成測試：健康檢查測試。
-- 已存在的 Meeting BaaS 實作：`backend/app/meetbot.py` 直接呼叫 Meeting BaaS v2 Bot API，尚未形成完整 adapter、政策驗證、idempotency 或完整錯誤模型。
-- 尚未存在：WebSocket room、逐字稿管線、AI runtime、RAG、共識流程、正式 observability 與部署設定。
+- 已完成基礎 API：`GET /health`、`GET /ready`、`POST /meetbot/join`。
+- 已完成團隊、會議、逐字稿、Team Memory/RAG、Cloudflare R2 與 Groq STT 的 REST API（詳見 `/docs`）。
+- `app/meetbot.py` 保持既有 Meeting BaaS 相容入口；本階段不修改其語音輸出流程。
+- 尚未完成：WebSocket realtime gateway、VAD、Groq streaming STT、AI/LLM provider、正式 observability 與部署設定。
+
+### 目前可用的 Web API
+
+- 認證與團隊：`GET /api/v1/auth/config`、`GET /api/v1/me`、`GET /api/v1/teams`、團隊成員與角色管理。
+- 會議：建立、列表、查詢、修改、參與者、議程、開始／結束／取消。
+- 逐字稿：查詢、新增、Groq Whisper 音訊轉錄（含 speaker、時間區間、idempotency）、Meeting BaaS transcript backup webhook。
+- Team Memory/RAG：文件與版本、文字／PDF ingestion、embedding、全文／hybrid search、metadata／版本過濾、封存、刪除、版本回復。
+- R2 檔案：上傳、預簽名下載、存在性檢查與清理。
 
 ### 已完成步驟
 
@@ -22,22 +30,22 @@
 - **步驟 4**：已完成 Neon Auth JWT 驗證、`/me`、使用者設定、團隊列表／成員查詢、團隊建立與角色授權基礎。
 - **登入設定**：已提供 `GET /api/v1/auth/config` 與 Neon Auth 人工設定文件；登入／註冊仍由 Neon Auth SDK 負責。
 - **步驟 5**：已完成會議建立、列表、單筆查詢、修改、參與者、議程、開始／結束與取消生命週期 API。
-- **步驟 6（資料庫部分）**：已建立 `bot_sessions`、`voice_requests` 與非敏感 audit metadata 模型與 Migration；provider adapter 尚未完成。
+- **步驟 6（資料庫部分）**：已建立 `bot_sessions`、`voice_requests` 與非敏感 audit metadata 模型與 Migration；完整 provider adapter／政策控制仍未完成。
 - **步驟 7（資料庫部分）**：已建立 `meeting_states` 與 `meeting_event_cursors` 模型與 Migration；WebSocket gateway 尚未完成。
-- **步驟 8（第一段）**：已建立 `transcripts` 模型、Migration，以及受保護的逐字稿新增／查詢 API；STT provider 與音訊串流尚未接入。
+- **步驟 8**：已完成 Groq Whisper 批次 STT、transcript 持久化、speaker identity、時間區間、idempotency 與 Meeting BaaS transcript backup；VAD 與 streaming STT 尚未完成。
 - **步驟 8（第二段）**：已修正每場會議 transcript sequence 唯一約束，並加入 `limit`／`after_sequence` 分頁查詢。
 - **步驟 9（第一段）**：已建立 `ai_suggestions`、`suggestion_votes` 模型、Migration、建議列表與投票 API；尚未接入 LLM provider 與 Host 控制流程。
 - **步驟 9（第二段）**：已加入 Suggestion 狀態控制與投票結果查詢；LLM provider 尚未接入。
 - **步驟 10（第一段）**：已建立私人 Sidekick 訊息模型、Migration 與 user／meeting 隔離的新增／查詢 API；公開貢獻與 Delegate 尚未完成。
 - **步驟 11（第一段）**：已建立 Consensus、Feedback、Action Items 模型、Migration，以及基本共識／回饋／行動項目 API；完整確認門檻與版本衝突處理待補。
 - **步驟 11（第二段）**：已加入 Feedback 查詢、Consensus 確認，以及 Action Item 更新／刪除 API。
-- **步驟 12（第一段）**：已建立 Team Memory 文件與文件切塊模型、Migration，以及 team-scoped 文件／chunk 建立與查詢 API；尚未接入 embedding provider、檔案上傳與 hybrid search。
-- **步驟 12（第二段）**：已加入 team-scoped PostgreSQL 全文檢索 API，回傳文件來源、chunk 位置與相關度；尚未接入 embedding provider、pgvector hybrid ranking 與檔案 ingestion。
-- **步驟 12（第三段）**：已補齊文件詳情與 chunk metadata 查詢 API，提供來源追溯與 chunk 數量資訊；尚未接入 embedding provider、pgvector hybrid ranking 與檔案 ingestion。
+- **步驟 12（第一段）**：已建立 Team Memory 文件與文件切塊模型、Migration，以及 team-scoped 文件／chunk 建立與查詢 API；後續段落已完成 embedding、檔案上傳與 hybrid search。
+- **步驟 12（第二段）**：已加入 team-scoped PostgreSQL 全文檢索 API，回傳文件來源、chunk 位置與相關度；後續已完成 embedding、pgvector hybrid ranking 與檔案 ingestion。
+- **步驟 12（第三段）**：已補齊文件詳情與 chunk metadata 查詢 API，提供來源追溯與 chunk 數量資訊；後續已完成 embedding、pgvector hybrid ranking 與檔案 ingestion。
 - **步驟 13（第一段）**：已為文件清單、詳情、chunks 與 Memory search 補上明確 OpenAPI response schema；前端可由 `/docs` 取得穩定欄位定義。
 - **步驟 13（第二段）**：已為文件與 chunk 建立 API 補上明確建立結果 schema，OpenAPI 回應格式完整一致。
-- **步驟 12（第四段）**：已加入純文字 ingestion API、固定大小 chunk 切分，以及文件 version／indexing 狀態欄位；尚未接入檔案儲存、embedding provider 與 pgvector hybrid search。
-- **步驟 12（第五段）**：已加入 Embedding provider 的設定欄位與安全範例（預設 OpenAI `text-embedding-3-small`）；尚未執行外部 API 呼叫或建立 vector 欄位。
+- **步驟 12（第四段）**：已加入純文字 ingestion API、固定大小 chunk 切分，以及文件 version／indexing 狀態欄位；後續已接入檔案儲存、embedding provider 與 pgvector hybrid search。
+- **步驟 12（第五段）**：已加入 Embedding provider 的設定欄位與安全範例（預設 OpenAI `text-embedding-3-small`）；後續已接入外部 API 呼叫與 vector 欄位。
 - **步驟 12（第六段）**：已加入 pgvector embedding 欄位、Migration 與 OpenAI embedding API；文件可透過 embed endpoint 建立向量並標記為 embedded。
 - **步驟 12（第七段）**：已加入 Embedding 相似度與全文檢索混合排序 API；未設定 Embedding provider 時保留純全文搜尋並讓 hybrid endpoint 回傳設定錯誤。
 - **步驟 12（第八段）**：已加入 Embedding 失敗狀態、錯誤摘要與 retry count；再次呼叫 embed endpoint 可重試既有 chunks。
@@ -46,7 +54,7 @@
 - **步驟 12（第十一段）**：搜尋僅納入 `ready`／`embedded` 文件，排除尚未完成或索引失敗資料；hybrid search 僅使用已建立向量的 `embedded` 文件。
 - **步驟 12（第十二段）**：已加入文件 archive lifecycle API；archive 僅標記狀態、不刪除 chunks／vectors，且會被搜尋排除。
 - **步驟 12（第十三段）**：Embedding 改為可設定批次處理並限制單文件 chunks 數量，降低 provider 請求大小與成本風險。
-- **步驟 12（第十四段）**：已加入 Cloudflare R2 S3-compatible storage adapter 與設定欄位；尚未接到文件 upload API。
+- **步驟 12（第十四段）**：已加入 Cloudflare R2 S3-compatible storage adapter 與設定欄位，並已接到文件 upload API。
 - **步驟 12（第十五段）**：文件 upload API 已接入 Cloudflare R2，保存原始檔案並於 document metadata 記錄 storage key；未提供刪除舊檔操作。
 - **步驟 12（第十六段）**：已加入 team-scoped R2 預簽名下載 URL API，短效 URL 可供 Web 預覽／下載且不暴露儲存金鑰。
 - **步驟 12（第十七段）**：已加入文件刪除 API，先清理 R2 原始檔，再刪除文件及其 chunks／vectors／版本資料；R2 失敗時保留資料庫內容。
@@ -55,8 +63,7 @@
 - **步驟 12（第二十段）**：全文與 hybrid search 支援 `source_type`、`version` 與 metadata key/value 過濾，便於 Web 端進行版本與來源治理。
 - **步驟 12（第二十一段）**：已加入指定文件版本回復 API，從 R2 讀回原始檔並重新 ingestion 產生新版本。
 - **步驟 12（第二十二段）**：文件刪除會清理目前文件與所有歷史版本的 R2 原始檔，避免留下孤兒物件。
-- **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
-- **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
+- **步驟 8（語音）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限、錯誤處理、transcript 持久化與 speaker mapping；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。
 - **步驟 8（第四段）**：STT 上傳 API 支援 `speaker_user_id`，並驗證使用者屬於會議 team 後寫入 transcript，完成基本 speaker identity 對應。
 - **步驟 8（第五段）**：STT 上傳 API 支援 `language` 與 `ended_at` multipart 欄位，並將語言傳給 Groq Whisper、保存完整時間區間。
@@ -67,7 +74,7 @@
 
 1. `MEETING_BAAS_API_KEY` 本機可為空是刻意設計；未設定時呼叫會回傳錯誤，正式環境必須使用 Secret 管理。
 2. Neon Auth 後端驗證基礎已完成，包含 issuer／audience／JWKS 設定、`/api/v1/auth/config` 與設定文件；仍需要人工在 Neon Console 建立 Auth、測試帳號並填入 `backend/.env`。
-3. 規劃文件建議 `backend/integrations/meetingbaas/`、`voice_bot/`，目前仍以 `backend/app/meetbot.py` 為相容入口；Meeting BaaS adapter、Webhook、retry 與 idempotency 尚未完成。
+3. 規劃文件建議 `backend/integrations/meetingbaas/`、`voice_bot/`，目前仍以 `backend/app/meetbot.py` 為相容入口；transcript backup webhook 已完成，但完整 Bot adapter、政策控制與語音輸出整合仍待處理。
 4. 音訊主要來源已確認採逐人麥克風；分頁音訊僅作備援。瀏覽器權限、同意流程與斷線行為需要前端／瀏覽器實測，後端尚未宣稱完成。
 5. API hosting 已選定 Vercel；WebSocket gateway 與 Vercel 長連線能力尚未完成及實測，不預先宣稱已支援。
 
@@ -134,10 +141,10 @@ uv run alembic current
 - **完成標準**：模型與規劃實體一致，資料庫約束可防止跨 team 連結與孤兒資料。
 - **注意事項**：所有查詢必須帶 `team_id`／權限範圍；時間統一 UTC。
 
-### 步驟 4｜身分驗證、團隊與授權
+### 步驟 4｜身分驗證、團隊與授權（已完成）
 
 - **目標**：驗證外部 session／JWT，並把使用者、團隊與角色權限套用到每個 endpoint。
-- **功能內容**：選定 Clerk 或 Neon Auth、token 驗證、principal dependency、team membership、owner／admin／member／host 權限矩陣。
+- **功能內容**：採用 Neon Auth，完成 token 驗證、principal dependency、team membership、owner／admin／member／host 權限矩陣。
 - **預計異動範圍**：`app/auth/`、`app/dependencies/`、`app/services/`、`app/schemas/`、`tests/`。
 - **資料庫變更**：補 users external ID、teams、team_members 索引與角色欄位（依步驟 3 調整）。
 - **API 規格**：`GET /api/v1/me`、`GET /api/v1/teams`；401 未登入、403 無權限、404 不洩漏資源存在性。
@@ -168,7 +175,7 @@ uv run alembic current
 - **資料庫變更**：bot_sessions、voice_requests、audit metadata；不得保存 API key 或完整私人內容。
 - **API 規格**：保留或版本化 `POST /api/v1/meetings/{id}/voice-bot/join`；`POST /.../speak` 只能接收已核准版本；webhook endpoint 驗證簽章。
 - **前置條件**：步驟 1、4、5；Meeting BaaS 測試帳號與測試會議連結。
-- **環境設定**：`MEETING_BAAS_API_KEY`、`MEETING_BAAS_BASE_URL`、`MEETING_BAAS_WEBHOOK_SECRET`、timeout／用量上限。
+- **環境設定**：`MEETING_BAAS_API_KEY`、`MEETING_BAAS_BASE_URL`；若啟用 transcript backup webhook，再由 Meeting BaaS 管理者產生並設定 `MEETING_BAAS_WEBHOOK_SECRET`。本機未設定時僅停用該 webhook，不影響其他 API。
 - **驗證方式**：mock provider、連線失敗、4xx／5xx、重試、重送 webhook、重複 join、未達政策門檻不得 speak。
 - **完成標準**：provider 失敗時回傳可理解錯誤並保留文字卡降級路徑；不會重複建立 Bot 或未授權發言。
 - **注意事項**：現有 `POST /meetbot/join` 直接把 provider 原文回傳，後續需改為穩定內部 schema 並遮罩錯誤細節。
@@ -270,11 +277,13 @@ uv run alembic current
 
 步驟 0–9、步驟 11，以及步驟 13 的最小測試／文件／安全檢查。步驟 6 的 Voice Bot 必須有文字卡片降級路徑；步驟 8 可先使用受控繁中 fixture。
 
-### 可選或後續功能
+### 尚未完成／後續功能
 
-- 完整 Team Memory／RAG、embedding 與文件管理（步驟 12）。
+- WebSocket realtime gateway 與 Meeting State 即時同步（步驟 7）。
+- VAD、Groq streaming STT 與瀏覽器音訊斷線處理（步驟 8 延伸）。
+- Meeting BaaS 完整 provider adapter、政策控制與 `meetbot.py` 語音輸出整合（依目前分工暫不處理）。
+- LLM provider、AI runtime 與正式 observability／部署設定。
 - Delegate 完整觸發引擎、匿名貢獻、跨裝置 thread 同步（步驟 10 的延伸）。
-- 真實分頁音訊、VAD、Groq streaming STT 與 Meeting BaaS transcript backup（步驟 8 的延伸）。
 - Notion、Google Drive、Calendar、Jira、Zoom、Teams 整合。
 - 多 instance Redis／ARQ、進階成本控制、Sentry performance tracing。
 
@@ -283,7 +292,7 @@ uv run alembic current
 需要人工建立帳號、project、金鑰或 OAuth 的服務，必須在實作該步驟前依個別文件設定。所有金鑰只放 `backend/.env` 或部署平台 Secret，不得提交 Git。
 
 - [Neon PostgreSQL](docs/external-services/neon-postgresql.md)
-- [認證方案（Clerk／Neon Auth 待選）](docs/external-services/authentication.md)
+- [Neon Auth](docs/external-services/neon-auth.md)
 - [Meeting BaaS](docs/external-services/meeting-baas.md)
 - [OpenAI](docs/external-services/openai.md)
 - [Groq Whisper](docs/external-services/groq.md)
@@ -291,13 +300,13 @@ uv run alembic current
 - [Sentry](docs/external-services/sentry.md)
 - [Google Meet Add-on 與 Google Cloud](docs/external-services/google-meet-addon.md)
 
-## 待確認問題
+## 待確認／需人工設定
 
-- 認證採 Clerk 或 Neon Auth？由誰負責 team／role source of truth？
+- Neon Auth Console 的 issuer、audience、JWKS URL 與測試帳號尚需由開發者填入 `backend/.env`。
 - MVP 的音訊主要來源是分頁音訊還是逐人麥克風？是否保存原始音訊？
 - Vercel 是否承載 FastAPI WebSocket，或需獨立 API／realtime hosting？
 - Neon branch、pooler、pgvector、檔案保存與 test database 策略。
-- Meeting BaaS v2 的 speaking、webhook、transcript 能力與實際計費。
+- Meeting BaaS v2 的 speaking、webhook 簽章格式、transcript 能力與實際計費。
 - OpenAI、Groq 的活動額度、模型名稱、資料保留與成本上限。
 - Sentry 是否允許接收錯誤 metadata；哪些欄位必須 server-side redaction？
 
