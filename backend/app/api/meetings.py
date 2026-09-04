@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -379,10 +379,26 @@ async def transcribe_meeting_audio(
     started_at: datetime | None = Form(default=None),
     ended_at: datetime | None = Form(default=None),
     language: str | None = Form(default="zh", max_length=16),
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key", max_length=128),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> TranscriptionResponse:
     await authorized_meeting(meeting_id, principal, session)
+    if idempotency_key:
+        existing = await session.scalar(
+            select(Transcript).where(
+                Transcript.meeting_id == meeting_id,
+                Transcript.idempotency_key == idempotency_key,
+            )
+        )
+        if existing is not None:
+            return TranscriptionResponse(
+                meeting_id=meeting_id,
+                transcript_id=existing.id,
+                sequence=existing.sequence,
+                text=existing.text,
+                model=settings.groq_stt_model,
+            )
     if speaker_user_id is not None:
         member = await session.scalar(
             select(TeamMember)
@@ -420,6 +436,7 @@ async def transcribe_meeting_audio(
         ended_at=ended_at or now,
         text=text,
         source="groq",
+        idempotency_key=idempotency_key,
     )
     try:
         for attempt in range(2):
@@ -444,6 +461,7 @@ async def transcribe_meeting_audio(
                     ended_at=ended_at or now,
                     text=text,
                     source="groq",
+                    idempotency_key=idempotency_key,
                 )
     except SQLAlchemyError:
         await session.rollback()

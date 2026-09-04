@@ -29,5 +29,6 @@ class Transcript(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     text: Mapped[str] = mapped_column(Text, nullable=False)
     source: Mapped[str] = mapped_column(String(32), default="fixture", nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     confidence: Mapped[float | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
