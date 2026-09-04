@@ -13,9 +13,7 @@ from app.db.base import Base
 class Transcript(Base):
     __tablename__ = "transcripts"
     __table_args__ = (
-        UniqueConstraint(
-            "meeting_id", "speaker_user_id", "sequence", name="uq_transcript_sequence"
-        ),
+        UniqueConstraint("meeting_id", "sequence", name="uq_transcript_sequence"),
     )
 
     id: Mapped[UUID] = mapped_column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)

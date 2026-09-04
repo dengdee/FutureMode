@@ -48,3 +48,9 @@ def test_realtime_tables_have_expected_keys() -> None:
 def test_bot_session_is_one_per_meeting() -> None:
     table = Base.metadata.tables["bot_sessions"]
     assert any(c.name == "uq_bot_sessions_meeting" for c in table.constraints)
+
+
+def test_transcript_sequence_is_unique_per_meeting() -> None:
+    table = Base.metadata.tables["transcripts"]
+    constraint = next(c for c in table.constraints if c.name == "uq_transcript_sequence")
+    assert [column.name for column in constraint.columns] == ["meeting_id", "sequence"]
