@@ -27,6 +27,7 @@
 - **步驟 8（第一段）**：已建立 `transcripts` 模型、Migration，以及受保護的逐字稿新增／查詢 API；STT provider 與音訊串流尚未接入。
 - **步驟 8（第二段）**：已修正每場會議 transcript sequence 唯一約束，並加入 `limit`／`after_sequence` 分頁查詢。
 - **步驟 9（第一段）**：已建立 `ai_suggestions`、`suggestion_votes` 模型、Migration、建議列表與投票 API；尚未接入 LLM provider 與 Host 控制流程。
+- **步驟 9（第二段）**：已加入 Suggestion 狀態控制與投票結果查詢；LLM provider 尚未接入。
 
 ## 目前發現的缺口與衝突
 

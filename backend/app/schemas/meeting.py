@@ -81,6 +81,10 @@ class SuggestionVoteCreate(BaseModel):
     vote: str = Field(pattern="^(support|reject|abstain)$")
 
 
+class SuggestionStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|expanded|deferred|ignored|accepted)$")
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 
