@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,3 +105,38 @@ async def list_chunks(
         )
     ).all()
     return [{"id": str(c.id), "position": c.position, "content": c.content} for c in rows]
+
+
+@router.get("/teams/{team_id}/memory/search")
+async def search_memory(
+    team_id: UUID,
+    q: str = Query(min_length=1, max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[dict[str, object]]:
+    """Search team document chunks with PostgreSQL full-text search."""
+    await team_access(team_id, principal, session)
+    document_vector = func.to_tsvector("simple", DocumentChunk.content)
+    query_vector = func.plainto_tsquery("simple", q)
+    rank = func.ts_rank_cd(document_vector, query_vector).label("rank")
+    rows = (
+        await session.execute(
+            select(DocumentChunk, Document, rank)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(Document.team_id == team_id, document_vector.op("@@")(query_vector))
+            .order_by(rank.desc(), DocumentChunk.position)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        {
+            "chunk_id": str(chunk.id),
+            "document_id": str(document.id),
+            "document_name": document.name,
+            "position": chunk.position,
+            "content": chunk.content,
+            "score": float(score),
+        }
+        for chunk, document, score in rows
+    ]
