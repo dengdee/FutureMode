@@ -1,7 +1,7 @@
 """Database models used by the backend."""
 
-from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
 from app.models.consensus import ActionItem, ConsensusFeedback, ConsensusVersion
+from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
 from app.models.personal import DelegateProfile, PersonalAgentMessage, PublicContribution
 from app.models.realtime import MeetingEventCursor, MeetingState
 from app.models.suggestion import AISuggestion, SuggestionVote
