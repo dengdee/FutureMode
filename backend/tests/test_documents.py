@@ -70,3 +70,14 @@ def test_text_upload_requires_authentication() -> None:
 
     response = asyncio.run(request())
     assert response.status_code == 401
+
+
+def test_document_archive_requires_authentication() -> None:
+    async def request():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post(
+                "/api/v1/documents/00000000-0000-0000-0000-000000000000/archive"
+            )
+
+    response = asyncio.run(request())
+    assert response.status_code == 401

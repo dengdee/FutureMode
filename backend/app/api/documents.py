@@ -179,6 +179,39 @@ async def get_document(
     }
 
 
+@router.post("/documents/{document_id}/archive", response_model=DocumentDetail)
+async def archive_document(
+    document_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> DocumentDetail:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    document.status = "archived"
+    await session.commit()
+    chunk_count = await session.scalar(
+        select(func.count()).select_from(DocumentChunk).where(
+            DocumentChunk.document_id == document_id
+        )
+    )
+    return DocumentDetail(
+        id=document.id,
+        team_id=document.team_id,
+        name=document.name,
+        source_type=document.source_type,
+        status=document.status,
+        metadata=document.metadata_json,
+        chunk_count=int(chunk_count or 0),
+        version=document.version,
+        indexed_at=document.indexed_at,
+        index_error=document.index_error,
+        retry_count=document.retry_count,
+        created_at=document.created_at,
+    )
+
+
 @router.post(
     "/documents/{document_id}/ingest",
     response_model=DocumentIngestResponse,
