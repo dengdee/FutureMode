@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.me import router as identity_router
+from app.api.meetings import router as meetings_router
 from app.api.teams import router as teams_router
 from app.config import get_settings
 from app.db.session import database_check
@@ -112,3 +113,4 @@ async def ready() -> dict[str, object]:
 app.include_router(meetbot_router)
 app.include_router(identity_router)
 app.include_router(teams_router)
+app.include_router(meetings_router)
