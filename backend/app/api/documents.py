@@ -353,7 +353,11 @@ async def search_memory(
         await session.execute(
             select(DocumentChunk, Document, rank)
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(Document.team_id == team_id, document_vector.op("@@")(query_vector))
+            .where(
+                Document.team_id == team_id,
+                Document.status.in_({"ready", "embedded"}),
+                document_vector.op("@@")(query_vector),
+            )
             .order_by(rank.desc(), DocumentChunk.position)
             .limit(limit)
         )
@@ -399,7 +403,11 @@ async def hybrid_search_memory(
         await session.execute(
             select(DocumentChunk, Document, hybrid_score)
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(Document.team_id == team_id, DocumentChunk.embedding.is_not(None))
+            .where(
+                Document.team_id == team_id,
+                Document.status == "embedded",
+                DocumentChunk.embedding.is_not(None),
+            )
             .order_by(hybrid_score.desc(), DocumentChunk.position)
             .limit(limit)
         )
