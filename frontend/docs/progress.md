@@ -3,6 +3,7 @@
 ## 已完成
 
 - Next.js 16 App Router、TypeScript、Tailwind CSS 4、Tabler Icons、GSAP 基礎。
+- Noto Sans TC 可變字體已套用全站；表單控制項使用共用 `control-primary` 與 `rounded-primary` 樣式。
 - Landing Page `/`。
 - Dashboard `/dashboard`：左右分欄、側欄收合、手機 Drawer、服務健康檢查與近期會議列表。
 - 會議相關 UI：`/meetings/new`、`prepare`、`audio-setup`、`addon`、`live`、`review`。

@@ -2,6 +2,10 @@
 
 這個目錄保存前端開發、API 串接、頁面路由與外部服務設定文件。文件只描述前端責任；後端秘密、資料庫與部署服務端設定不放在這裡。
 
+## 視覺基準
+
+全站使用 `frontend/public/fonts/NotoSansTC-VF.ttf`（Noto Sans TC 可變字重）作為繁體中文與介面字體，透過 `app/globals.css` 的 `@font-face` 載入；元件不得依賴瀏覽器預設控制項樣式。
+
 ## 文件索引
 
 | 文件 | 用途 |

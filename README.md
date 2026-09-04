@@ -27,11 +27,14 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 
 ## 前端資訊架構
 
+前端統一使用 `frontend/public/fonts/NotoSansTC-VF.ttf`（Noto Sans TC 可變字體），並以共用控制項與圓角 token 維持跨頁面一致性。
+
 每場會議使用同一個 Meeting Workspace，依階段分為：
 
 ```text
 /dashboard
-/meetings/new
+/workspaces                  # 建立團隊、邀請成員與管理多場會議
+/meetings/new                # 從工作區建立會議
 /meetings/[id]/prepare       # 會前 Brief、議程、AI 角色與 Personal Agent
 /meetings/[id]/audio-setup   # 啟動麥克風／分頁音訊後回到 Google Meet
 /meetings/[id]/addon         # Google Meet Add-on：Brief、Live State、Sidekick、Host Controls

@@ -11,7 +11,7 @@ export function PageHeader({ eyebrow, title, description, actions }: PageHeaderP
   return (
     <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
       <div>
-        {eyebrow && <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#2f6f5e]">{eyebrow}</p>}
+        {eyebrow && <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">{eyebrow}</p>}
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1f1f1f] sm:text-4xl">{title}</h1>
         <p className="mt-2 max-w-2xl text-[#787774]">{description}</p>
       </div>

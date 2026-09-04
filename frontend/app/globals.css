@@ -1,11 +1,19 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Noto Sans TC";
+  src: url("/fonts/NotoSansTC-VF.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --background: #f4f7f6;
   --foreground: #15201d;
   --surface: #ffffff;
-  --accent: #2f6f5e;
+  --accent: #0f9f8a;
   --muted: #60706b;
 }
 
@@ -13,10 +21,33 @@
   box-sizing: border-box;
 }
 
+button:not(:disabled),
+a {
+  cursor: pointer;
+}
+
 body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Noto Sans TC", sans-serif;
+}
+
+@layer components {
+  .rounded-primary { border-radius: 0.75rem; }
+  .control-primary {
+    width: 100%;
+    border: 1px solid #dededb;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.6875rem 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .control-primary:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+  select.control-primary, input[type="date"].control-primary, input[type="datetime-local"].control-primary { appearance: none; -webkit-appearance: none; }
+  select.control-primary { padding-right: 2.5rem; }
 }
 

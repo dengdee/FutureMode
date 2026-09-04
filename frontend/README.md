@@ -2,6 +2,10 @@
 
 本文件只規劃前端工作，不代表功能已實作。每次只執行使用者指定的一個步驟；未經指定不得提前建立頁面、安裝套件、修改後端或串接外部服務。
 
+## 視覺與字體規範
+
+全站使用 `public/fonts/NotoSansTC-VF.ttf`（Noto Sans TC 可變字體），由 `app/globals.css` 載入。表單控制項統一採 `control-primary`，主要圓角採 `rounded-primary`，不使用瀏覽器原生外觀。
+
 ## 現況盤點
 
 | 項目 | 現況 |

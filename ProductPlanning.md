@@ -695,6 +695,7 @@ flowchart TB
 | Next.js 16.3 App Router | Web App 頁面、路由與 BFF 能力；以 `next@latest` 建立專案時鎖定當時最新穩定版 |
 | React 19 + TypeScript | 元件、互動與型別安全 |
 | Tailwind CSS | 樣式與設計 token |
+| Noto Sans TC Variable Font | 全站繁體中文與介面字體，檔案位於 `frontend/public/fonts/NotoSansTC-VF.ttf` |
 | shadcn/ui + Radix UI | 可及性的 Dialog、Tabs、Dropdown、Toast 等元件 |
 | Zustand | 即時會議、私人聊天與 UI 狀態 |
 | React Hook Form + Zod | 議程、Delegate 與會議設定表單驗證 |
