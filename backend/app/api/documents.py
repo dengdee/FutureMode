@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from hashlib import sha256
 from uuid import UUID
 
 import httpx
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.meetings import database_session
 from app.auth.principal import Principal, get_current_principal
 from app.config import get_settings
-from app.models import Document, DocumentChunk, TeamMember, User
+from app.models import Document, DocumentChunk, DocumentVersion, TeamMember, User
 from app.schemas.documents import (
     DocumentChunkCreateResponse,
     DocumentChunkSummary,
@@ -20,6 +21,7 @@ from app.schemas.documents import (
     DocumentIngestResponse,
     DocumentSearchResult,
     DocumentSummary,
+    DocumentVersionSummary,
 )
 from app.schemas.meeting import DocumentChunkCreate, DocumentCreate
 from app.services.embeddings import EmbeddingConfigurationError, embed_texts
@@ -207,6 +209,15 @@ async def ingest_document(
     session.add_all(chunks)
     document.status = "ready"
     document.indexed_at = datetime.now(UTC)
+    session.add(
+        DocumentVersion(
+            document_id=document.id,
+            version=document.version,
+            content_hash=sha256(payload.content.encode("utf-8")).hexdigest(),
+            chunk_count=len(chunks),
+            status=document.status,
+        )
+    )
     await session.commit()
     return DocumentIngestResponse(
         id=document.id,
@@ -216,6 +227,28 @@ async def ingest_document(
         indexed_at=document.indexed_at,
         retry_count=document.retry_count,
     )
+
+
+@router.get(
+    "/documents/{document_id}/versions", response_model=list[DocumentVersionSummary]
+)
+async def list_document_versions(
+    document_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[DocumentVersionSummary]:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    versions = (
+        await session.scalars(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id == document_id)
+            .order_by(DocumentVersion.version.desc())
+        )
+    ).all()
+    return list(versions)
 
 
 @router.post("/documents/{document_id}/embed")

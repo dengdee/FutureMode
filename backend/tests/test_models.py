@@ -26,6 +26,7 @@ def test_core_tables_are_registered() -> None:
         "action_items",
         "documents",
         "document_chunks",
+        "document_versions",
     }.issubset(Base.metadata.tables)
 
 

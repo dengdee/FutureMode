@@ -48,6 +48,14 @@ class DocumentDetail(DocumentSummary):
     created_at: datetime | None
 
 
+class DocumentVersionSummary(BaseModel):
+    version: int
+    content_hash: str
+    chunk_count: int
+    status: str
+    created_at: datetime | None
+
+
 class DocumentChunkSummary(BaseModel):
     id: UUID
     position: int

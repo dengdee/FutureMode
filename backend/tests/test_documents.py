@@ -47,3 +47,14 @@ def test_hybrid_search_requires_authentication() -> None:
 
     response = asyncio.run(request())
     assert response.status_code == 401
+
+
+def test_document_versions_require_authentication() -> None:
+    async def request():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            return await client.get(
+                "/api/v1/documents/00000000-0000-0000-0000-000000000000/versions"
+            )
+
+    response = asyncio.run(request())
+    assert response.status_code == 401
