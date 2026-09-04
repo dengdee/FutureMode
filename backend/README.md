@@ -59,6 +59,7 @@
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。
 - **步驟 8（第四段）**：STT 上傳 API 支援 `speaker_user_id`，並驗證使用者屬於會議 team 後寫入 transcript，完成基本 speaker identity 對應。
+- **步驟 8（第五段）**：STT 上傳 API 支援 `language` 與 `ended_at` multipart 欄位，並將語言傳給 Groq Whisper、保存完整時間區間。
 
 ## 目前發現的缺口與衝突
 

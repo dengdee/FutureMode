@@ -377,6 +377,8 @@ async def transcribe_meeting_audio(
     speaker_label: str = Form(default="unknown", max_length=255),
     speaker_user_id: UUID | None = Form(default=None),
     started_at: datetime | None = Form(default=None),
+    ended_at: datetime | None = Form(default=None),
+    language: str | None = Form(default="zh", max_length=16),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> TranscriptionResponse:
@@ -398,6 +400,7 @@ async def transcribe_meeting_audio(
             content,
             file.content_type or "application/octet-stream",
             settings,
+            language=language,
         )
     except SpeechConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -414,7 +417,7 @@ async def transcribe_meeting_audio(
         speaker_label=speaker_label.strip() or "unknown",
         sequence=sequence,
         started_at=started_at or now,
-        ended_at=now,
+        ended_at=ended_at or now,
         text=text,
         source="groq",
     )
@@ -438,7 +441,7 @@ async def transcribe_meeting_audio(
                     speaker_label=speaker_label.strip() or "unknown",
                     sequence=int(latest_sequence or 0) + 1,
                     started_at=started_at or now,
-                    ended_at=now,
+                    ended_at=ended_at or now,
                     text=text,
                     source="groq",
                 )
