@@ -67,7 +67,7 @@ Meeting BaaS 的會議音訊／逐字稿串流可作為 Capture Page 失敗時�
 後端環境變數放在 `backend/`：
 
 ```cmd
-cd /d C:\hackathonProjects\futuremode\backend
+cd backend
 copy .env.example .env
 ```
 
@@ -76,7 +76,7 @@ copy .env.example .env
 前端環境變數放在 `frontend/`：
 
 ```cmd
-cd /d C:\hackathonProjects\futuremode\frontend
+cd frontend
 copy .env.example .env.local
 ```
 
@@ -91,7 +91,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ## 前端
 
 ```cmd
-cd /d C:\hackathonProjects\futuremode\frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -101,7 +101,7 @@ npm run dev
 檢查指令：
 
 ```cmd
-cd /d C:\hackathonProjects\futuremode\frontend
+cd frontend
 npm run lint
 npm run typecheck
 npm run build
@@ -110,7 +110,7 @@ npm run build
 ## 後端
 
 ```cmd
-cd /d C:\hackathonProjects\futuremode\backend
+cd backend
 uv python install 3.12
 uv sync
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
@@ -121,7 +121,7 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 檢查指令：
 
 ```cmd
-cd /d C:\hackathonProjects\futuremode\backend
+cd backend
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
