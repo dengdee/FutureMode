@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     r2_access_key_id: str | None = None
     r2_secret_access_key: str | None = None
     r2_bucket_name: str | None = None
+    r2_presigned_expiry_seconds: int = 600
     groq_api_key: str | None = None
     groq_stt_model: str = "whisper-large-v3-turbo"
     neon_auth_issuer: str | None = None

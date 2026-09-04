@@ -36,3 +36,13 @@ async def put_file(key: str, content: bytes, content_type: str, settings: Settin
         Body=content,
         ContentType=content_type,
     )
+
+
+async def create_download_url(key: str, settings: Settings) -> str:
+    client = _client(settings)
+    return await asyncio.to_thread(
+        client.generate_presigned_url,
+        "get_object",
+        Params={"Bucket": settings.r2_bucket_name, "Key": key},
+        ExpiresIn=settings.r2_presigned_expiry_seconds,
+    )

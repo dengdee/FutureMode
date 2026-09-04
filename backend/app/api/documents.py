@@ -20,6 +20,7 @@ from app.schemas.documents import (
     DocumentChunkSummary,
     DocumentCreateResponse,
     DocumentDetail,
+    DocumentDownloadUrl,
     DocumentIngestRequest,
     DocumentIngestResponse,
     DocumentSearchResult,
@@ -28,7 +29,7 @@ from app.schemas.documents import (
 )
 from app.schemas.meeting import DocumentChunkCreate, DocumentCreate
 from app.services.embeddings import EmbeddingConfigurationError, embed_texts
-from app.services.storage import StorageConfigurationError, put_file
+from app.services.storage import StorageConfigurationError, create_download_url, put_file
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
 settings = get_settings()
@@ -211,6 +212,32 @@ async def archive_document(
         index_error=document.index_error,
         retry_count=document.retry_count,
         created_at=document.created_at,
+    )
+
+
+@router.get("/documents/{document_id}/download-url", response_model=DocumentDownloadUrl)
+async def document_download_url(
+    document_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> DocumentDownloadUrl:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    storage_key = document.metadata_json.get("storage_key")
+    if not isinstance(storage_key, str) or not storage_key:
+        raise HTTPException(status_code=404, detail="document file not found")
+    try:
+        url = await create_download_url(storage_key, settings)
+    except StorageConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (BotoCoreError, ClientError):
+        raise HTTPException(status_code=502, detail="file storage is unavailable") from None
+    return DocumentDownloadUrl(
+        document_id=document.id,
+        url=url,
+        expires_in=settings.r2_presigned_expiry_seconds,
     )
 
 

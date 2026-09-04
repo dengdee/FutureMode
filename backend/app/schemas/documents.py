@@ -56,6 +56,12 @@ class DocumentVersionSummary(BaseModel):
     created_at: datetime | None
 
 
+class DocumentDownloadUrl(BaseModel):
+    document_id: UUID
+    url: str
+    expires_in: int
+
+
 class DocumentChunkSummary(BaseModel):
     id: UUID
     position: int
