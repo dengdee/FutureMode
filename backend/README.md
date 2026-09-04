@@ -47,6 +47,7 @@
 - **步驟 12（第十二段）**：已加入文件 archive lifecycle API；archive 僅標記狀態、不刪除 chunks／vectors，且會被搜尋排除。
 - **步驟 12（第十三段）**：Embedding 改為可設定批次處理並限制單文件 chunks 數量，降低 provider 請求大小與成本風險。
 - **步驟 12（第十四段）**：已加入 Cloudflare R2 S3-compatible storage adapter 與設定欄位；尚未接到文件 upload API。
+- **步驟 12（第十五段）**：文件 upload API 已接入 Cloudflare R2，保存原始檔案並於 document metadata 記錄 storage key；未提供刪除舊檔操作。
 - **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。

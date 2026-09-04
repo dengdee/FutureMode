@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from hashlib import sha256
 from io import BytesIO
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pypdf import PdfReader
 from sqlalchemy import func, select
@@ -27,6 +28,7 @@ from app.schemas.documents import (
 )
 from app.schemas.meeting import DocumentChunkCreate, DocumentCreate
 from app.services.embeddings import EmbeddingConfigurationError, embed_texts
+from app.services.storage import StorageConfigurationError, put_file
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
 settings = get_settings()
@@ -293,6 +295,27 @@ async def upload_text_document(
     document = await session.scalar(select(Document).where(Document.id == document_id))
     if document is None:
         raise HTTPException(status_code=404, detail="document not found")
+    storage_key = (
+        f"teams/{document.team_id}/documents/{document.id}/{uuid4()}-"
+        f"{(file.filename or 'upload').replace('/', '_').replace(chr(92), '_')}"
+    )
+    try:
+        await put_file(
+            storage_key,
+            raw_content,
+            file.content_type or "application/octet-stream",
+            settings,
+        )
+    except StorageConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (BotoCoreError, ClientError):
+        raise HTTPException(status_code=502, detail="file storage is unavailable") from None
+    document.metadata_json = {
+        **document.metadata_json,
+        "storage_key": storage_key,
+        "original_filename": file.filename or "upload",
+        "content_type": file.content_type,
+    }
     document.source_type = "pdf_upload" if file.content_type == "application/pdf" else "text_upload"
     return await ingest_document(
         document_id,
