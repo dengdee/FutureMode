@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
 
     meeting_baas_api_key: str | None = None
+    meeting_baas_url: str = "https://api.meetingbaas.com/v2/bots"
+    meeting_baas_input_url: str | None = None
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    
     neon_auth_issuer: str | None = None
     neon_auth_base_url: str | None = None
     neon_auth_audience: str | None = None
