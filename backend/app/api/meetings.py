@@ -12,10 +12,12 @@ from app.db.session import get_session
 from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, User
 from app.schemas.meeting import (
     AgendaItemCreate,
+    AgendaItemUpdate,
     MeetingCreate,
     MeetingSummary,
     MeetingUpdate,
     ParticipantAdd,
+    ParticipantUpdate,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["meetings"])
@@ -237,3 +239,116 @@ async def _transition_meeting(
     except SQLAlchemyError:
         await session.rollback()
         raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+@router.get("/meetings/{meeting_id}/participants")
+async def list_participants(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, list[dict[str, str]]]:
+    await authorized_meeting(meeting_id, principal, session)
+    rows = (
+        await session.execute(
+            select(
+                MeetingParticipant.user_id,
+                MeetingParticipant.role,
+                MeetingParticipant.attendance_status,
+            )
+            .where(MeetingParticipant.meeting_id == meeting_id)
+        )
+    ).all()
+    return {
+        "participants": [
+            {"user_id": str(uid), "role": role, "attendance_status": state}
+            for uid, role, state in rows
+        ]
+    }
+
+
+@router.patch("/meetings/{meeting_id}/participants/{user_id}")
+async def update_participant(
+    meeting_id: UUID,
+    user_id: UUID,
+    payload: ParticipantUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, str]:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    participant = await session.scalar(select(MeetingParticipant).where(
+        MeetingParticipant.meeting_id == meeting_id, MeetingParticipant.user_id == user_id
+    ))
+    if participant is None:
+        raise HTTPException(status_code=404, detail="participant not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(participant, field, value)
+    await session.commit()
+    return {
+        "user_id": str(user_id),
+        "role": participant.role,
+        "attendance_status": participant.attendance_status,
+    }
+
+
+@router.delete(
+    "/meetings/{meeting_id}/participants/{user_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def remove_participant(
+    meeting_id: UUID, user_id: UUID, principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> None:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    participant = await session.scalar(select(MeetingParticipant).where(
+        MeetingParticipant.meeting_id == meeting_id, MeetingParticipant.user_id == user_id
+    ))
+    if participant is None:
+        raise HTTPException(status_code=404, detail="participant not found")
+    await session.delete(participant)
+    await session.commit()
+
+
+@router.get("/meetings/{meeting_id}/agenda")
+async def list_agenda(
+    meeting_id: UUID, principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, list[dict[str, object]]]:
+    await authorized_meeting(meeting_id, principal, session)
+    items = (await session.scalars(select(AgendaItem).where(
+        AgendaItem.meeting_id == meeting_id
+    ).order_by(AgendaItem.position))).all()
+    return {"items": [{"id": str(i.id), "position": i.position, "title": i.title,
+                        "description": i.description, "status": i.status} for i in items]}
+
+
+@router.patch("/meetings/{meeting_id}/agenda/{item_id}")
+async def update_agenda_item(
+    meeting_id: UUID, item_id: UUID, payload: AgendaItemUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, object]:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    item = await session.scalar(select(AgendaItem).where(
+        AgendaItem.id == item_id, AgendaItem.meeting_id == meeting_id
+    ))
+    if item is None:
+        raise HTTPException(status_code=404, detail="agenda item not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(item, field, value)
+    await session.commit()
+    return {"id": str(item.id), "position": item.position, "title": item.title,
+            "description": item.description, "status": item.status}
+
+
+@router.delete("/meetings/{meeting_id}/agenda/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_agenda_item(
+    meeting_id: UUID, item_id: UUID, principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> None:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    item = await session.scalar(select(AgendaItem).where(
+        AgendaItem.id == item_id, AgendaItem.meeting_id == meeting_id
+    ))
+    if item is None:
+        raise HTTPException(status_code=404, detail="agenda item not found")
+    await session.delete(item)
+    await session.commit()
