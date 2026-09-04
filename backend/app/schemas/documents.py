@@ -51,6 +51,7 @@ class DocumentDetail(DocumentSummary):
 class DocumentVersionSummary(BaseModel):
     version: int
     content_hash: str
+    storage_key: str | None
     chunk_count: int
     status: str
     created_at: datetime | None

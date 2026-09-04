@@ -395,12 +395,23 @@ async def upload_text_document(
         "content_type": file.content_type,
     }
     document.source_type = "pdf_upload" if file.content_type == "application/pdf" else "text_upload"
-    return await ingest_document(
+    result = await ingest_document(
         document_id,
         DocumentIngestRequest(content=content),
         principal,
         session,
     )
+    latest_version = await session.scalar(
+        select(DocumentVersion)
+        .where(
+            DocumentVersion.document_id == document_id,
+            DocumentVersion.version == result.version,
+        )
+    )
+    if latest_version is not None:
+        latest_version.storage_key = storage_key
+        await session.commit()
+    return result
 @router.get(
     "/documents/{document_id}/versions", response_model=list[DocumentVersionSummary]
 )
