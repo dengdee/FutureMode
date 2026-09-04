@@ -277,6 +277,7 @@ uv run alembic current
 - [Meeting BaaS](docs/external-services/meeting-baas.md)
 - [OpenAI](docs/external-services/openai.md)
 - [Groq Whisper](docs/external-services/groq.md)
+- [Cloudflare R2](docs/external-services/cloudflare-r2.md)
 - [Sentry](docs/external-services/sentry.md)
 - [Google Meet Add-on 與 Google Cloud](docs/external-services/google-meet-addon.md)
 
