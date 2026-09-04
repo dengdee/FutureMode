@@ -19,6 +19,7 @@
 - **步驟 1**：已完成設定容錯、CORS allowlist、request ID、統一錯誤回應、`/ready` 與基礎測試。
 - **步驟 2**：已完成 SQLAlchemy async engine、asyncpg、Alembic migration 基線與資料庫就緒檢查；尚未建立業務資料表。
 - **步驟 3**：已建立 users、teams、team_members、meetings、meeting_participants、agenda_items ORM 模型與 Alembic migration；尚未提供 CRUD API。
+- **步驟 4**：已建立 Neon Auth JWT 驗證依賴與 `GET /api/v1/me`；團隊查詢與角色授權矩陣待後續 API 步驟補齊。
 
 ## 目前發現的缺口與衝突
 

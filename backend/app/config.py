@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
 
     meeting_baas_api_key: str | None = None
+    neon_auth_issuer: str | None = None
+    neon_auth_audience: str | None = None
+    neon_auth_jwks_url: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
