@@ -1,0 +1,9 @@
+import { IconFileText, IconFolderOpen, IconSearch, IconUpload } from "@tabler/icons-react";
+import { AppShell } from "../../components/app-shell";
+import { PageHeader } from "../../components/page-header";
+
+export default function MemoryPage() {
+  return <AppShell><PageHeader eyebrow="Team memory" title="團隊記憶" description="集中管理 AI 在會議中可引用的團隊文件與既有決策。" actions={<button type="button" className="inline-flex items-center gap-2 rounded-lg bg-[#2f6f5e] px-4 py-2.5 text-sm font-semibold text-white"><IconUpload size={18} />上傳文件</button>} />
+    <div className="mt-8 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]"><aside className="rounded-2xl border border-[#e6e6e3] bg-white p-3"><p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#8b8b87]">Collections</p>{["全部文件", "會議決策", "產品研究", "團隊規範"].map((item, index) => <button type="button" key={item} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm ${index === 0 ? "bg-[#efefec] font-medium" : "text-[#787774] hover:bg-[#f7f7f5]"}`}><IconFolderOpen size={17} />{item}</button>)}</aside><section><label className="relative block"><IconSearch className="absolute left-3 top-3 text-[#8b8b87]" size={18} /><input className="w-full rounded-xl border border-[#e0e0dd] bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#2f6f5e]" placeholder="搜尋文件、決策或關鍵字" /></label><div className="mt-5 rounded-2xl border border-dashed border-[#d8d8d5] bg-white px-6 py-16 text-center"><IconFileText className="mx-auto text-[#8b8b87]" size={32} /><h2 className="mt-4 font-semibold">還沒有可用的團隊文件</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">首版支援 PDF 與純文字上傳。Notion 與 Google Drive 串接將在後續版本提供。</p><button type="button" className="mt-5 rounded-lg border border-[#d8d8d5] px-4 py-2 text-sm font-medium hover:bg-[#f7f7f5]">選擇檔案</button></div></section></div>
+  </AppShell>;
+}

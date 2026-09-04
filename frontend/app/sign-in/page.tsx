@@ -1,0 +1,6 @@
+import { IconArrowRight, IconSparkles } from "@tabler/icons-react";
+import Link from "next/link";
+
+export default function SignInPage() {
+  return <main className="grid min-h-screen bg-[#fbfbfa] lg:grid-cols-2"><section className="flex flex-col justify-between p-6 sm:p-10"><Link href="/" className="text-lg font-semibold tracking-tight">Proximate</Link><div className="mx-auto w-full max-w-sm"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#2f6f5e]">Welcome back</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">登入工作區</h1><p className="mt-3 text-sm leading-6 text-[#787774]">正式登入將使用 Neon Auth。完成設定前，這裡僅展示登入入口。</p><button type="button" className="mt-8 flex w-full items-center justify-center gap-2 rounded-lg bg-[#2f6f5e] px-4 py-3 text-sm font-semibold text-white">使用工作帳號繼續 <IconArrowRight size={18} /></button><Link href="/dashboard" className="mt-4 block text-center text-sm text-[#787774] hover:text-[#1f1f1f]">暫時以展示模式進入 Dashboard</Link></div><p className="text-xs text-[#9b9b97]">Proximate · thoughtful meetings, together</p></section><aside className="hidden bg-[#2f6f5e] p-10 text-white lg:flex lg:flex-col lg:justify-end"><IconSparkles size={34} /><h2 className="mt-6 max-w-md text-4xl font-semibold leading-tight">讓每個人的思考，在會議裡被看見。</h2><p className="mt-5 max-w-md text-white/70">會前整理、會中提醒、會後確認，保留每次重要決策的脈絡。</p></aside></main>;
+}

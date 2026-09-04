@@ -30,7 +30,7 @@
 | 步驟 | 功能 | 狀態 | 實際完成內容／剩餘工作 |
 | --- | --- | --- | --- |
 | 01 | 前端基礎與設計語言 | 部分完成 | 已有 Tailwind token、Landing Page 與 `AppShell`；完整 Design System 與所有 route shell 尚未完成 |
-| 02 | 路由、版面與導覽骨架 | 部分完成 | 已區分 `/` Landing 與 `/dashboard`，並建立基本導覽；其他產品路由尚未建立 |
+| 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
 | 03 | Domain 型別、API Client 與資料狀態 | 已完成（目前 API 範圍） | 已建立 `types/api.ts`、`lib/api/client.ts`、repositories；串接 `/health`、`/meetbot/join`，不使用 Mock Data |
 | 04 | 登入狀態、角色與存取邊界 | 尚未執行 | Neon Auth、`/v1/me`、角色與 route guard 尚未實作 |
 | 05 | Dashboard 與會議清單 | 部分完成 | Dashboard 已顯示真實 `/health` 結果與 API 未提供時的空狀態；會議清單 API 尚未存在 |
@@ -156,11 +156,11 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 
 - **目標**：建立四個主入口與技術路由的檔案骨架，避免日後頁面架構分散。
 - **使用者情境**：登入後可從固定導覽前往 Dashboard、Meetings、Memory、Settings；進入會議後保留會議上下文。
-- **功能內容**：App Shell、桌面／手機導覽、頁面 title、麵包屑或返回 Meetings；建立 route-level `loading`、`error`、`not-found` 邊界。
+- **功能內容**：已完成 App Shell、桌面收合側欄、手機 Drawer 導覽、頁面 title、麵包屑／返回 Meetings、所有規劃 route 的靜態 UI，以及 route-level `loading`、`error`、`not-found` 邊界。
 - **頁面／路由**：`/dashboard`、`/meetings/new`、`/meetings/[id]/prepare`、`/meetings/[id]/review`、`/memory`、`/settings`；`/sign-in`、`/meetings/[id]/audio-setup`、`/meetings/[id]/addon`、`/meetings/[id]/live` 只建立技術性或會議上下文殼。
 - **元件規劃**：`AppShell`、`MainNav`、`MobileNav`、`PageHeader`、`MeetingWorkspaceHeader`、共用狀態畫面。
 - **狀態管理**：目前路徑與暫存 navigation state；不建立全域 store。
-- **資料來源**：靜態 route metadata。
+- **資料來源**：靜態 route metadata 與展示內容；不在本步假造 API 回應。
 - **API 串接**：無。
 - **畫面狀態**：404、載入骨架、route error、未登入 placeholder。
 - **互動細節**：目前頁面高亮、手機選單可用 Esc 關閉、焦點回復。
@@ -168,7 +168,7 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **預計異動範圍**：`app/`、`components/layout/`、`components/ui/`。
 - **前置條件**：步驟 01。
 - **驗證方式**：逐路由直接開啟、鍵盤導覽、桌面／平板／手機 viewport。
-- **完成標準**：所有計畫路由有可辨識的頁面殼；主導覽只顯示四個產品入口，Dashboard 固定為 `/dashboard`。
+- **完成標準**：已完成。所有計畫路由均有可辨識的 UI 殼；主導覽只顯示四個產品入口，Dashboard 固定為 `/dashboard`，Add-on route 不套用完整 App Shell。
 - **注意事項**：產品首頁 `/` 日後另行設計；不可在此步假設登入完成。
 
 ### 步驟 03｜前端 domain 型別、API Client 與資料狀態
