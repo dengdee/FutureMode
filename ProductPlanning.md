@@ -713,7 +713,6 @@ flowchart TB
 | OpenAI GPT-4o（活動提供，透過 LLM Adapter） | Meeting State、Agent 與共識生成；使用 structured output 與 schema validation |
 | Groq Whisper large-v3-turbo | MVP 語音轉文字候選方案 |
 | Meeting BaaS Google Meet Bot API | Voice Bot 的加入與即時語音輸出；可選用其會議音訊／逐字稿串流作為備援輸入；後端透過 API、Webhook 或串流控制 Bot |
-| ElevenLabs TTS（活動提供） | 將通過會議政策與支持門檻的 Voice Bot 文字轉成繁體中文語音 |
 | Silero VAD | 移除靜音、切分有效語音 |
 | Sentry | 前後端錯誤與效能監控；不得上傳未遮罩敏感正文 |
 
@@ -724,7 +723,6 @@ flowchart TB
 | 活動工具 | 活動提供內容 | Proximate 用法 | 使用原則 |
 | --- | --- | --- | --- |
 | **OpenAI** | 每位參賽者提供 API credits（活動頁面標示 US$100） | Main Agent、Personal Agent、結構化 Meeting State、AI 發言卡與會後共識 | API Key 只放 Railway 後端；所有輸出通過 structured schema 驗證 |
-| **ElevenLabs** | 每位參賽者提供 110k credits | Voice Bot 的 TTS；將通過政策與支持門檻的文字轉成語音 | API Key 只放 Railway 後端；設定單場字數與用量上限 |
 
 本專案的主要 AI 服務鏈為：`Capture Page → WebSocket → STT → OpenAI → 產生結構化發言文字 → ElevenLabs（或 Meeting BaaS 可用的 TTS）→ Meeting BaaS → 播放 Voice Bot 語音`。Meeting BaaS 的音訊／逐字稿串流可作為 Capture Page 失敗時的備援輸入。任何服務額度用完、API 失敗或音訊輸出不可用時，Voice Bot 回退為 Meet Add-on 的公開文字卡片，不中斷逐字稿與共識流程。
 

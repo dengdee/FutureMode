@@ -43,7 +43,7 @@
 - **步驟 12（第八段）**：已加入 Embedding 失敗狀態、錯誤摘要與 retry count；再次呼叫 embed endpoint 可重試既有 chunks。
 - **步驟 12（第九段）**：已加入不可變文件版本紀錄、內容 hash 與版本查詢 API；不保存原始全文。
 - **步驟 12（第十段）**：已加入 UTF-8 純文字／Markdown multipart upload，限制 5 MB 並沿用既有 ingestion 流程；PDF 與雲端檔案儲存待後續外部方案確認。
-- **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；尚未接入逐字稿持久化、VAD、串流與 TTS。
+- **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 
 ## 目前發現的缺口與衝突
@@ -270,7 +270,6 @@ uv run alembic current
 - [Meeting BaaS](docs/external-services/meeting-baas.md)
 - [OpenAI](docs/external-services/openai.md)
 - [Groq Whisper](docs/external-services/groq.md)
-- [ElevenLabs TTS](docs/external-services/elevenlabs.md)
 - [Sentry](docs/external-services/sentry.md)
 - [Google Meet Add-on 與 Google Cloud](docs/external-services/google-meet-addon.md)
 
@@ -281,7 +280,7 @@ uv run alembic current
 - Vercel 是否承載 FastAPI WebSocket，或需獨立 API／realtime hosting？
 - Neon branch、pooler、pgvector、檔案保存與 test database 策略。
 - Meeting BaaS v2 的 speaking、webhook、transcript 能力與實際計費。
-- OpenAI、Groq、ElevenLabs 的活動額度、模型名稱、資料保留與成本上限。
+- OpenAI、Groq 的活動額度、模型名稱、資料保留與成本上限。
 - Sentry 是否允許接收錯誤 metadata；哪些欄位必須 server-side redaction？
 
 ## 可能風險
