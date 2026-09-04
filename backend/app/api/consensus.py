@@ -8,7 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.meetings import authorized_meeting, database_session, find_user_id
 from app.auth.principal import Principal, get_current_principal
 from app.models import ActionItem, ConsensusFeedback, ConsensusVersion
-from app.schemas.meeting import ActionItemCreate, ConsensusCreate, ConsensusFeedbackCreate
+from app.schemas.meeting import (
+    ActionItemCreate,
+    ActionItemUpdate,
+    ConsensusCreate,
+    ConsensusFeedbackCreate,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["consensus"])
 
@@ -134,3 +139,90 @@ async def list_action_items(
         }
         for i in rows
     ]
+
+
+@router.get("/meetings/{meeting_id}/consensus/{version_id}/feedback")
+async def list_feedback(
+    meeting_id: UUID,
+    version_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[dict[str, str | None]]:
+    await authorized_meeting(meeting_id, principal, session)
+    version = await session.scalar(
+        select(ConsensusVersion).where(
+            ConsensusVersion.id == version_id, ConsensusVersion.meeting_id == meeting_id
+        )
+    )
+    if version is None:
+        raise HTTPException(status_code=404, detail="consensus version not found")
+    rows = (
+        await session.scalars(
+            select(ConsensusFeedback).where(ConsensusFeedback.version_id == version_id)
+        )
+    ).all()
+    return [{"user_id": str(f.user_id), "decision": f.decision, "comment": f.comment} for f in rows]
+
+
+@router.post("/meetings/{meeting_id}/consensus/{version_id}/confirm")
+async def confirm_consensus(
+    meeting_id: UUID,
+    version_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, str]:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    version = await session.scalar(
+        select(ConsensusVersion).where(
+            ConsensusVersion.id == version_id, ConsensusVersion.meeting_id == meeting_id
+        )
+    )
+    if version is None:
+        raise HTTPException(status_code=404, detail="consensus version not found")
+    feedback = (
+        await session.scalars(
+            select(ConsensusFeedback).where(ConsensusFeedback.version_id == version_id)
+        )
+    ).all()
+    if not feedback or any(item.decision != "agree" for item in feedback):
+        raise HTTPException(status_code=409, detail="consensus requires all feedback to agree")
+    version.status = "confirmed"
+    await session.commit()
+    return {"version_id": str(version_id), "status": version.status}
+
+
+@router.patch("/meetings/{meeting_id}/action-items/{item_id}")
+async def update_action_item(
+    meeting_id: UUID,
+    item_id: UUID,
+    payload: ActionItemUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, object]:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    item = await session.scalar(
+        select(ActionItem).where(ActionItem.id == item_id, ActionItem.meeting_id == meeting_id)
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="action item not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(item, field, value)
+    await session.commit()
+    return {"id": str(item.id), "title": item.title, "status": item.status}
+
+
+@router.delete("/meetings/{meeting_id}/action-items/{item_id}", status_code=204)
+async def delete_action_item(
+    meeting_id: UUID,
+    item_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> None:
+    await authorized_meeting(meeting_id, principal, session, write=True)
+    item = await session.scalar(
+        select(ActionItem).where(ActionItem.id == item_id, ActionItem.meeting_id == meeting_id)
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="action item not found")
+    await session.delete(item)
+    await session.commit()

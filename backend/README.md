@@ -30,6 +30,7 @@
 - **步驟 9（第二段）**：已加入 Suggestion 狀態控制與投票結果查詢；LLM provider 尚未接入。
 - **步驟 10（第一段）**：已建立私人 Sidekick 訊息模型、Migration 與 user／meeting 隔離的新增／查詢 API；公開貢獻與 Delegate 尚未完成。
 - **步驟 11（第一段）**：已建立 Consensus、Feedback、Action Items 模型、Migration，以及基本共識／回饋／行動項目 API；完整確認門檻與版本衝突處理待補。
+- **步驟 11（第二段）**：已加入 Feedback 查詢、Consensus 確認，以及 Action Item 更新／刪除 API。
 
 ## 目前發現的缺口與衝突
 

@@ -125,6 +125,13 @@ class ActionItemCreate(BaseModel):
     status: str = Field(default="open", pattern="^(open|in_progress|done|cancelled)$")
 
 
+class ActionItemUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    assignee_user_id: UUID | None = None
+    due_date: date | None = None
+    status: str | None = Field(default=None, pattern="^(open|in_progress|done|cancelled)$")
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 
