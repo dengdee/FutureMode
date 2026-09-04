@@ -1,15 +1,18 @@
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+import httpx
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
 from app.db.session import get_session
-from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, User
+from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, Transcript, User
+from app.schemas.backup import TranscriptBackupRequest
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
@@ -19,8 +22,11 @@ from app.schemas.meeting import (
     ParticipantAdd,
     ParticipantUpdate,
 )
+from app.schemas.speech import TranscriptionResponse
+from app.services.speech import SpeechConfigurationError, transcribe_audio
 
 router = APIRouter(prefix="/api/v1", tags=["meetings"])
+settings = get_settings()
 
 
 async def database_session(
@@ -363,3 +369,150 @@ async def delete_agenda_item(
         raise HTTPException(status_code=404, detail="agenda item not found")
     await session.delete(item)
     await session.commit()
+
+
+@router.post("/meetings/{meeting_id}/transcription", response_model=TranscriptionResponse)
+async def transcribe_meeting_audio(
+    meeting_id: UUID,
+    file: UploadFile = File(...),
+    speaker_label: str = Form(default="unknown", max_length=255),
+    speaker_user_id: UUID | None = Form(default=None),
+    started_at: datetime | None = Form(default=None),
+    ended_at: datetime | None = Form(default=None),
+    language: str | None = Form(default="zh", max_length=16),
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key", max_length=128),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> TranscriptionResponse:
+    await authorized_meeting(meeting_id, principal, session)
+    if idempotency_key:
+        existing = await session.scalar(
+            select(Transcript).where(
+                Transcript.meeting_id == meeting_id,
+                Transcript.idempotency_key == idempotency_key,
+            )
+        )
+        if existing is not None:
+            return TranscriptionResponse(
+                meeting_id=meeting_id,
+                transcript_id=existing.id,
+                sequence=existing.sequence,
+                text=existing.text,
+                model=settings.groq_stt_model,
+            )
+    if speaker_user_id is not None:
+        member = await session.scalar(
+            select(TeamMember)
+            .join(Meeting, Meeting.team_id == TeamMember.team_id)
+            .where(Meeting.id == meeting_id, TeamMember.user_id == speaker_user_id)
+        )
+        if member is None:
+            raise HTTPException(status_code=400, detail="speaker is not a meeting team member")
+    content = await file.read(25_000_001)
+    if len(content) > 25_000_000:
+        raise HTTPException(status_code=413, detail="audio file is too large")
+    try:
+        text = await transcribe_audio(
+            file.filename or "audio.webm",
+            content,
+            file.content_type or "application/octet-stream",
+            settings,
+            language=language,
+        )
+    except SpeechConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="speech provider unavailable") from None
+    latest_sequence = await session.scalar(
+        select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_id)
+    )
+    sequence = int(latest_sequence or 0) + 1
+    now = datetime.now(UTC)
+    segment = Transcript(
+        meeting_id=meeting_id,
+        speaker_user_id=speaker_user_id,
+        speaker_label=speaker_label.strip() or "unknown",
+        sequence=sequence,
+        started_at=started_at or now,
+        ended_at=ended_at or now,
+        text=text,
+        source="groq",
+        idempotency_key=idempotency_key,
+    )
+    try:
+        for attempt in range(2):
+            session.add(segment)
+            try:
+                await session.commit()
+                await session.refresh(segment)
+                break
+            except IntegrityError:
+                await session.rollback()
+                if attempt == 1:
+                    raise
+                latest_sequence = await session.scalar(
+                    select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_id)
+                )
+                segment = Transcript(
+                    meeting_id=meeting_id,
+                    speaker_user_id=speaker_user_id,
+                    speaker_label=speaker_label.strip() or "unknown",
+                    sequence=int(latest_sequence or 0) + 1,
+                    started_at=started_at or now,
+                    ended_at=ended_at or now,
+                    text=text,
+                    source="groq",
+                    idempotency_key=idempotency_key,
+                )
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail="transcript could not be saved") from None
+    return TranscriptionResponse(
+        meeting_id=meeting_id,
+        transcript_id=segment.id,
+        sequence=segment.sequence,
+        text=text,
+        model=settings.groq_stt_model,
+    )
+
+
+@router.post("/meetings/{meeting_id}/transcripts/backup", status_code=status.HTTP_201_CREATED)
+async def backup_meeting_transcripts(
+    meeting_id: UUID,
+    payload: TranscriptBackupRequest,
+    webhook_secret: str | None = Header(default=None, alias="X-Meeting-BaaS-Secret"),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, object]:
+    if (
+        not settings.meeting_baas_webhook_secret
+        or webhook_secret != settings.meeting_baas_webhook_secret
+    ):
+        raise HTTPException(status_code=401, detail="invalid webhook secret")
+    meeting = await session.scalar(select(Meeting).where(Meeting.id == meeting_id))
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="meeting not found")
+    latest = await session.scalar(
+        select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_id)
+    )
+    segments = []
+    for index, item in enumerate(payload.segments, start=int(latest or 0) + 1):
+        segments.append(
+            Transcript(
+                meeting_id=meeting_id,
+                speaker_user_id=item.speaker_user_id,
+                speaker_label=item.speaker_label,
+                sequence=index,
+                started_at=item.started_at,
+                ended_at=item.ended_at,
+                text=item.text,
+                source="meeting_baas",
+                confidence=item.confidence,
+            )
+        )
+    session.add_all(segments)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="transcript sequence conflict") from None
+    return {"meeting_id": str(meeting_id), "created": len(segments)}

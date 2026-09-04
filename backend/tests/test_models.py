@@ -26,9 +26,7 @@ def test_join_tables_have_composite_primary_keys() -> None:
 
 def test_agenda_positions_are_unique_per_meeting() -> None:
     table = Base.metadata.tables["agenda_items"]
-    assert any(
-        constraint.name == "uq_agenda_meeting_position" for constraint in table.constraints
-    )
+    assert any(constraint.name == "uq_agenda_meeting_position" for constraint in table.constraints)
 
 
 def test_core_foreign_keys_use_safe_delete_actions() -> None:
@@ -45,3 +43,9 @@ def test_realtime_tables_have_expected_keys() -> None:
 def test_bot_session_is_one_per_meeting() -> None:
     table = Base.metadata.tables["bot_sessions"]
     assert any(c.name == "uq_bot_sessions_meeting" for c in table.constraints)
+
+
+def test_transcript_sequence_is_unique_per_meeting() -> None:
+    table = Base.metadata.tables["transcripts"]
+    constraint = next(c for c in table.constraints if c.name == "uq_transcript_sequence")
+    assert [column.name for column in constraint.columns] == ["meeting_id", "sequence"]

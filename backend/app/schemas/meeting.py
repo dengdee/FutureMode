@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -49,3 +49,104 @@ class MeetingSummary(BaseModel):
     scheduled_at: datetime | None
     status: str
     ai_intervention_level: str
+
+
+class TranscriptCreate(BaseModel):
+    speaker_user_id: UUID | None = None
+    speaker_label: str = Field(min_length=1, max_length=255)
+    sequence: int = Field(ge=1)
+    started_at: datetime
+    ended_at: datetime | None = None
+    text: str = Field(min_length=1, max_length=20_000)
+    source: str = Field(default="fixture", min_length=1, max_length=32)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TranscriptSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    speaker_user_id: UUID | None
+    speaker_label: str
+    sequence: int
+    started_at: datetime
+    ended_at: datetime | None
+    text: str
+    source: str
+    confidence: float | None
+
+
+class ActionItemCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    assignee_user_id: UUID | None = None
+    due_date: date | None = None
+    status: str = Field(default="open", pattern="^(open|in_progress|done|cancelled)$")
+
+
+class ActionItemUpdate(ActionItemCreate):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class SuggestionStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|expanded|deferred|ignored|accepted)$")
+
+
+class SuggestionSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    state_version: int
+    title: str
+    content: str
+    status: str
+    confidence: float | None
+    created_at: datetime
+
+
+class SuggestionVoteCreate(BaseModel):
+    vote: str = Field(pattern="^(support|reject|abstain)$")
+
+
+class PersonalMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+
+
+class PersonalMessageSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
+class ContributionPublish(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+    source_message_id: UUID | None = None
+
+
+class DelegateProfileCreate(BaseModel):
+    stance: str = Field(min_length=1, max_length=20_000)
+    constraints: str | None = Field(default=None, max_length=20_000)
+    must_raise: str | None = Field(default=None, max_length=20_000)
+
+
+class ConsensusCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=50_000)
+
+
+class ConsensusFeedbackCreate(BaseModel):
+    decision: str = Field(pattern="^(agree|revise|reject)$")
+    comment: str | None = Field(default=None, max_length=20_000)
+
+
+class DocumentCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    source_type: str = Field(default="text", min_length=1, max_length=32)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class DocumentChunkCreate(BaseModel):
+    position: int = Field(ge=1)
+    content: str = Field(min_length=1, max_length=100_000)
+    metadata: dict[str, object] = Field(default_factory=dict)
