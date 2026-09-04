@@ -11,6 +11,10 @@ def test_core_tables_are_registered() -> None:
         "meetings",
         "meeting_participants",
         "agenda_items",
+        "meeting_states",
+        "meeting_event_cursors",
+        "bot_sessions",
+        "voice_requests",
     }.issubset(Base.metadata.tables)
 
 
@@ -31,3 +35,13 @@ def test_core_foreign_keys_use_safe_delete_actions() -> None:
     meetings = Base.metadata.tables["meetings"]
     fk_actions = {fk.ondelete for fk in meetings.foreign_keys}
     assert fk_actions == {"CASCADE", "SET NULL"}
+
+
+def test_realtime_tables_have_expected_keys() -> None:
+    assert len(inspect(Base.metadata.tables["meeting_states"]).primary_key.columns) == 1
+    assert len(inspect(Base.metadata.tables["meeting_event_cursors"]).primary_key.columns) == 2
+
+
+def test_bot_session_is_one_per_meeting() -> None:
+    table = Base.metadata.tables["bot_sessions"]
+    assert any(c.name == "uq_bot_sessions_meeting" for c in table.constraints)

@@ -219,6 +219,17 @@ async def end_meeting(
     return await _transition_meeting(meeting_id, principal, session, "completed", {"in_progress"})
 
 
+@router.post("/meetings/{meeting_id}/cancel", response_model=MeetingSummary)
+async def cancel_meeting(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> Meeting:
+    return await _transition_meeting(
+        meeting_id, principal, session, "cancelled", {"draft", "scheduled"}
+    )
+
+
 async def _transition_meeting(
     meeting_id: UUID,
     principal: Principal,

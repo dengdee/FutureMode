@@ -22,11 +22,7 @@ async def get_current_principal(
     authorization = request.headers.get("Authorization", "")
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
-    if not (
-        settings.neon_auth_issuer
-        and settings.neon_auth_audience
-        and settings.neon_auth_jwks_url
-    ):
+    if not settings.neon_auth_configured:
         raise HTTPException(status_code=503, detail="authentication is not configured")
     token = authorization[7:].strip()
     if not token:
