@@ -27,11 +27,11 @@
 
 ## 目前發現的缺口與衝突
 
-1. `MEETING_BAAS_API_KEY` 在本機可為空；呼叫 Meeting BaaS 時會回傳未設定錯誤，正式環境仍必須使用 Secret 管理。
-2. 認證方案已確認採 Neon Auth；正式實作仍需取得 issuer、audience、JWKS 與測試帳號設定。
-3. 規劃文件建議 `backend/integrations/meetingbaas/`、`voice_bot/`，目前實際程式位於 `backend/app/meetbot.py`；後續應以現有程式為基礎重構，不直接覆蓋。
-4. 音訊主要來源已確認採逐人麥克風；分頁音訊僅作備援，仍需在步驟 8 驗證瀏覽器權限與斷線行為。
-5. API hosting 已選定 Vercel；WebSocket 長連線能力仍需在步驟 7 實測，不預先宣稱已支援。
+1. `MEETING_BAAS_API_KEY` 本機可為空是刻意設計；未設定時呼叫會回傳錯誤，正式環境必須使用 Secret 管理。
+2. Neon Auth 後端驗證基礎已完成，包含 issuer／audience／JWKS 設定、`/api/v1/auth/config` 與設定文件；仍需要人工在 Neon Console 建立 Auth、測試帳號並填入 `backend/.env`。
+3. 規劃文件建議 `backend/integrations/meetingbaas/`、`voice_bot/`，目前仍以 `backend/app/meetbot.py` 為相容入口；Meeting BaaS adapter、Webhook、retry 與 idempotency 尚未完成。
+4. 音訊主要來源已確認採逐人麥克風；分頁音訊僅作備援。瀏覽器權限、同意流程與斷線行為需要前端／瀏覽器實測，後端尚未宣稱完成。
+5. API hosting 已選定 Vercel；WebSocket gateway 與 Vercel 長連線能力尚未完成及實測，不預先宣稱已支援。
 
 ## 開發順序
 
