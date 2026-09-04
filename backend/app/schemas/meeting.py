@@ -98,6 +98,17 @@ class PersonalMessageSummary(BaseModel):
     created_at: datetime
 
 
+class ContributionPublish(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+    source_message_id: UUID | None = None
+
+
+class DelegateProfileCreate(BaseModel):
+    stance: str = Field(min_length=1, max_length=20_000)
+    constraints: str | None = Field(default=None, max_length=20_000)
+    must_raise: str | None = Field(default=None, max_length=20_000)
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 

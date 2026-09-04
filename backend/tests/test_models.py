@@ -20,6 +20,7 @@ def test_core_tables_are_registered() -> None:
         "suggestion_votes",
         "personal_agent_messages",
         "public_contributions",
+        "delegate_profiles",
     }.issubset(Base.metadata.tables)
 
 

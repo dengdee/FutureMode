@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
+from app.api.delegates import router as delegates_router
 from app.api.me import router as identity_router
 from app.api.meetings import router as meetings_router
 from app.api.personal import router as personal_router
@@ -121,4 +122,5 @@ app.include_router(teams_router)
 app.include_router(transcripts_router)
 app.include_router(suggestions_router)
 app.include_router(personal_router)
+app.include_router(delegates_router)
 app.include_router(meetings_router)
