@@ -22,6 +22,7 @@
 - **步驟 4**：已建立 Neon Auth JWT 驗證依賴與 `GET /api/v1/me`；團隊查詢與角色授權矩陣待後續 API 步驟補齊。
 - **步驟 4a**：已建立受 JWT 保護的 `GET /api/v1/teams`，依目前使用者 external ID 回傳所屬團隊與角色。
 - **步驟 5a**：已建立受 JWT 與 team membership 保護的會議建立、列表 API。
+- **步驟 5b**：已建立會議單筆查詢與更新 API，更新限制 Host／Owner／Admin。
 
 ## 目前發現的缺口與衝突
 

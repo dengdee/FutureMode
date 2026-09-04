@@ -10,7 +10,7 @@ from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
 from app.db.session import get_session
 from app.models import Meeting, TeamMember, User
-from app.schemas.meeting import MeetingCreate, MeetingSummary
+from app.schemas.meeting import MeetingCreate, MeetingSummary, MeetingUpdate
 
 router = APIRouter(prefix="/api/v1", tags=["meetings"])
 
@@ -78,4 +78,59 @@ async def list_meetings(
     try:
         return list((await session.scalars(query)).all())
     except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+async def authorized_meeting(
+    meeting_id: UUID, principal: Principal, session: AsyncSession, *, write: bool = False
+) -> Meeting:
+    query = (
+        select(Meeting, TeamMember.role)
+        .join(TeamMember, TeamMember.team_id == Meeting.team_id)
+        .join(User, User.id == TeamMember.user_id)
+        .where(Meeting.id == meeting_id, User.external_id == principal.subject)
+    )
+    row = (await session.execute(query)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="meeting not found")
+    meeting, role = row
+    if write and role not in {"owner", "admin"} and meeting.host_user_id != await find_user_id(
+        session, principal.subject
+    ):
+        raise HTTPException(status_code=403, detail="insufficient permissions")
+    return meeting
+
+
+@router.get("/meetings/{meeting_id}", response_model=MeetingSummary)
+async def get_meeting(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> Meeting:
+    try:
+        return await authorized_meeting(meeting_id, principal, session)
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+@router.patch("/meetings/{meeting_id}", response_model=MeetingSummary)
+async def update_meeting(
+    meeting_id: UUID,
+    payload: MeetingUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> Meeting:
+    try:
+        meeting = await authorized_meeting(meeting_id, principal, session, write=True)
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(meeting, field, value)
+        await session.commit()
+        await session.refresh(meeting)
+        return meeting
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        await session.rollback()
         raise HTTPException(status_code=503, detail="database is unavailable") from None

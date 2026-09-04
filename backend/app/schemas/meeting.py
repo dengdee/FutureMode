@@ -11,6 +11,12 @@ class MeetingCreate(BaseModel):
     ai_intervention_level: str = Field(default="medium", min_length=1, max_length=32)
 
 
+class MeetingUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    scheduled_at: datetime | None = None
+    ai_intervention_level: str | None = Field(default=None, min_length=1, max_length=32)
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 
