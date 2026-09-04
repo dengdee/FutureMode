@@ -1,6 +1,7 @@
 import asyncio
 
 import boto3
+from botocore.exceptions import ClientError
 
 from app.config import Settings
 
@@ -51,3 +52,14 @@ async def create_download_url(key: str, settings: Settings) -> str:
 async def delete_file(key: str, settings: Settings) -> None:
     client = _client(settings)
     await asyncio.to_thread(client.delete_object, Bucket=settings.r2_bucket_name, Key=key)
+
+
+async def file_exists(key: str, settings: Settings) -> bool:
+    client = _client(settings)
+    try:
+        await asyncio.to_thread(client.head_object, Bucket=settings.r2_bucket_name, Key=key)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey"}:
+            return False
+        raise
+    return True

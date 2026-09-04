@@ -50,6 +50,7 @@
 - **步驟 12（第十五段）**：文件 upload API 已接入 Cloudflare R2，保存原始檔案並於 document metadata 記錄 storage key；未提供刪除舊檔操作。
 - **步驟 12（第十六段）**：已加入 team-scoped R2 預簽名下載 URL API，短效 URL 可供 Web 預覽／下載且不暴露儲存金鑰。
 - **步驟 12（第十七段）**：已加入文件刪除 API，先清理 R2 原始檔，再刪除文件及其 chunks／vectors／版本資料；R2 失敗時保留資料庫內容。
+- **步驟 12（第十八段）**：已加入 R2 檔案存在性檢查 API，Web 端可確認原始檔是否仍可取用。
 - **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。

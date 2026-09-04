@@ -62,6 +62,12 @@ class DocumentDownloadUrl(BaseModel):
     expires_in: int
 
 
+class DocumentStorageStatus(BaseModel):
+    document_id: UUID
+    storage_key: str
+    exists: bool
+
+
 class DocumentChunkSummary(BaseModel):
     id: UUID
     position: int

@@ -24,6 +24,7 @@ from app.schemas.documents import (
     DocumentIngestRequest,
     DocumentIngestResponse,
     DocumentSearchResult,
+    DocumentStorageStatus,
     DocumentSummary,
     DocumentVersionSummary,
 )
@@ -33,6 +34,7 @@ from app.services.storage import (
     StorageConfigurationError,
     create_download_url,
     delete_file,
+    file_exists,
     put_file,
 )
 
@@ -266,6 +268,28 @@ async def delete_document(
             raise HTTPException(status_code=502, detail="file storage is unavailable") from None
     await session.delete(document)
     await session.commit()
+
+
+@router.get("/documents/{document_id}/storage-status", response_model=DocumentStorageStatus)
+async def document_storage_status(
+    document_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> DocumentStorageStatus:
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    await team_access(document.team_id, principal, session)
+    storage_key = document.metadata_json.get("storage_key")
+    if not isinstance(storage_key, str) or not storage_key:
+        raise HTTPException(status_code=404, detail="document file not found")
+    try:
+        exists = await file_exists(storage_key, settings)
+    except StorageConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (BotoCoreError, ClientError):
+        raise HTTPException(status_code=502, detail="file storage is unavailable") from None
+    return DocumentStorageStatus(document_id=document.id, storage_key=storage_key, exists=exists)
 
 
 @router.post(
