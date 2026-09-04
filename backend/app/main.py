@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
+from app.db.session import database_check
 from app.meetbot import router as meetbot_router
 
 settings = get_settings()
@@ -94,12 +95,13 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready", tags=["system"])
 async def ready() -> dict[str, object]:
+    db_status = await database_check(settings)
     return {
-        "status": "ok",
+        "status": "ok" if db_status in {"ok", "not_configured"} else "degraded",
         "environment": settings.app_env,
         "checks": {
             "api": "ok",
-            "database": "not_configured",
+            "database": db_status,
             "meeting_baas": "configured" if settings.meeting_baas_api_key else "not_configured",
         },
     }
