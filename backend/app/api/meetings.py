@@ -5,7 +5,7 @@ from uuid import UUID
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal, get_current_principal
@@ -408,10 +408,29 @@ async def transcribe_meeting_audio(
         text=text,
         source="groq",
     )
-    session.add(segment)
     try:
-        await session.commit()
-        await session.refresh(segment)
+        for attempt in range(2):
+            session.add(segment)
+            try:
+                await session.commit()
+                await session.refresh(segment)
+                break
+            except IntegrityError:
+                await session.rollback()
+                if attempt == 1:
+                    raise
+                latest_sequence = await session.scalar(
+                    select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_id)
+                )
+                segment = Transcript(
+                    meeting_id=meeting_id,
+                    speaker_label=speaker_label.strip() or "unknown",
+                    sequence=int(latest_sequence or 0) + 1,
+                    started_at=started_at or now,
+                    ended_at=now,
+                    text=text,
+                    source="groq",
+                )
     except SQLAlchemyError:
         await session.rollback()
         raise HTTPException(status_code=503, detail="transcript could not be saved") from None
