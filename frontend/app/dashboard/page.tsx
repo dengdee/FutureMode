@@ -1,12 +1,40 @@
-import Link from "next/link";
-import { AppShell } from "../../components/app-shell";
+"use client";
 
-const meetings = [
-  { id: "demo", title: "Q3 產品策略會議", status: "準備中", date: "今天 14:00", participants: 6 },
-  { id: "review-demo", title: "團隊週會", status: "待確認", date: "昨天 10:30", participants: 4 },
-];
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { AppShell } from "../../components/app-shell";
+import { systemRepository } from "../../lib/data/repositories";
+
+type ServiceStatus = "checking" | "connected" | "disconnected";
 
 export default function DashboardPage() {
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
+  const [environment, setEnvironment] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    systemRepository
+      .getHealth()
+      .then((result) => {
+        if (!active) return;
+        setEnvironment(result.environment);
+        setServiceStatus(result.status === "ok" ? "connected" : "disconnected");
+      })
+      .catch(() => {
+        if (active) setServiceStatus("disconnected");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const statusLabel = {
+    checking: "檢查中…",
+    connected: "已連線",
+    disconnected: "無法連線",
+  }[serviceStatus];
+
   return (
     <AppShell>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -18,20 +46,18 @@ export default function DashboardPage() {
         <Link href="/meetings/new" className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-center text-sm font-semibold text-white">建立會議</Link>
       </div>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        {[['進行中會議', '0'], ['待確認共識', '2'], ['我的行動項目', '4']].map(([label, value]) => (
-          <div key={label} className="rounded-2xl bg-[var(--surface)] p-5 ring-1 ring-black/5"><p className="text-sm text-[var(--muted)]">{label}</p><p className="mt-2 text-3xl font-semibold">{value}</p></div>
+        {[['進行中會議', '—'], ['待確認共識', '—'], ['我的行動項目', '—']].map(([label, value]) => (
+          <div key={label} className="rounded-2xl bg-[var(--surface)] p-5 ring-1 ring-black/5"><p className="text-sm text-[var(--muted)]">{label}</p><p className="mt-2 text-3xl font-semibold">{value}</p><p className="mt-1 text-xs text-[var(--muted)]">等待正式資料 API</p></div>
         ))}
       </section>
+      <section className="mt-6 rounded-2xl bg-[var(--surface)] p-5 ring-1 ring-black/5" aria-live="polite">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">服務狀態</h2><p className="mt-1 text-sm text-[var(--muted)]">Dashboard 使用後端健康檢查結果。</p></div><span className={`rounded-full px-3 py-1 text-sm ${serviceStatus === "connected" ? "bg-emerald-100 text-emerald-800" : serviceStatus === "disconnected" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{statusLabel}</span></div>
+        {environment && <p className="mt-3 text-xs text-[var(--muted)]">環境：{environment}</p>}
+        {serviceStatus === "disconnected" && <p className="mt-3 text-sm text-red-700">請確認後端是否以 `127.0.0.1:8000` 啟動。</p>}
+      </section>
       <section className="mt-10">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">近期會議</h2><span className="text-sm text-[var(--muted)]">Mock Data</span></div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {meetings.map((meeting) => (
-            <Link key={meeting.id} href={`/meetings/${meeting.id}/prepare`} className="rounded-2xl bg-[var(--surface)] p-5 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-[var(--accent)]">
-              <div className="flex items-start justify-between gap-4"><h3 className="font-semibold">{meeting.title}</h3><span className="rounded-full bg-[var(--background)] px-3 py-1 text-xs text-[var(--accent)]">{meeting.status}</span></div>
-              <p className="mt-4 text-sm text-[var(--muted)]">{meeting.date} · {meeting.participants} 位參與者</p>
-            </Link>
-          ))}
-        </div>
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">近期會議</h2><span className="text-sm text-[var(--muted)]">尚無正式會議 API</span></div>
+        <div className="rounded-2xl border border-dashed border-black/10 bg-[var(--surface)] p-8 text-center"><p className="font-medium">目前沒有可顯示的會議</p><p className="mt-2 text-sm text-[var(--muted)]">後端提供 `GET /v1/meetings` 後，這裡會顯示會議清單。</p><Link href="/meetings/new" className="mt-5 inline-block rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white">建立會議</Link></div>
       </section>
     </AppShell>
   );
