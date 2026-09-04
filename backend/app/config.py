@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     meeting_baas_api_key: str | None = None
     neon_auth_issuer: str | None = None
+    neon_auth_base_url: str | None = None
     neon_auth_audience: str | None = None
     neon_auth_jwks_url: str | None = None
 
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     @property
     def database_configured(self) -> bool:
         return bool(self.database_url)
+
+    @property
+    def neon_auth_configured(self) -> bool:
+        return bool(
+            self.neon_auth_issuer and self.neon_auth_audience and self.neon_auth_jwks_url
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env",
