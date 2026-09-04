@@ -103,6 +103,12 @@ backend/
 > [!NOTE]
 > `/meetings/[id]/live` 是瀏覽器 fallback 與開發期測試頁；一般使用者優先在 Google Meet 的 `/meetings/[id]/addon` 查看 Live State。兩者共用同一套 Live components 與資料 adapter，不維護兩套產品邏輯。
 
+### Add-on 身分與畫面同步
+
+Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web App 開啟會議後，前端向後端交換一個綁定 `user_id`、`team_id`、`meeting_id` 的短效 meeting token，再把 token 交給 `/meetings/[id]/addon`。Add-on 以此 token 建立自己的 API／Realtime 連線，token 過期或權限不符時必須顯示重新開啟會議的提示。
+
+同一個使用者的 Web App、瀏覽器 `/live` fallback 與 Meet Add-on 會看到相同的公共 Meeting State，也會看到自己的 Personal Sidekick 對話；其他成員看不到該私人內容。資料與功能元件共用，但版面不必完全相同：Add-on 是窄版 iframe，Web App 是完整工作區。
+
 ## 開發原則
 
 - 先用符合正式 response 的 Mock Data／Mock API 完成 UI；元件只依賴資料 adapter，不直接綁死 fixture。
@@ -180,7 +186,7 @@ backend/
 - **元件規劃**：`AuthGate`、`RoleGate`、`UnauthorizedState`、`SessionMenu`。
 - **狀態管理**：目前使用者、團隊、角色與 session status；正式 Auth SDK 選定後再封裝於 adapter。
 - **資料來源**：Mock Auth；正式登入服務尚未確定。
-- **API 串接**：預期 `GET /v1/me` → `{ id, name, avatarUrl, activeTeamId, roles }`；實際 endpoint、token transport、refresh 行為均待後端確認。
+- **API 串接**：預期 `GET /v1/me` → `{ id, name, avatarUrl, activeTeamId, roles }`；另需 `POST /v1/meetings/:id/access-token` 取得短效 meeting token。正式 token transport、過期時間與 refresh 行為待後端確認。
 - **畫面狀態**：checking session、signed out、forbidden、session expired、切換團隊失敗。
 - **互動細節**：登入後回到原始目的地；角色不足顯示原因，不只隱藏按鈕。
 - **響應式需求**：登入頁、使用者選單與無權限畫面可在手機閱讀。
@@ -275,7 +281,7 @@ backend/
 - **元件規劃**：`AddonShell`、`AddonTabs`、`BriefTab`、`LiveStateTab`、`SidekickTab`、`HostControlsTab`、`AddonConnectionStatus`。
 - **狀態管理**：active tab、meeting snapshot、使用者角色、Add-on connection UI state。
 - **資料來源**：Mock adapter；與 Prepare 使用同一份 Personal Agent fixture。
-- **API 串接**：預期 `GET /v1/meetings/:id/live-snapshot`；WebSocket 另於步驟 12 規劃。Google Meet context／SSO API 待確認。
+- **API 串接**：先以 `GET /v1/meetings/:id/live-snapshot` 取得公共狀態；Add-on 啟動前使用 `POST /v1/meetings/:id/access-token` 取得短效 token，再建立 WebSocket 或 fallback polling。Google Meet context／manifest 欄位待確認，但不在 iframe 內重新登入。
 - **畫面狀態**：iframe 初始 loading、窄版 overflow、未登入、未加入會議、Host controls 隱藏、Add-on 不支援／context 缺失。
 - **互動細節**：Tab 支援鍵盤方向鍵或標準 Tab 行為；私人內容要明顯標示「僅你可見」。
 - **響應式需求**：以約 280px 寬度優先；不假設可用完整桌面寬度；一般 Web fallback 可擴寬。
@@ -283,7 +289,7 @@ backend/
 - **前置條件**：步驟 02–04、07。
 - **驗證方式**：以 280px、360px、768px 寬度測試；Member／Host fixture；鍵盤 Tabs；iframe 模擬。
 - **完成標準**：不依賴 Meet SDK 也能展示完整窄版會中資訊結構，且不顯示完整 App Shell。
-- **注意事項**：規劃文件與既有建議結構對 Add-on 實體路徑出現兩種寫法；最終 route 命名需先統一後再建立檔案。
+- **注意事項**：Add-on route 固定為 `/meetings/[id]/addon`；不要把 Neon Auth 長效 session 或任何 API key 放入 iframe URL。短效 token 只能用於單一 meeting，且需處理過期、重播與權限錯誤。
 
 ### 步驟 10｜Live State、AI 舉手、投票與 Host Controls
 
@@ -427,6 +433,7 @@ backend/
 | 功能 | 預期 endpoint | 前端最低 response／事件需求 |
 | --- | --- | --- |
 | 身分與角色 | `GET /v1/me` | `user`、active team、role、session 狀態 |
+| Meeting access token | `POST /v1/meetings/:id/access-token` | 短效 token、`expiresAt`、meeting／user scope；供 Add-on 與 `/live` 建立連線 |
 | Dashboard | `GET /v1/meetings`、`/v1/consensus`、`/v1/action-items` | 清單、狀態、權限與 pagination |
 | 建立會議 | `POST /v1/meetings` | meeting、agenda、participants、host、policy |
 | Prepare | `GET /v1/meetings/:id`、`/brief` | meeting snapshot、Brief、可讀資料範圍 |
@@ -443,7 +450,7 @@ backend/
 1. Meeting 建立 request 的完整欄位、時區、議程排序與 Host 轉交規則為何？
 2. Member 重投票時，誰計算在線人數與支持比例；門檻是否依即時在線成員變動？
 3. Audio Setup 持續收音的 MVP 瀏覽器／裝置支援範圍，以及背景分頁休眠時的產品行為為何？
-4. Google Meet Add-on 的 context、SSO、manifest、development deployment 與同網域測試帳號由誰設定？
+4. Google Meet Add-on 的 context、manifest、development deployment、同網域測試帳號，以及短效 meeting token 的簽發與撤銷責任由誰設定？
 5. Meeting BaaS 是否支援目前所需的 Google Meet speaking／自訂音訊輸入，以及狀態 webhook？
 6. Review 的 required participants、逾時、conflicted、confirmed 與版本建立規則為何？
 7. Vercel 上 FastAPI WebSocket 的長連線、timeout、重連與必要替代部署方案為何？

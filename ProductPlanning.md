@@ -333,7 +333,7 @@ AI 角色在 `/meetings/new` 的 Meeting Setup 選擇，會前 `/meetings/[id]/p
 ### 技術可行性判斷
 
 - 一般 Web App 可用 `getDisplayMedia()` 讓使用者主動選擇會議分頁並請求音訊，但必須在 HTTPS 與使用者操作後啟動；權限不能永久保存，且瀏覽器／作業系統不保證回傳音訊軌。參考 MDN Screen Capture API。
-- 音訊權限與擷取由頂層 Web App Capture Page 負責；Meet Add-on iframe 只負責會中 UI、登入狀態與事件訂閱。
+- 音訊權限與擷取由頂層 Web App Capture Page 負責；Meet Add-on iframe 只負責會中 UI、短效 meeting token 驗證與事件訂閱，不在 iframe 內重新登入。
 - Google Meet Add-on 可在 Meet 的 Side Panel 與 Main Stage 載入應用程式；參與者可加入同一個 collaborative activity，但每位使用者仍載入自己的 iframe，因此私人內容必須由 Proximate 後端依使用者授權隔離。參考 Google Meet Add-ons。
 - Google Meet REST API 適合建立／管理會議與取得會後 artifacts，不等同於直接提供穩定的即時音訊。即時媒體能力屬 Meet Media API，截至 2026-09 仍為 Developer Preview，因此不作為黑客松 Demo 的單點依賴。
 - **Meeting BaaS** 負責 Voice Bot 的加入與語音輸出；Proximate 後端透過 API、Webhook 或串流連線管理 Bot lifecycle，傳入 `meeting_id` 與核准後的發言文字。首版的主要逐人收音仍採 Capture Page，因為它能保留 `user_id` 與 speaker identity；Meeting BaaS 的會議音訊／逐字稿能力列為可選備援。詳細能力與可用平台以 [Meeting BaaS Google Meet Bot API](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet) 為準。
@@ -381,7 +381,9 @@ Meeting BaaS 有免費起步額度，但即時串流、逐字稿與音訊輸出�
 
 可讓每位已加入 Proximate Room 的使用者自行按下「開啟語音偵測」，只把自己的麥克風音訊送到後端。後端不先混合原始音訊，而是分別轉錄各使用者串流，再依時間合併為公共逐字稿，交給 Main Agent 更新 Meeting State、產生 AI 舉手與會議紀錄。
 
-**建議實作方式是把收音與會中 UI 分開：** 使用者先在頂層 Proximate Web App 開啟麥克風與 Audio WebSocket，保持該分頁開啟，再切回 Google Meet。Meet Add-on iframe 另外建立 UI／Event WebSocket，顯示同一個 `meeting_id + user_id` 的逐字稿、Sidekick 與 Agent 狀態。兩個頁面不傳遞 `MediaStream`，而是在後端透過相同 session 匯合。
+**建議實作方式是把收音與會中 UI 分開：** 使用者先在頂層 Proximate Web App 開啟麥克風與 Audio WebSocket，保持該分頁開啟，再切回 Google Meet。使用者從已登入的 Web App 取得綁定 `user_id`、`team_id`、`meeting_id` 的短效 meeting token，交給 Meet Add-on iframe；iframe 不重新登入，也不接收長效 session 或 API key。Meet Add-on 另外建立 UI／Event WebSocket，顯示同一個 `meeting_id + user_id` 的逐字稿、Sidekick 與 Agent 狀態。兩個頁面不傳遞 `MediaStream`，而是在後端透過相同 session 匯合。
+
+因此，同一使用者在 Web App、瀏覽器 Live fallback 與 Meet Add-on 會看到相同的公共 Meeting State，也能看到自己的 Personal Sidekick；差異只在版面容器（完整 Web App 或 Meet 窄版 iframe）。建議前端使用 `POST /v1/meetings/{id}/access-token` 取得 token，token 僅限單一會議、短時間有效，過期或權限不符時要求重新從 Web App 開啟會議。
 
 ```mermaid
 flowchart LR

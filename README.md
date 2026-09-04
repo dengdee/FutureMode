@@ -43,6 +43,8 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 
 `/meetings/[id]/addon` 是嵌入 Google Meet 的窄版 iframe；會議中不要求使用者切回完整 Web App。Voice Bot 由後端透過 [Meeting BaaS Google Meet Bot API](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet) 加入會議並輸出語音。主要逐人收音仍由 Audio Setup／Capture 流程提供，Meeting BaaS 音訊串流可作為備援。
 
+Add-on 不在 iframe 內重新登入。已登入的 Web App 會向後端取得綁定使用者與會議的短效 meeting token，交給 `/meetings/[id]/addon` 建立連線。Web App、`/meetings/[id]/live` 與 Add-on 共用同一份公共 Meeting State；同一使用者也能看到自己的 Personal Sidekick，但 Add-on 只使用窄版版面，不會把長效 session 或 API key 放入 iframe。
+
 ## Voice Bot 整合
 
 Proximate 不自行維護 Google 帳號登入或瀏覽器自動化。後端透過 Meeting BaaS 建立與管理 Google Meet Bot，只有在會議政策允許且投票達到門檻後，才傳送 `approved_text` 要求 Bot 播放語音。Meeting BaaS 的 API、Webhook、串流能力與用量限制，應以其[官方文件](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet)為準。
