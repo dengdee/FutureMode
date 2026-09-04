@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -374,6 +374,8 @@ async def delete_agenda_item(
 async def transcribe_meeting_audio(
     meeting_id: UUID,
     file: UploadFile = File(...),
+    speaker_label: str = Form(default="unknown", max_length=255),
+    started_at: datetime | None = Form(default=None),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> TranscriptionResponse:
@@ -399,9 +401,9 @@ async def transcribe_meeting_audio(
     now = datetime.now(UTC)
     segment = Transcript(
         meeting_id=meeting_id,
-        speaker_label="unknown",
+        speaker_label=speaker_label.strip() or "unknown",
         sequence=sequence,
-        started_at=now,
+        started_at=started_at or now,
         ended_at=now,
         text=text,
         source="groq",
