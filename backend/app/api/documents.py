@@ -3,7 +3,7 @@ from hashlib import sha256
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -198,6 +198,7 @@ async def ingest_document(
     await session.execute(
         DocumentChunk.__table__.delete().where(DocumentChunk.document_id == document_id)
     )
+
     chunks = [
         DocumentChunk(
             document_id=document_id,
@@ -229,6 +230,32 @@ async def ingest_document(
     )
 
 
+@router.post("/documents/{document_id}/upload", response_model=DocumentIngestResponse)
+async def upload_text_document(
+    document_id: UUID,
+    file: UploadFile = File(...),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> DocumentIngestResponse:
+    if file.content_type not in {"text/plain", "text/markdown"}:
+        raise HTTPException(status_code=415, detail="only plain text files are supported")
+    raw_content = await file.read(5_000_001)
+    if len(raw_content) > 5_000_000:
+        raise HTTPException(status_code=413, detail="file is too large")
+    try:
+        content = raw_content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="file must be UTF-8 encoded") from None
+    document = await session.scalar(select(Document).where(Document.id == document_id))
+    if document is None:
+        raise HTTPException(status_code=404, detail="document not found")
+    document.source_type = "text_upload"
+    return await ingest_document(
+        document_id,
+        DocumentIngestRequest(content=content),
+        principal,
+        session,
+    )
 @router.get(
     "/documents/{document_id}/versions", response_model=list[DocumentVersionSummary]
 )
