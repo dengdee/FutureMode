@@ -12,6 +12,8 @@ def _async_database_url(database_url: str) -> str:
     parsed = urlsplit(database_url)
     query = dict(parse_qsl(parsed.query, keep_blank_values=True))
     sslmode = query.pop("sslmode", None)
+    # ``channel_binding`` is a libpq option and is not accepted by asyncpg.
+    query.pop("channel_binding", None)
     if sslmode and "ssl" not in query and sslmode != "disable":
         query["ssl"] = sslmode
     database_url = urlunsplit(parsed._replace(query=urlencode(query)))
