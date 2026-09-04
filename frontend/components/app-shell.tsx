@@ -1,8 +1,7 @@
 "use client";
 
 import {
-  IconBook,
-  IconBriefcase,
+  IconUsersGroup,
   IconChevronRight,
   IconLayoutDashboard,
   IconLayoutSidebarLeftCollapse,
@@ -24,8 +23,7 @@ gsap.registerPlugin(useGSAP);
 
 const navigation = [
   [IconLayoutDashboard, "儀表板", "/dashboard"],
-  [IconBriefcase, "工作區", "/workspaces"],
-  [IconBook, "團隊記憶", "/memory"],
+  [IconUsersGroup, "團隊", "/teams"],
   [IconSettings, "設定", "/settings"],
 ] as const;
 
@@ -33,6 +31,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { data: authSession } = authClient.useSession();
+  const profileName = authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
+  const profileInitial = Array.from(profileName.trim())[0]?.toUpperCase() ?? "P";
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const backdropRef = useRef<HTMLButtonElement>(null);
@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? ({ new: "建立會議", prepare: "會前準備", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
     : undefined;
   const breadcrumbGroup = meetingPhase ? "會議" : undefined;
-  const breadcrumb = meetingPhase ?? ({ "/dashboard": "儀表板", "/workspaces": "工作區", "/memory": "團隊記憶", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面";
+  const breadcrumb = meetingPhase ?? ({ "/dashboard": "儀表板", "/teams": "團隊", "/workspaces": "團隊", "/memory": "團隊記憶", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面";
 
   useGSAP(
     () => {
@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
       <aside
         ref={sidebarRef}
-        className={`fixed inset-y-0 left-0 z-40 flex w-[250px] -translate-x-full flex-col overflow-y-auto border-r border-[#e6e6e3] bg-[#f7f7f5] md:sticky md:top-0 md:z-auto md:h-screen md:w-60 md:translate-x-0 ${sidebarCollapsed ? "md:w-[68px]" : ""}`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-[min(250px,calc(100vw-16px))] -translate-x-full flex-col overflow-y-auto border-r border-[#e6e6e3] bg-[#f7f7f5] md:sticky md:top-0 md:z-auto md:h-screen md:w-60 md:translate-x-0 ${sidebarCollapsed ? "md:w-[68px]" : ""}`}
       >
         <div
           className={`relative flex items-center justify-between px-5 py-5 ${sidebarCollapsed ? "md:px-3 md:justify-center" : ""}`}
@@ -183,7 +183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               type="button"
               aria-label="關閉導覽"
               onClick={() => setSidebarOpen(false)}
-              className="rounded p-1 text-[#787774] hover:bg-[#e9e9e7] md:hidden"
+              className="cursor-pointer rounded p-1 text-[#787774] hover:bg-[#e9e9e7] md:hidden"
             >
               <IconX size={20} stroke={1.8} />
             </button>
@@ -225,10 +225,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0f9f8a] text-xs font-semibold text-white"
                 title="Proximate"
               >
-                YC
+                {profileInitial}
               </span>
               <div className={sidebarCollapsed ? "md:hidden" : ""}>
-                <p className="max-w-28 truncate text-sm font-medium">{authSession?.user?.name ?? authSession?.user?.email ?? "Proximate"}</p>
+                <p className="max-w-28 truncate text-sm font-medium">{profileName}</p>
               </div>
             </div>
             <Tooltip content="登出">

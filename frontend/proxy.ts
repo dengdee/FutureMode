@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "./lib/auth/server";
 
-const protectedPath = /^\/(dashboard|workspaces|memory|settings|meetings)(\/|$)/;
+const protectedPath = /^\/(dashboard|teams|workspaces|memory|settings|meetings)(\/|$)/;
 
 export default async function proxy(request: NextRequest) {
   if (!protectedPath.test(request.nextUrl.pathname)) return NextResponse.next();

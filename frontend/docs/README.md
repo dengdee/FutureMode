@@ -13,6 +13,7 @@
 | [進度表](progress.md) | 已完成、進行中與待後端支援的製作清單 |
 | [頁面與路由](routes.md) | URL、頁面責任、共用版面與響應式規則 |
 | [API 串接](api.md) | Axios client、功能 API 檔案、目前 OpenAPI 對照 |
+| [後端契約確認](backend-api-handoff.md) | Participants UUID 與團隊成員識別碼方案 |
 | [本機開發](setup.md) | 啟動、環境變數、檢查與常見問題 |
 | [Neon Auth](integrations/neon-auth.md) | 登入服務的前端設定與待確認項目 |
 | [Vercel](integrations/vercel.md) | 前端部署與公開環境變數設定 |

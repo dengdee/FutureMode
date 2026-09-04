@@ -68,6 +68,11 @@ export async function request<T>(operation: () => Promise<AxiosResponse<T>>): Pr
     }
 
     const normalized = errorMessage(error.response?.data, error.message ?? "無法連線至服務。");
+    if (error.response?.status === 401) {
+      normalized.message = "需要驗證身分，請先登入；登入後請重新整理頁面。";
+    } else if (error.response?.status === 403) {
+      normalized.message = "你沒有權限查看這項資料，請切換到所屬工作區。";
+    }
     throw new ApiClientError({
       ...normalized,
       status: error.response?.status,

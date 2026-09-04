@@ -13,7 +13,11 @@
 | `/meetings/[id]/addon` | Google Meet Meet Add-on | 窄版公共狀態與 Personal Sidekick | UI scaffold；token／realtime 待提供 |
 | `/meetings/[id]/live` | 瀏覽器 fallback | Add-on 不可用時的同一公共狀態 | UI scaffold；realtime 待提供 |
 | `/meetings/[id]/review` | Web App | 摘要、逐字稿、共識與行動項目 | UI scaffold；Review API 待提供 |
-| `/memory` | Web App | 團隊文件與歷史決策 | UI scaffold；RAG API 待提供 |
+| `/memory` | 相容入口 | 舊版團隊記憶頁 | 保留舊連結；正式入口改為 `/workspaces/[workspaceId]/memory/...` |
 | `/settings` | Web App | Team／Integrations／Privacy | UI scaffold；Settings API 待提供 |
 
 桌面版使用可收合左側欄，主內容獨立捲動；手機版使用 Drawer。Add-on 不套用完整 App Shell，優先以約 280px 寬度設計。所有頁面使用繁體中文、Noto Sans TC Variable Font、共用 `rounded-primary`／`control-primary` 與 `focus-visible` 樣式。
+
+## 工作區階層路由
+
+正式資訊架構以 `/workspaces/[workspaceId]` 為根：`members` 管理團隊成員，`memory/shared` 管理團隊共用文件，`memory/meetings/[meetingId]` 管理單次會議文件，`meetings/[meetingId]/prepare|live|review` 分別代表會前準備、會議進行與會後回顧。這些新路由目前導向既有頁面，確保舊連結仍可使用；待後端 workspace-scoped API 完成後再移除相容導向。

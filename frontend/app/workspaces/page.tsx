@@ -57,7 +57,8 @@ export default function WorkspacesPage() {
     event.preventDefault();
     const invalid = inviteRows.some((row) => row.email.trim() && !/^\S+@\S+\.\S+$/.test(row.email.trim()));
     if (invalid) { setNotice("請確認每個 Email 格式正確。"); return; }
-    setNotice("工作區與邀請表格已準備完成；後端目前尚未提供建立工作區／寄送邀請 API，因此尚未送出資料。");
+    setNotice("工作區與邀請名單已完成檢查；後端目前尚未提供建立工作區／寄送邀請 API，因此尚未送出資料。");
+    setCreateOpen(false);
   }
 
   return <AppShell>

@@ -47,4 +47,4 @@
 
 Brief、Sidekick、Live Snapshot、vote、Review、Consensus、Memory、Settings 與 WebSocket 都不可由前端自行猜測。接入前需取得 request／response、錯誤碼、權限與事件 envelope。
 
-工作區建立與成員邀請同樣尚未有寫入 endpoint。工作區頁面的建立對話框目前提供表格式 UI 草稿（工作區名稱、Email／角色、新增／移除列與格式驗證），送出只會提示契約尚未完成，不會假造成功或寫入資料。
+工作區建立與成員邀請同樣尚未有寫入 endpoint。Memory 的團隊共用文件與單次會議文件目前是 UI 範圍選擇；單次會議文件必須先選定特定會議，正式檔案上傳與依 meeting 保存仍等待後端 API。
