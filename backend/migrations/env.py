@@ -7,6 +7,7 @@ from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 from app.db.base import Base
+from app.db.session import _async_database_url
 
 config = context.config
 settings = get_settings()
@@ -30,7 +31,9 @@ def run_migrations_offline() -> None:
 
 async def run_async_migrations() -> None:
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = settings.database_url or "sqlite://"
+    configuration["sqlalchemy.url"] = (
+        _async_database_url(settings.database_url) if settings.database_url else "sqlite+aiosqlite://"
+    )
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
