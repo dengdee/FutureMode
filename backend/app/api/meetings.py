@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import httpx
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,8 +20,11 @@ from app.schemas.meeting import (
     ParticipantAdd,
     ParticipantUpdate,
 )
+from app.schemas.speech import TranscriptionResponse
+from app.services.speech import SpeechConfigurationError, transcribe_audio
 
 router = APIRouter(prefix="/api/v1", tags=["meetings"])
+settings = get_settings()
 
 
 async def database_session(
@@ -363,3 +367,28 @@ async def delete_agenda_item(
         raise HTTPException(status_code=404, detail="agenda item not found")
     await session.delete(item)
     await session.commit()
+
+
+@router.post("/meetings/{meeting_id}/transcription", response_model=TranscriptionResponse)
+async def transcribe_meeting_audio(
+    meeting_id: UUID,
+    file: UploadFile = File(...),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> TranscriptionResponse:
+    await authorized_meeting(meeting_id, principal, session)
+    content = await file.read(25_000_001)
+    if len(content) > 25_000_000:
+        raise HTTPException(status_code=413, detail="audio file is too large")
+    try:
+        text = await transcribe_audio(
+            file.filename or "audio.webm",
+            content,
+            file.content_type or "application/octet-stream",
+            settings,
+        )
+    except SpeechConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="speech provider unavailable") from None
+    return TranscriptionResponse(meeting_id=meeting_id, text=text, model=settings.groq_stt_model)

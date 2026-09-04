@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     embedding_api_key: str | None = None
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
+    groq_api_key: str | None = None
+    groq_stt_model: str = "whisper-large-v3-turbo"
     neon_auth_issuer: str | None = None
     neon_auth_base_url: str | None = None
     neon_auth_audience: str | None = None
