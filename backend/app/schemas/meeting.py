@@ -65,6 +65,22 @@ class TranscriptSummary(BaseModel):
     confidence: float | None
 
 
+class SuggestionSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    state_version: int
+    title: str
+    content: str
+    status: str
+    confidence: float | None
+    created_at: datetime
+
+
+class SuggestionVoteCreate(BaseModel):
+    vote: str = Field(pattern="^(support|reject|abstain)$")
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 

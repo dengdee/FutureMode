@@ -2,6 +2,7 @@
 
 from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
 from app.models.realtime import MeetingEventCursor, MeetingState
+from app.models.suggestion import AISuggestion, SuggestionVote
 from app.models.transcript import Transcript
 from app.models.voice import BotSession, VoiceRequest
 
@@ -14,6 +15,8 @@ __all__ = [
     "BotSession",
     "VoiceRequest",
     "Transcript",
+    "AISuggestion",
+    "SuggestionVote",
     "Team",
     "TeamMember",
     "User",
