@@ -15,6 +15,7 @@ def test_core_tables_are_registered() -> None:
         "meeting_event_cursors",
         "bot_sessions",
         "voice_requests",
+        "transcripts",
     }.issubset(Base.metadata.tables)
 
 

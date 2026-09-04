@@ -2,6 +2,7 @@
 
 from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
 from app.models.realtime import MeetingEventCursor, MeetingState
+from app.models.transcript import Transcript
 from app.models.voice import BotSession, VoiceRequest
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
     "MeetingState",
     "BotSession",
     "VoiceRequest",
+    "Transcript",
     "Team",
     "TeamMember",
     "User",

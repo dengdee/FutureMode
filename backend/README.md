@@ -24,6 +24,7 @@
 - **步驟 5**：已完成會議建立、列表、單筆查詢、修改、參與者、議程、開始／結束與取消生命週期 API。
 - **步驟 6（資料庫部分）**：已建立 `bot_sessions`、`voice_requests` 與非敏感 audit metadata 模型與 Migration；provider adapter 尚未完成。
 - **步驟 7（資料庫部分）**：已建立 `meeting_states` 與 `meeting_event_cursors` 模型與 Migration；WebSocket gateway 尚未完成。
+- **步驟 8（第一段）**：已建立 `transcripts` 模型、Migration，以及受保護的逐字稿新增／查詢 API；STT provider 與音訊串流尚未接入。
 
 ## 目前發現的缺口與衝突
 

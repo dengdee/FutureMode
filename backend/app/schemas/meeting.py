@@ -40,6 +40,31 @@ class AgendaItemUpdate(BaseModel):
     status: str | None = Field(default=None, min_length=1, max_length=32)
 
 
+class TranscriptCreate(BaseModel):
+    speaker_user_id: UUID | None = None
+    speaker_label: str = Field(min_length=1, max_length=255)
+    sequence: int = Field(ge=1)
+    started_at: datetime
+    ended_at: datetime | None = None
+    text: str = Field(min_length=1, max_length=20_000)
+    source: str = Field(default="fixture", min_length=1, max_length=32)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TranscriptSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    speaker_user_id: UUID | None
+    speaker_label: str
+    sequence: int
+    started_at: datetime
+    ended_at: datetime | None
+    text: str
+    source: str
+    confidence: float | None
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 
