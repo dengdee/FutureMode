@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
 
     meeting_baas_api_key: str | None = None
+    embedding_provider: str = "openai"
+    embedding_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
     neon_auth_issuer: str | None = None
     neon_auth_base_url: str | None = None
     neon_auth_audience: str | None = None
