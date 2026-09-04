@@ -1,9 +1,17 @@
-from fastapi import FastAPI
+import logging
+from uuid import uuid4
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.meetbot import router as meetbot_router
 
 settings = get_settings()
+logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
+logger = logging.getLogger("proximate.api")
 
 app = FastAPI(
     title="Proximate API",
@@ -11,10 +19,90 @@ app = FastAPI(
     description="Initial API scaffold. No product features are implemented.",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+)
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    request.state.request_id = request_id
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Unhandled request failure", extra={"request_id": request_id})
+        response = JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "internal_error",
+                    "message": "服務暫時無法處理請求",
+                    "request_id": request_id,
+                }
+            },
+        )
+
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+def error_response(request: Request, status_code: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "request_id": request.state.request_id,
+            }
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, _: RequestValidationError):
+    return error_response(request, 422, "validation_error", "請求資料格式錯誤")
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    status_messages = {
+        400: "請求無效",
+        401: "需要驗證身份",
+        403: "沒有執行此操作的權限",
+        404: "找不到資源",
+        409: "資源狀態衝突",
+        422: "請求資料格式錯誤",
+        502: "外部服務暫時無法使用",
+    }
+    status_code = exc.status_code
+    message = status_messages.get(status_code, "服務暫時無法處理請求")
+    code = "http_error" if status_code < 500 else "upstream_error"
+    return error_response(request, status_code, code, message)
+
 
 @app.get("/health", tags=["system"])
 async def health() -> dict[str, str]:
     return {"status": "ok", "environment": settings.app_env}
+
+
+@app.get("/ready", tags=["system"])
+async def ready() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "environment": settings.app_env,
+        "checks": {
+            "api": "ok",
+            "database": "not_configured",
+            "meeting_baas": "configured" if settings.meeting_baas_api_key else "not_configured",
+        },
+    }
 
 
 app.include_router(meetbot_router)

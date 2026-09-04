@@ -20,6 +20,12 @@ class JoinMeetingRequest(BaseModel):
 
 @router.post("/join")
 async def join_meeting(request: JoinMeetingRequest):
+    if not settings.meeting_baas_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Meeting BaaS 尚未設定",
+        )
+
     headers = {
         "Content-Type": "application/json",
         "x-meeting-baas-api-key": settings.meeting_baas_api_key,
