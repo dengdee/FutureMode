@@ -5,9 +5,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#fbfbfa] text-[#1f1f1f]">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Link href="/" className="text-lg font-semibold tracking-tight">Proximate</Link>
-        <div className="flex items-center gap-5 text-sm text-[#787774]">
-          <a href="#how-it-works" className="hidden sm:inline hover:text-[#1f1f1f]">運作方式</a>
-          <Link href="/sign-in" className="hidden sm:inline hover:text-[#1f1f1f]">登入</Link>
+        <div className="flex items-center gap-3 text-sm text-[#787774]">
           <Link href="/sign-in" className="rounded-lg border border-[#d7e8e5] bg-white px-4 py-2 font-medium text-[#0f806f] hover:bg-[#f2fbf9]">登入</Link><Link href="/sign-up" className="rounded-lg bg-[var(--accent)] px-4 py-2 font-medium text-white hover:bg-[#0b8978]">註冊</Link>
         </div>
       </nav>
@@ -17,7 +15,7 @@ export default function Home() {
           <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">AI teammate for better meetings</p>
           <h1 className="text-5xl font-semibold leading-[1.05] tracking-[-0.04em] sm:text-7xl">讓每一場會議，<br /><span className="text-[#787774]">多一個會思考的組員。</span></h1>
           <p className="mt-7 max-w-2xl text-lg leading-8 text-[#787774]">Proximate 在會議前整理脈絡、會議中主動提出風險與反例，會議後把討論收斂成可追蹤的決策與行動。</p>
-          <div className="mt-9 flex flex-wrap gap-3"><Link href="/sign-up" className="rounded-lg bg-[var(--accent)] px-5 py-3 font-medium text-white hover:bg-[#0b8978]">建立帳號</Link><Link href="/sign-in" className="rounded-lg border border-[#e6e6e3] bg-white px-5 py-3 font-medium hover:bg-[#f7f7f5]">登入</Link></div>
+          <div className="mt-9 flex flex-wrap gap-3"><Link href="/sign-up" className="rounded-lg bg-[var(--accent)] px-5 py-3 font-medium text-white hover:bg-[#0b8978]">註冊</Link><Link href="/sign-in" className="rounded-lg border border-[#e6e6e3] bg-white px-5 py-3 font-medium hover:bg-[#f7f7f5]">登入</Link></div>
         </div>
         <div className="mt-20 grid gap-3 border-y border-[#e6e6e3] py-5 text-sm text-[#787774] sm:grid-cols-3"><div><span className="text-[#1f1f1f]">01</span><p className="mt-2">會前形成共同脈絡</p></div><div><span className="text-[#1f1f1f]">02</span><p className="mt-2">會中主動發現盲點</p></div><div><span className="text-[#1f1f1f]">03</span><p className="mt-2">會後留下可執行決策</p></div></div>
       </section>

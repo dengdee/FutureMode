@@ -76,8 +76,10 @@ export type MeetingUpdateRequest = {
 
 export type ParticipantAddRequest = { user_id: string; role?: string };
 export type ParticipantUpdateRequest = { role?: string | null; attendance_status?: string | null };
+export type ParticipantCreateResponse = { meeting_id: string; user_id: string; role: string };
 export type AgendaItemCreateRequest = { position: number; title: string; description?: string | null };
 export type AgendaItemUpdateRequest = { position?: number | null; title?: string | null; description?: string | null; status?: string | null };
+export type AgendaItemCreateResponse = { id: string; meeting_id: string; position: number };
 
 export type Participant = {
   user_id: string;

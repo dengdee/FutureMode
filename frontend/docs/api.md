@@ -21,6 +21,8 @@
 | `participants.ts` | add／list／update／remove | `/api/v1/meetings/{meeting_id}/participants` |
 | `agenda.ts` | add／list／update／remove | `/api/v1/meetings/{meeting_id}/agenda` |
 
+建立議程與新增參與者的 response 是精簡建立結果，分別為 `id/meeting_id/position` 與 `meeting_id/user_id/role`；完整欄位需再呼叫列表 API 取得，前端型別已按此區分。
+
 ## 畫面接入狀態
 
 | Endpoint 群組 | Web App 使用位置 | 狀態 |

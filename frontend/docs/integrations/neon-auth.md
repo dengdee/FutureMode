@@ -19,3 +19,7 @@
 - Client Components（登入、註冊、App Shell 與 API client）只能引用 `lib/auth/client.ts`。該檔案使用目前已安裝版本提供的 `@neondatabase/auth/next` browser-safe client entrypoint。
 - `lib/auth/server.ts` 只能由 `proxy.ts` 與 `app/api/auth/[...path]/route.ts` 引用，使用 `@neondatabase/auth/next/server`；不可從任何標示 `"use client"` 的元件或其相依模組引入。
 - 目前套件版本沒有 `@neondatabase/auth/next/client` export；若升級至提供該子路徑的版本，再依官方 API 替換 client entrypoint，不應自行建立同名 alias。
+
+## 本機 404 排查
+
+若 `/api/auth/sign-in/email` 回傳 404，先確認 `frontend/.env` 的 `NEON_AUTH_BASE_URL` 與 `NEON_AUTH_COOKIE_SECRET` 都不是空值，且前者是 Neon Auth 專案 URL（例如 `https://<project>.neon.tech`），不是 `http://localhost:3000`。修改 `.env` 後必須重新啟動 Next dev server；目前執行中的舊 server 不會自動取得新的環境變數。
