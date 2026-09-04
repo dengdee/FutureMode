@@ -498,6 +498,10 @@ async def search_memory(
     team_id: UUID,
     q: str = Query(min_length=1, max_length=500),
     limit: int = Query(default=20, ge=1, le=100),
+    source_type: str | None = Query(default=None, max_length=32),
+    version: int | None = Query(default=None, ge=1),
+    metadata_key: str | None = Query(default=None, max_length=64),
+    metadata_value: str | None = Query(default=None, max_length=255),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> list[DocumentSearchResult]:
@@ -506,15 +510,22 @@ async def search_memory(
     document_vector = func.to_tsvector("simple", DocumentChunk.content)
     query_vector = func.plainto_tsquery("simple", q)
     rank = func.ts_rank_cd(document_vector, query_vector).label("rank")
+    filters = [
+        Document.team_id == team_id,
+        Document.status.in_({"ready", "embedded"}),
+        document_vector.op("@@")(query_vector),
+    ]
+    if source_type:
+        filters.append(Document.source_type == source_type)
+    if version is not None:
+        filters.append(Document.version == version)
+    if metadata_key and metadata_value is not None:
+        filters.append(Document.metadata_json.contains({metadata_key: metadata_value}))
     rows = (
         await session.execute(
             select(DocumentChunk, Document, rank)
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(
-                Document.team_id == team_id,
-                Document.status.in_({"ready", "embedded"}),
-                document_vector.op("@@")(query_vector),
-            )
+            .where(*filters)
             .order_by(rank.desc(), DocumentChunk.position)
             .limit(limit)
         )
@@ -539,6 +550,10 @@ async def hybrid_search_memory(
     team_id: UUID,
     q: str = Query(min_length=1, max_length=500),
     limit: int = Query(default=20, ge=1, le=100),
+    source_type: str | None = Query(default=None, max_length=32),
+    version: int | None = Query(default=None, ge=1),
+    metadata_key: str | None = Query(default=None, max_length=64),
+    metadata_value: str | None = Query(default=None, max_length=255),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> list[DocumentSearchResult]:
@@ -556,15 +571,22 @@ async def hybrid_search_memory(
         func.plainto_tsquery("simple", q),
     )
     hybrid_score = ((1 - distance) * 0.7 + text_rank * 0.3).label("hybrid_score")
+    filters = [
+        Document.team_id == team_id,
+        Document.status == "embedded",
+        DocumentChunk.embedding.is_not(None),
+    ]
+    if source_type:
+        filters.append(Document.source_type == source_type)
+    if version is not None:
+        filters.append(Document.version == version)
+    if metadata_key and metadata_value is not None:
+        filters.append(Document.metadata_json.contains({metadata_key: metadata_value}))
     rows = (
         await session.execute(
             select(DocumentChunk, Document, hybrid_score)
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(
-                Document.team_id == team_id,
-                Document.status == "embedded",
-                DocumentChunk.embedding.is_not(None),
-            )
+            .where(*filters)
             .order_by(hybrid_score.desc(), DocumentChunk.position)
             .limit(limit)
         )

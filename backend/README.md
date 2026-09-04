@@ -52,6 +52,7 @@
 - **步驟 12（第十七段）**：已加入文件刪除 API，先清理 R2 原始檔，再刪除文件及其 chunks／vectors／版本資料；R2 失敗時保留資料庫內容。
 - **步驟 12（第十八段）**：已加入 R2 檔案存在性檢查 API，Web 端可確認原始檔是否仍可取用。
 - **步驟 12（第十九段）**：文件版本會記錄對應 R2 storage key，版本查詢可追溯各版本原始檔；新增 Migration `0016_version_storage_key`。
+- **步驟 12（第二十段）**：全文與 hybrid search 支援 `source_type`、`version` 與 metadata key/value 過濾，便於 Web 端進行版本與來源治理。
 - **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。
