@@ -113,7 +113,7 @@ async def list_team_members(
     session: AsyncSession = Depends(database_session),
 ) -> dict[str, list[dict[str, str]]]:
     query = (
-        select(User.external_id, User.display_name, TeamMember.role)
+        select(User.id, User.external_id, User.display_name, TeamMember.role)
         .join(TeamMember, TeamMember.user_id == User.id)
         .where(TeamMember.team_id == team_id)
         .where(
@@ -130,7 +130,12 @@ async def list_team_members(
         raise HTTPException(status_code=503, detail="database is unavailable") from None
     return {
         "members": [
-            {"external_id": external_id, "display_name": display_name or "", "role": role}
-            for external_id, display_name, role in rows
+            {
+                "user_id": str(user_id),
+                "external_id": external_id,
+                "display_name": display_name or "",
+                "role": role,
+            }
+            for user_id, external_id, display_name, role in rows
         ]
     }
