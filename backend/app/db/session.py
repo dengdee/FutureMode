@@ -1,9 +1,15 @@
+from collections.abc import AsyncIterator
 from functools import lru_cache
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.config import Settings
 
@@ -33,6 +39,17 @@ def get_engine(database_url: str, pool_size: int, max_overflow: int) -> AsyncEng
         pool_size=pool_size,
         max_overflow=max_overflow,
     )
+
+
+async def get_session(settings: Settings) -> AsyncIterator[AsyncSession]:
+    if not settings.database_url:
+        raise RuntimeError("database is not configured")
+    factory = async_sessionmaker(
+        get_engine(settings.database_url, settings.db_pool_size, settings.db_max_overflow),
+        expire_on_commit=False,
+    )
+    async with factory() as session:
+        yield session
 
 
 async def database_check(settings: Settings) -> str:
