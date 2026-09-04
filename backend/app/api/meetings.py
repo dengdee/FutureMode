@@ -9,8 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
 from app.db.session import get_session
-from app.models import Meeting, TeamMember, User
-from app.schemas.meeting import MeetingCreate, MeetingSummary, MeetingUpdate
+from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, User
+from app.schemas.meeting import (
+    AgendaItemCreate,
+    MeetingCreate,
+    MeetingSummary,
+    MeetingUpdate,
+    ParticipantAdd,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["meetings"])
 
@@ -126,6 +132,103 @@ async def update_meeting(
         meeting = await authorized_meeting(meeting_id, principal, session, write=True)
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(meeting, field, value)
+        await session.commit()
+        await session.refresh(meeting)
+        return meeting
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+@router.post("/meetings/{meeting_id}/participants", status_code=status.HTTP_201_CREATED)
+async def add_participant(
+    meeting_id: UUID,
+    payload: ParticipantAdd,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, str]:
+    try:
+        meeting = await authorized_meeting(meeting_id, principal, session, write=True)
+        member = await session.scalar(
+            select(TeamMember).where(
+                TeamMember.team_id == meeting.team_id, TeamMember.user_id == payload.user_id
+            )
+        )
+        if member is None:
+            raise HTTPException(status_code=400, detail="participant is not a team member")
+        participant = MeetingParticipant(
+            meeting_id=meeting_id, user_id=payload.user_id, role=payload.role
+        )
+        session.add(participant)
+        await session.commit()
+        return {
+            "meeting_id": str(meeting_id),
+            "user_id": str(payload.user_id),
+            "role": payload.role,
+        }
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409, detail="participant already exists or request conflicts"
+        ) from None
+
+
+@router.post("/meetings/{meeting_id}/agenda", status_code=status.HTTP_201_CREATED)
+async def add_agenda_item(
+    meeting_id: UUID,
+    payload: AgendaItemCreate,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, str | int]:
+    try:
+        meeting = await authorized_meeting(meeting_id, principal, session, write=True)
+        item = AgendaItem(meeting_id=meeting.id, **payload.model_dump())
+        session.add(item)
+        await session.commit()
+        return {"id": str(item.id), "meeting_id": str(meeting_id), "position": item.position}
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="agenda position already exists") from None
+
+
+@router.post("/meetings/{meeting_id}/start", response_model=MeetingSummary)
+async def start_meeting(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> Meeting:
+    return await _transition_meeting(
+        meeting_id, principal, session, "in_progress", {"draft", "scheduled"}
+    )
+
+
+@router.post("/meetings/{meeting_id}/end", response_model=MeetingSummary)
+async def end_meeting(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> Meeting:
+    return await _transition_meeting(meeting_id, principal, session, "completed", {"in_progress"})
+
+
+async def _transition_meeting(
+    meeting_id: UUID,
+    principal: Principal,
+    session: AsyncSession,
+    target: str,
+    allowed: set[str],
+) -> Meeting:
+    try:
+        meeting = await authorized_meeting(meeting_id, principal, session, write=True)
+        if meeting.status not in allowed:
+            raise HTTPException(status_code=409, detail="invalid meeting state transition")
+        meeting.status = target
         await session.commit()
         await session.refresh(meeting)
         return meeting

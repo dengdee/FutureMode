@@ -17,6 +17,17 @@ class MeetingUpdate(BaseModel):
     ai_intervention_level: str | None = Field(default=None, min_length=1, max_length=32)
 
 
+class ParticipantAdd(BaseModel):
+    user_id: UUID
+    role: str = Field(default="participant", min_length=1, max_length=32)
+
+
+class AgendaItemCreate(BaseModel):
+    position: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+
 class MeetingSummary(BaseModel):
     model_config = {"from_attributes": True}
 
