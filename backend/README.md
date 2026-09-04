@@ -42,7 +42,7 @@
 - **步驟 12（第七段）**：已加入 Embedding 相似度與全文檢索混合排序 API；未設定 Embedding provider 時保留純全文搜尋並讓 hybrid endpoint 回傳設定錯誤。
 - **步驟 12（第八段）**：已加入 Embedding 失敗狀態、錯誤摘要與 retry count；再次呼叫 embed endpoint 可重試既有 chunks。
 - **步驟 12（第九段）**：已加入不可變文件版本紀錄、內容 hash 與版本查詢 API；不保存原始全文。
-- **步驟 12（第十段）**：已加入 UTF-8 純文字／Markdown multipart upload，限制 5 MB 並沿用既有 ingestion 流程；PDF 與雲端檔案儲存待後續外部方案確認。
+- **步驟 12（第十段）**：已加入 UTF-8 純文字／Markdown 與 PDF multipart upload，限制 5 MB 並沿用既有 ingestion 流程；雲端檔案儲存待後續外部方案確認。
 - **步驟 8（第一段）**：已加入 Groq Whisper STT 音訊轉文字 API，支援 25 MB 上限與 provider 錯誤處理；TTS 沿用 `meetbot.py`／Meeting BaaS，不另接 ElevenLabs。
 - **步驟 8（第二段）**：STT 成功後會持久化為 transcript segment，產生 meeting 內 sequence 與 `source=groq`；speaker mapping 與串流仍待後續處理。
 - **步驟 8（第三段）**：STT 上傳 API 支援 `speaker_label` 與 `started_at` multipart 欄位，持久化逐人來源與時間；未提供 speaker 時使用 `unknown`。

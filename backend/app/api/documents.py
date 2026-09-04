@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
 from hashlib import sha256
+from io import BytesIO
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pypdf import PdfReader
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -237,19 +239,28 @@ async def upload_text_document(
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> DocumentIngestResponse:
-    if file.content_type not in {"text/plain", "text/markdown"}:
-        raise HTTPException(status_code=415, detail="only plain text files are supported")
+    if file.content_type not in {"text/plain", "text/markdown", "application/pdf"}:
+        raise HTTPException(status_code=415, detail="only text and PDF files are supported")
     raw_content = await file.read(5_000_001)
     if len(raw_content) > 5_000_000:
         raise HTTPException(status_code=413, detail="file is too large")
-    try:
-        content = raw_content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="file must be UTF-8 encoded") from None
+    if file.content_type == "application/pdf":
+        try:
+            reader = PdfReader(BytesIO(raw_content))
+            content = "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception:
+            raise HTTPException(status_code=400, detail="could not extract PDF text") from None
+    else:
+        try:
+            content = raw_content.decode("utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="file must be UTF-8 encoded") from None
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="file contains no extractable text")
     document = await session.scalar(select(Document).where(Document.id == document_id))
     if document is None:
         raise HTTPException(status_code=404, detail="document not found")
-    document.source_type = "text_upload"
+    document.source_type = "pdf_upload" if file.content_type == "application/pdf" else "text_upload"
     return await ingest_document(
         document_id,
         DocumentIngestRequest(content=content),
