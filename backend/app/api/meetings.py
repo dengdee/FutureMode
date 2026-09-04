@@ -12,6 +12,7 @@ from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
 from app.db.session import get_session
 from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, Transcript, User
+from app.schemas.backup import TranscriptBackupRequest
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
@@ -473,3 +474,45 @@ async def transcribe_meeting_audio(
         text=text,
         model=settings.groq_stt_model,
     )
+
+
+@router.post("/meetings/{meeting_id}/transcripts/backup", status_code=status.HTTP_201_CREATED)
+async def backup_meeting_transcripts(
+    meeting_id: UUID,
+    payload: TranscriptBackupRequest,
+    webhook_secret: str | None = Header(default=None, alias="X-Meeting-BaaS-Secret"),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, object]:
+    if (
+        not settings.meeting_baas_webhook_secret
+        or webhook_secret != settings.meeting_baas_webhook_secret
+    ):
+        raise HTTPException(status_code=401, detail="invalid webhook secret")
+    meeting = await session.scalar(select(Meeting).where(Meeting.id == meeting_id))
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="meeting not found")
+    latest = await session.scalar(
+        select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_id)
+    )
+    segments = []
+    for index, item in enumerate(payload.segments, start=int(latest or 0) + 1):
+        segments.append(
+            Transcript(
+                meeting_id=meeting_id,
+                speaker_user_id=item.speaker_user_id,
+                speaker_label=item.speaker_label,
+                sequence=index,
+                started_at=item.started_at,
+                ended_at=item.ended_at,
+                text=item.text,
+                source="meeting_baas",
+                confidence=item.confidence,
+            )
+        )
+    session.add_all(segments)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="transcript sequence conflict") from None
+    return {"meeting_id": str(meeting_id), "created": len(segments)}

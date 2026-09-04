@@ -61,6 +61,7 @@
 - **步驟 8（第四段）**：STT 上傳 API 支援 `speaker_user_id`，並驗證使用者屬於會議 team 後寫入 transcript，完成基本 speaker identity 對應。
 - **步驟 8（第五段）**：STT 上傳 API 支援 `language` 與 `ended_at` multipart 欄位，並將語言傳給 Groq Whisper、保存完整時間區間。
 - **步驟 8（第六段）**：STT API 支援 `X-Idempotency-Key`，避免網路重試造成重複 transcript；新增 Migration `0017_transcript_idempotency`。
+- **步驟 8（第七段）**：已加入 Meeting BaaS transcript backup webhook，使用 `X-Meeting-BaaS-Secret` 匯入備援 segments；不修改 `meetbot.py`。
 
 ## 目前發現的缺口與衝突
 

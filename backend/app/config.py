@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
 
     meeting_baas_api_key: str | None = None
+    meeting_baas_webhook_secret: str | None = None
     embedding_provider: str = "openai"
     embedding_api_key: str | None = None
     embedding_model: str = "text-embedding-3-small"
