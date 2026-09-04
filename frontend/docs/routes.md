@@ -3,12 +3,12 @@
 | 路由 | 使用者位置 | 頁面責任 | 狀態 |
 | --- | --- | --- | --- |
 | `/` | 瀏覽器 | 產品 Landing Page | 已完成 |
-| `/dashboard` | Web App | 服務狀態、近期會議、建立入口 | 部分接 API |
-| `/sign-in` | Web App | Neon Auth 登入入口 | UI 完成，Auth 待接 |
-| `/sign-up` | Web App | 建立帳號／展示模式註冊入口 | UI 完成，Auth 待接 |
-| `/workspaces` | Web App | 建立／編輯團隊工作區、邀請成員、查看工作區會議 | UI 完成，Team／Workspace 寫入 API 待提供 |
-| `/meetings/new` | Web App | 從工作區建立會議、設定本次參與者與 AI 政策 | UI 完成，參與者正式寫入待接 |
-| `/meetings/[id]/prepare` | Web App | Brief、議程、Personal Sidekick | UI scaffold；API 待提供 |
+| `/dashboard` | Web App | 服務狀態、近期會議、建立入口 | system／meetings API 已接 |
+| `/sign-in` | Web App | Neon Auth 登入入口 | 已接 Neon Auth |
+| `/sign-up` | Web App | 建立帳號入口 | 已接 Neon Auth |
+| `/workspaces` | Web App | 查看團隊、成員與工作區會議；以表格準備邀請名單 | Team／Member／Meeting 讀取 API 已接；建立／邀請寫入 API 待提供 |
+| `/meetings/new` | Web App | 從工作區建立會議、設定議程與 AI 政策 | Meeting／Agenda API 已接 |
+| `/meetings/[id]/prepare` | Web App | 會議設定、議程、參與者 | 現有 Meeting／Agenda／Participant API 已接；Brief／Sidekick／meeting-scoped Voice Bot 待提供 |
 | `/meetings/[id]/audio-setup` | Web App／Capture Page | 收音同意與連線狀態 | UI scaffold；Audio API 待提供 |
 | `/meetings/[id]/addon` | Google Meet Meet Add-on | 窄版公共狀態與 Personal Sidekick | UI scaffold；token／realtime 待提供 |
 | `/meetings/[id]/live` | 瀏覽器 fallback | Add-on 不可用時的同一公共狀態 | UI scaffold；realtime 待提供 |

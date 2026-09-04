@@ -8,7 +8,7 @@
 
 Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協作系統。它從會前開始理解議程、成員想法與歷史決策，在會中協助團隊發現分歧、盲點、風險與反例，並在會後讓所有成員確認對決策與下一步的理解一致。
 
-本專案目前處於 **黑客松產品定義與技術驗證階段**。Repository 內尚無可執行程式碼；本文件統整現有六份規劃文件，將產品定位、使用者流程、資訊架構、會中整合方案、MVP 範圍與預計技術架構整理為單一產品藍圖。
+本專案目前處於 **黑客松產品定義與技術驗證階段**。Repository 已有可執行的前後端 scaffold 與第一批身分／團隊／會議 REST API；本文件仍作為完整產品藍圖，未標示完成的 AI、即時與外部整合功能不可視為已實作。
 
 > [!IMPORTANT]
 本文件中的頁面、路由、資料表與 API 是建議規格，不代表已完成實作。標示為「MVP」的項目是黑客松建議範圍；「後續」項目不應阻塞核心展示。
@@ -921,7 +921,7 @@ flowchart TB
 
 | 項目 | 狀態 | 目前缺少什麼 | 是否阻塞黑客松 | 建議解法／解除條件 |
 | --- | --- | --- | --- | --- |
-| Web App／會中介面與 User Flow | **Blocked** | Repository 只有基礎 scaffold，尚未完成產品頁面與元件 | 是 | 先建立 Dashboard、Meeting Workspace（Prepare／Live／Review）與可嵌入 Add-on；使用假資料串成 happy path |
+| Web App／會中介面與 User Flow | **In progress** | Web App 已有 Landing、Dashboard、Workspace、Meeting Prepare 與技術路由；Live／Add-on／Review 尚待後端契約 | 是，若要完成核心 Demo | 先以目前 REST API 驗證工作區與會前流程；等待 WebSocket、Live Snapshot、投票與 Review API 後再完成會中閉環 |
 | Backend、REST 與 WebSocket | **Blocked** | 沒有 FastAPI 專案、schema、migration 或 API contract | 若要多人即時同步則是 | Phase 0 可用前端 fixture＋狀態機；同時先定義 event schema，再以最小 WebSocket room 取代假資料 |
 | 即時分頁音訊擷取 | **Blocked** | 尚無 browser prototype，也沒有實測瀏覽器、OS 與會議平台組合 | 否 | 先完成 Capture Page＋WebSocket spike；無法取得音訊時使用預先準備的繁中逐字稿 |
 | 分散式麥克風 Capture Page | **Blocked** | 尚未實測背景分頁收音、Meet 與 Web App 同時取用麥克風、WebSocket 穩定性與休眠行為 | 否 | 在頂層 Web App 做最小 `getUserMedia()`＋Audio WebSocket spike；Add-on 只顯示狀態，不在 iframe 內要求麥克風 |

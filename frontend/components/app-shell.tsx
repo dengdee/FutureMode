@@ -15,9 +15,11 @@ import {
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
+import { getCurrentUser } from "../lib/api/me";
+import { authClient } from "../lib/auth/client";
 
 gsap.registerPlugin(useGSAP);
 
@@ -31,6 +33,7 @@ const navigation = [
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileName, setProfileName] = useState("Proximate");
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const backdropRef = useRef<HTMLButtonElement>(null);
@@ -38,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const contentRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const breadcrumb =
     pathname === "/dashboard"
       ? "Dashboard"
@@ -129,6 +133,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       previousFocusRef.current?.focus();
     };
   }, [sidebarOpen]);
+
+  useEffect(() => {
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (!active) return;
+      const name = user.claims.name ?? user.claims.email ?? user.id;
+      setProfileName(typeof name === "string" ? name : "Proximate");
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push("/sign-in");
+  }
 
   return (
     <div
@@ -225,18 +244,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 YC
               </span>
               <div className={sidebarCollapsed ? "md:hidden" : ""}>
-                <p className="text-sm font-medium">Proximate</p>
+                <p className="max-w-28 truncate text-sm font-medium">{profileName}</p>
                 <p className="text-xs text-[#9b9a97]">Admin</p>
               </div>
             </div>
             <Tooltip content="登出">
-              <Link
-                href="/sign-in"
+              <button
+                type="button"
                 aria-label="登出"
-                className="ml-auto rounded-md p-2 text-[#787774] hover:bg-[#e9e9e7] hover:text-[#1f1f1f] md:ml-0"
+                onClick={handleSignOut}
+                className="ml-auto cursor-pointer rounded-md p-2 text-[#787774] hover:bg-[#e9e9e7] hover:text-[#1f1f1f] md:ml-0"
               >
                 <IconLogout size={19} stroke={1.8} />
-              </Link>
+              </button>
             </Tooltip>
           </div>
         </div>

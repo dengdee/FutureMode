@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../components/app-shell";
-import { getHealth } from "../../lib/api/system";
+import { getHealth, getReady } from "../../lib/api/system";
 import { listMeetings } from "../../lib/api/meetings";
 import type { MeetingSummary } from "../../types/api";
 
@@ -17,8 +17,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let active = true;
-    getHealth()
-      .then((result) => {
+    Promise.all([getHealth(), getReady()])
+      .then(([result]) => {
         if (!active) return;
         setEnvironment(result.environment);
         setServiceStatus(result.status === "ok" ? "connected" : "disconnected");

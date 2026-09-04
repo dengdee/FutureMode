@@ -19,7 +19,9 @@
 | 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
 | 現有頁面 | `/` 導向 `/dashboard`；Dashboard 顯示 API 狀態與正式資料尚未提供時的空狀態 |
 | 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 健康檢查 UI |
-| 尚未完成 | Neon Auth、WebSocket、Google Meet Add-on／音訊實作、AI 即時狀態、Review／投票／Memory API；部分 UI 尚未接上正式 endpoint |
+| 尚未完成 | WebSocket、Google Meet Add-on／音訊實作、AI 即時狀態、Review／投票／Memory API；未提供 endpoint 的能力維持明確 placeholder |
+
+> **與後端目前實作對齊（2026-09-05）**：後端已提供 `/health`、`/ready`、Neon JWT 保護的 `/api/v1/me`、teams、members、meetings、participants、agenda，以及未綁定 meeting scope 的 `/meetbot/join`。下方早期步驟中的「預期 endpoint」仍是產品規格，不代表後端已提供；以 `frontend/docs/api.md` 的接入表為準。
 
 ### 現有檔案與可沿用基礎
 
@@ -36,11 +38,11 @@
 | 01 | 前端基礎與設計語言 | 部分完成 | 已有 Tailwind token、Landing Page 與 `AppShell`；完整 Design System 與所有 route shell 尚未完成 |
 | 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
 | 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已依功能拆分 `system.ts`、`meetbot.ts`、`me.ts`、`teams.ts`、`meetings.ts`、`participants.ts`、`agenda.ts`；全部使用 Axios 與正式 API，不使用 Mock Data |
-| 04 | 登入狀態、角色與存取邊界 | UI 未完成／API 已封裝 | 已有 `me.ts` 的 `GET /api/v1/me`；Neon Auth session、route guard 與 token handoff 尚未實作 |
-| 05 | Dashboard 與會議清單 | 部分完成 | Dashboard 已顯示真實 `/health`；已具備 `GET /api/v1/meetings` function，但清單 UI 尚未接上 |
-| 06 | 建立與編輯會議 | 部分完成 | 建立會議表單已送出 `POST /api/v1/meetings` 並成功後導向 Prepare；參與者／議程互動與完整編輯流程尚未完成 |
+| 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊與 API client JWT 注入已完成；FastAPI issuer／audience／JWKS 與正式測試帳號需由環境設定 |
+| 05 | Dashboard 與會議清單 | 已完成 API 接入 | Dashboard 使用 `/health`、`/ready` 與 `GET /api/v1/meetings`，未登入／空資料／錯誤狀態分開呈現 |
+| 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
 | 07–11 | Prepare、Audio、Add-on、Live、Review | UI scaffold 完成／API 待補 | 頁面 UI 已建立；後端尚未提供 Brief、音訊、Live Snapshot、投票、Review 等 endpoint |
-| 12 | 正式 REST／WebSocket adapter 切換 | REST 部分完成 | 現有 REST endpoint 已集中封裝；WebSocket、重連、事件 envelope 尚未提供／實作 |
+| 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成 | 目前 OpenAPI 的 REST endpoint 已集中封裝並接入 Web App；WebSocket、重連、事件 envelope 尚未由後端提供 |
 | 13–16 | 驗收、Memory、Settings、外部服務文件 | 尚未完成 | 需依正式契約完成互動、測試、ACL 與部署設定 |
 
 > 狀態只代表 repository 中已完成且可驗證的程式碼。每完成一個步驟，需同步更新本表、步驟內容與驗證結果。
@@ -64,15 +66,18 @@
 - `/dashboard` 已透過 `getHealth` 顯示服務狀態。
 - `/dashboard` 已透過 `listMeetings` 顯示近期會議；未登入、空清單或請求失敗時顯示可理解的空狀態。
 - 所有 API 請求統一經由 `lib/api/client.ts` 的 Axios instance 與錯誤轉換，不在頁面散落 endpoint 字串。
+- `/api/v1/*` 請求會從 Neon Auth session 取得短效 JWT；FastAPI 錯誤 envelope `{ error: { code, message, request_id } }` 會被轉成可供 UI 使用的 `ApiClientError`。
 
 ### 尚未完成／等待後端契約
 
-- `/meetings/new` 已將送出動作接至 `createMeeting`；目前需手動填入 Team ID，待 Neon Auth active team 後改為團隊選擇器。
+- `/meetings/new` 已改為從 `GET /api/v1/teams` 選擇工作區，不再要求手動填 Team ID。
+- `POST /meetings` 與 agenda 寫入採序列處理；部分議程失敗時保留已建立會議的 Prepare 導入口，不假裝整筆交易成功。
 - Prepare 尚未接 Brief、Personal Sidekick 與公開觀點 endpoint；目前後端未提供。
 - Audio Setup、Live、Meet Add-on 尚未接 Access Token、Live Snapshot、投票與 WebSocket；目前後端未提供。
 - Review 尚未接摘要、逐字稿、共識與行動項目 endpoint；目前後端未提供。
 - Memory 與 Settings 尚未接 RAG／設定 API；目前後端未提供。
-- `POST /meetbot/join` 的 response 尚未有穩定 schema，UI 不依賴未知欄位。
+- `POST /meetbot/join` 的 response 尚未有穩定 schema，且目前未綁定 meeting、政策、投票與 Host 授權；API function 保留供整合測試，正式 Prepare UI 不直接觸發 Voice Bot。
+- Team members 回傳 `external_id`，participant create 要求內部 UUID；前端不顯示 UUID 輸入，新增參與者等待後端提供可安全選取的契約。
 
 ## 已確認的架構決策
 
@@ -234,8 +239,8 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **頁面／路由**：`/sign-in`、所有主路由與 `/meetings/[id]/addon`。
 - **元件規劃**：`AuthGate`、`RoleGate`、`UnauthorizedState`、`SessionMenu`。
 - **狀態管理**：目前使用者、團隊、角色與 session status；正式 Auth SDK 選定後再封裝於 adapter。
-- **資料來源**：Neon Auth；目前後端尚未提供登入／session endpoint，因此本步尚未實作。
-- **API 串接**：預期 `GET /v1/me` → `{ id, name, avatarUrl, activeTeamId, roles }`；另需 `POST /v1/meetings/:id/access-token` 取得短效 meeting token。正式 token transport、過期時間與 refresh 行為待後端確認。
+- **資料來源**：Neon Auth；前端已建立 Neon Auth route、middleware 與登入／註冊頁。
+- **API 串接**：目前使用 `GET /api/v1/me` 與 Neon Auth session JWT；`POST /v1/meetings/:id/access-token` 尚未提供，Add-on token handoff 維持待辦。
 - **畫面狀態**：checking session、signed out、forbidden、session expired、切換團隊失敗。
 - **互動細節**：登入後回到原始目的地；角色不足顯示原因，不只隱藏按鈕。
 - **響應式需求**：登入頁、使用者選單與無權限畫面可在手機閱讀。
@@ -243,7 +248,7 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **前置條件**：步驟 02、03。
 - **驗證方式**：切換所有角色 fixture；嘗試直接輸入受限 URL；鍵盤操作登入 UI。
 - **完成標準**：前端依角色正確顯示功能，但不宣稱能取代後端授權。
-- **注意事項**：正式登入已選 Neon Auth；仍需確認 Neon Auth 的前端 SDK、callback、session refresh 與 Vercel 環境設定後，才能安裝或實作真登入。
+- **注意事項**：正式登入已選 Neon Auth；FastAPI 的 issuer／audience／JWKS 與前端 `.env.local` 必須由開發環境設定，前端不持有 API secret。
 
 ### 步驟 05｜Dashboard 與會議清單
 
@@ -272,8 +277,8 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **頁面／路由**：`/meetings/new`；未來可共用於 `/meetings/[id]/prepare` 的設定模式。
 - **元件規劃**：`MeetingForm`、`AgendaEditor`、`ParticipantPicker`、`HostSelector`、`AgentRoleSelector`、`InterventionPolicyForm`、`FormErrorSummary`。
 - **狀態管理**：表單草稿、dirty、提交中、排序中的區域狀態；採何種表單庫待批准。
-- **資料來源**：正式團隊／會議 API；目前後端尚未提供，因此本步尚未實作。
-- **API 串接**：預期 `POST /v1/meetings`，request 至少含 `{ title, startsAt, agenda[], participantIds[], hostUserId, enabledRoles[], interventionPolicy }`；response 預期 `{ meeting }`。欄位與門檻規則待後端確認。
+- **資料來源**：正式 `GET /api/v1/teams`、`POST /api/v1/meetings` 與 agenda API。
+- **API 串接**：目前 request 依 OpenAPI 使用 `{ team_id, title, scheduled_at, ai_intervention_level }`；participant／Host／policy 欄位尚未由後端提供。
 - **畫面狀態**：載入成員、空團隊、表單驗證錯誤、送出中、建立成功、建立失敗、無權限建立。
 - **互動細節**：即時必填提示、離開未儲存提示、成功後導向 Prepare、不可把私人 Delegate 設定誤當公開會議資料。
 - **響應式需求**：議程排序需支援非拖拉備援（上移／下移按鈕）；手機不依賴 hover。
@@ -291,7 +296,7 @@ Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web A
 - **頁面／路由**：`/meetings/[id]/prepare`。
 - **元件規劃**：`MeetingWorkspaceHeader`、`BriefPanel`、`AgendaPanel`、`SidekickThread`、`ContributionDraft`、`PublishContributionDialog`、`HostPolicyPanel`。
 - **狀態管理**：meeting snapshot、personal thread、輸入草稿、公開確認 dialog、Host policy draft。
-- **資料來源**：正式 Meeting、Brief 與 Personal Agent API；目前後端尚未提供，因此本步尚未實作。
+- **資料來源**：正式 Meeting／Agenda／Participant API；Brief 與 Personal Agent API 尚未提供。
 - **API 串接**：預期 `GET /v1/meetings/:id`、`GET /v1/meetings/:id/brief`、`GET/POST /v1/meetings/:id/personal-agent/messages`、`POST /v1/meetings/:id/public-contributions`。request／response 與 authorization 均待確認。
 - **畫面狀態**：meeting loading、找不到會議、未加入會議、Sidekick thinking、空對話、草稿生成失敗、公開失敗。
 - **互動細節**：私訊送出後顯示處理中；公開前顯示將被分享的文字與對象；不可由 UI 自動公開。

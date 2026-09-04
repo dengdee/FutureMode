@@ -1,6 +1,6 @@
 # Proximate
 
-Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協作系統。本 Repository 目前只包含可執行的前後端基礎架構，尚未實作登入、AI、會議流程、資料庫 CRUD 或外部服務整合。
+Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協作系統。本 Repository 已包含可執行的 Next.js Web App 與 FastAPI 基礎 API；AI 即時狀態、WebSocket、Review、Memory 與 Settings 等產品能力仍依後端契約逐步開發。
 
 完整產品與技術規劃請見 [`ProductPlanning.md`](ProductPlanning.md)。
 
@@ -15,8 +15,9 @@ Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協�
 │  └─ .env.example  # 前端環境變數範例
 ├─ backend/         # FastAPI、Pydantic settings、pytest、Ruff
 │  ├─ app/           # API 與服務模組
-│  ├─ integrations/meetingbaas/ # Meeting BaaS Google Meet Bot API
-│  ├─ voice_bot/     # 發言政策與 Voice Bot lifecycle
+│  ├─ app/api/       # 身分、團隊、會議 REST API
+│  ├─ app/meetbot.py # Meeting BaaS Google Meet Bot join proxy
+│  ├─ app/models/    # SQLAlchemy core models
 │  └─ .env.example   # 後端環境變數範例
 ├─ integrations/
 │  └─ google-meet/   # Meet Add-on deployment 與整合設定
