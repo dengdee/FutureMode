@@ -34,6 +34,7 @@
 - **步驟 12（第一段）**：已建立 Team Memory 文件與文件切塊模型、Migration，以及 team-scoped 文件／chunk 建立與查詢 API；尚未接入 embedding provider、檔案上傳與 hybrid search。
 - **步驟 12（第二段）**：已加入 team-scoped PostgreSQL 全文檢索 API，回傳文件來源、chunk 位置與相關度；尚未接入 embedding provider、pgvector hybrid ranking 與檔案 ingestion。
 - **步驟 12（第三段）**：已補齊文件詳情與 chunk metadata 查詢 API，提供來源追溯與 chunk 數量資訊；尚未接入 embedding provider、pgvector hybrid ranking 與檔案 ingestion。
+- **步驟 13（第一段）**：已為文件清單、詳情、chunks 與 Memory search 補上明確 OpenAPI response schema；前端可由 `/docs` 取得穩定欄位定義。
 
 ## 目前發現的缺口與衝突
 

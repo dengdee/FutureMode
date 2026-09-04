@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.meetings import database_session
 from app.auth.principal import Principal, get_current_principal
 from app.models import Document, DocumentChunk, TeamMember, User
+from app.schemas.documents import (
+    DocumentChunkSummary,
+    DocumentDetail,
+    DocumentSearchResult,
+    DocumentSummary,
+)
 from app.schemas.meeting import DocumentChunkCreate, DocumentCreate
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
@@ -45,16 +51,22 @@ async def create_document(
     return {"id": str(document.id), "team_id": str(team_id), "status": document.status}
 
 
-@router.get("/teams/{team_id}/documents")
+@router.get("/teams/{team_id}/documents", response_model=list[DocumentSummary])
 async def list_documents(
     team_id: UUID,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
-) -> list[dict[str, object]]:
+) -> list[DocumentSummary]:
     await team_access(team_id, principal, session)
     docs = (await session.scalars(select(Document).where(Document.team_id == team_id))).all()
     return [
-        {"id": str(d.id), "name": d.name, "source_type": d.source_type, "status": d.status}
+        {
+            "id": str(d.id),
+            "team_id": str(d.team_id),
+            "name": d.name,
+            "source_type": d.source_type,
+            "status": d.status,
+        }
         for d in docs
     ]
 
@@ -87,12 +99,12 @@ async def create_chunk(
     return {"id": str(chunk.id), "document_id": str(document_id), "position": chunk.position}
 
 
-@router.get("/documents/{document_id}/chunks")
+@router.get("/documents/{document_id}/chunks", response_model=list[DocumentChunkSummary])
 async def list_chunks(
     document_id: UUID,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
-) -> list[dict[str, object]]:
+) -> list[DocumentChunkSummary]:
     document = await session.scalar(select(Document).where(Document.id == document_id))
     if document is None:
         raise HTTPException(status_code=404, detail="document not found")
@@ -115,12 +127,12 @@ async def list_chunks(
     ]
 
 
-@router.get("/documents/{document_id}")
+@router.get("/documents/{document_id}", response_model=DocumentDetail)
 async def get_document(
     document_id: UUID,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
-) -> dict[str, object]:
+) -> DocumentDetail:
     document = await session.scalar(select(Document).where(Document.id == document_id))
     if document is None:
         raise HTTPException(status_code=404, detail="document not found")
@@ -142,14 +154,16 @@ async def get_document(
     }
 
 
-@router.get("/teams/{team_id}/memory/search")
+@router.get(
+    "/teams/{team_id}/memory/search", response_model=list[DocumentSearchResult]
+)
 async def search_memory(
     team_id: UUID,
     q: str = Query(min_length=1, max_length=500),
     limit: int = Query(default=20, ge=1, le=100),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
-) -> list[dict[str, object]]:
+) -> list[DocumentSearchResult]:
     """Search team document chunks with PostgreSQL full-text search."""
     await team_access(team_id, principal, session)
     document_vector = func.to_tsvector("simple", DocumentChunk.content)
