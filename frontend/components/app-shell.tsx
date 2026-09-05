@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
 import { InvitationInbox } from "./invitation-inbox";
+import { getCurrentUser } from "../lib/api/me";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -33,7 +34,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { data: authSession } = authClient.useSession();
-  const profileName = authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
+  const [apiProfileName, setApiProfileName] = useState<string | null>(null);
+  useEffect(() => {
+    const refreshProfile = () => { getCurrentUser().then((user) => setApiProfileName(user.display_name || null)).catch(() => undefined); };
+    refreshProfile();
+    window.addEventListener("proximate:profile-updated", refreshProfile);
+    return () => window.removeEventListener("proximate:profile-updated", refreshProfile);
+  }, [authSession?.user?.id]);
+  const profileName = apiProfileName ?? authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
   const profileInitial = Array.from(profileName.trim())[0]?.toUpperCase() ?? "P";
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
