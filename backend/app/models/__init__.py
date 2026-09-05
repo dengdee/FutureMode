@@ -1,7 +1,7 @@
 """Database models used by the backend."""
 
 from app.models.consensus import ActionItem, ConsensusFeedback, ConsensusVersion
-from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamMember, User
+from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamInvitation, TeamMember, User
 from app.models.document import Document, DocumentChunk, DocumentVersion
 from app.models.personal import DelegateProfile, PersonalAgentMessage, PublicContribution
 from app.models.realtime import MeetingEventCursor, MeetingState
@@ -31,5 +31,6 @@ __all__ = [
     "DelegateProfile",
     "Team",
     "TeamMember",
+    "TeamInvitation",
     "User",
 ]

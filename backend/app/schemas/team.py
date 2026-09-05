@@ -11,6 +11,20 @@ class ProfileUpdate(BaseModel):
 class TeamCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
 
+class TeamUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+class InvitationCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    role: str = Field(default="member", pattern="^(admin|member)$")
+
+class InvitationSummary(BaseModel):
+    id: UUID
+    team_id: UUID
+    email: str
+    role: str
+    status: str
+
 
 class RoleUpdate(BaseModel):
     role: str = Field(pattern="^(owner|admin|member)$")
