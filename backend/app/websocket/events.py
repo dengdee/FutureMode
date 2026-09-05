@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from pydantic import ValidationError
+from redis.exceptions import RedisError
 from sqlalchemy import select
 
 from app.api.meetings import authorized_meeting, find_user_id
@@ -16,10 +17,15 @@ from app.auth.principal import Principal, get_websocket_principal
 from app.config import get_settings
 from app.db.session import get_session
 from app.models import MeetingEventCursor, MeetingState
-from app.realtime.gateway import publish_realtime_event
 from app.realtime.events import EventJournal
+from app.realtime.gateway import publish_realtime_event
 from app.realtime.rooms import RoomConnection
-from app.schemas.events import MeetingEvent, MeetingEventAck, MeetingEventEnvelope, MeetingStateSnapshot
+from app.schemas.events import (
+    MeetingEvent,
+    MeetingEventAck,
+    MeetingEventEnvelope,
+    MeetingStateSnapshot,
+)
 
 router = APIRouter(tags=["realtime"])
 
@@ -77,14 +83,20 @@ async def meeting_events(
         return
 
     await websocket.accept()
-    was_present = context.user_id in await websocket.app.state.room_registry.participants(meeting_id)
+    was_present = context.user_id in await websocket.app.state.room_registry.participants(
+        meeting_id
+    )
     connection = await websocket.app.state.room_registry.connect(meeting_id, context.user_id)
     broker = websocket.app.state.realtime_broker
-    joined_globally = (
-        await broker.join_presence(meeting_id, context.user_id, connection.connection_id)
-        if broker is not None
-        else not was_present
-    )
+    if broker is None:
+        joined_globally = not was_present
+    else:
+        try:
+            joined_globally = await broker.join_presence(
+                meeting_id, context.user_id, connection.connection_id
+            )
+        except (RedisError, OSError):
+            joined_globally = not was_present
     snapshot = (
         MeetingStateSnapshot.model_validate(context.state)
         if context.state is not None
@@ -133,11 +145,17 @@ async def meeting_events(
         with suppress(asyncio.CancelledError):
             await sender
         await websocket.app.state.room_registry.disconnect(connection)
-        left_globally = (
-            await broker.leave_presence(meeting_id, context.user_id, connection.connection_id)
-            if broker is not None
-            else context.user_id not in await websocket.app.state.room_registry.participants(meeting_id)
-        )
+        if broker is None:
+            participants = await websocket.app.state.room_registry.participants(meeting_id)
+            left_globally = context.user_id not in participants
+        else:
+            try:
+                left_globally = await broker.leave_presence(
+                    meeting_id, context.user_id, connection.connection_id
+                )
+            except (RedisError, OSError):
+                participants = await websocket.app.state.room_registry.participants(meeting_id)
+                left_globally = context.user_id not in participants
         if left_globally:
             await _publish_presence_event(websocket, meeting_id, context.user_id, status="left")
 
@@ -168,12 +186,20 @@ async def _publish_presence_event(
             "status": status,
         },
     )
-    await publish_realtime_event(
-        websocket.app.state.event_journal,
-        websocket.app.state.room_registry,
-        event,
-        broker=getattr(websocket.app.state, "realtime_broker", None),
-    )
+    try:
+        await publish_realtime_event(
+            websocket.app.state.event_journal,
+            websocket.app.state.room_registry,
+            event,
+            broker=getattr(websocket.app.state, "realtime_broker", None),
+        )
+    except (RedisError, OSError):
+        # Redis is optional; the local journal and room delivery remain valid.
+        await publish_realtime_event(
+            websocket.app.state.event_journal,
+            websocket.app.state.room_registry,
+            event,
+        )
 
 
 async def _handle_client_message(
