@@ -10,8 +10,8 @@ export const listConsensusFeedback = (id: string, version: string) => request<Co
 export const confirmConsensus = (id: string, version: string) => request<Consensus>(() => http.post(`/api/v1/meetings/${id}/consensus/${version}/confirm`));
 export const createConsensusFeedback = (id: string, version: string, payload: { decision: string; comment?: string }) => request<ConsensusFeedback>(() => http.post(`/api/v1/meetings/${id}/consensus/${version}/feedback`, payload));
 export const listActionItems = (id: string) => request<ActionItem[]>(() => http.get(`/api/v1/meetings/${id}/action-items`));
-export const createActionItem = (id: string, payload: { title: string; assignee_user_id?: string; due_date?: string; status?: string }) => request<ActionItem>(() => http.post(`/api/v1/meetings/${id}/action-items`, payload));
-export const updateActionItem = (id: string, itemId: string, payload: Partial<{ title: string; assignee_user_id: string; due_date: string; status: string }>) => request<ActionItem>(() => http.patch(`/api/v1/meetings/${id}/action-items/${itemId}`, payload));
+export const createActionItem = (id: string, payload: { title: string; assignee_user_id?: string | null; due_date?: string | null; status?: string }) => request<ActionItem>(() => http.post(`/api/v1/meetings/${id}/action-items`, payload));
+export const updateActionItem = (id: string, itemId: string, payload: Partial<{ title: string; assignee_user_id: string | null; due_date: string | null; status: string }>) => request<ActionItem>(() => http.patch(`/api/v1/meetings/${id}/action-items/${itemId}`, payload));
 export const deleteActionItem = (id: string, itemId: string) => request<void>(() => http.delete(`/api/v1/meetings/${id}/action-items/${itemId}`));
 export const listSuggestions = (id: string) => request<Suggestion[]>(() => http.get(`/api/v1/meetings/${id}/suggestions`));
 export const voteSuggestion = (id: string, suggestionId: string, vote: "support" | "reject" | "abstain") => request<Record<string, string>>(() => http.post(`/api/v1/meetings/${id}/suggestions/${suggestionId}/vote`, { vote }));

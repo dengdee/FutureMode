@@ -1,38 +1,43 @@
 # 前端製作進度
 
-本表以目前 repository 的前端程式與後端已合併的 OpenAPI／WebSocket 路由為準；歷史規劃中的 endpoint 不代表已完成契約。
+本表以目前 repository 的 Web App 程式、後端 REST／WebSocket 路由及 `ProductPlanning.md` 為準。REST endpoint 存在不等於已具備規劃中的 AI 或即時產品能力。
 
-## 已完成（前端已有 REST 串接與可操作 UI）
+## 已完成：可由使用者操作的 Web App
 
 - Next.js App Router、TypeScript、Tailwind、共用 App Shell、中文導覽與響應式基礎。
-- Neon Auth 登入／註冊、session cookie、`withCredentials`，以及 `/api/v1/*` 的短效 JWT Bearer 注入。
-- Dashboard、團隊清單／建立、團隊成員角色修改／移除，以及建立團隊後建立站內邀請（不寄送 Email）。
-- 會議建立、修改、開始／結束／取消、參與者管理與手動議程 CRUD。
-- Audio Setup 的瀏覽器收音與批次 `POST /api/v1/meetings/{id}/transcription`。
-- Review 的逐字稿、Consensus 建立／確認／回饋、Action Items 新增／編輯標題／刪除。
-- Live／Add-on 的 suggestions 清單與投票、Personal Sidekick 訊息／預覽／發布。
-- Team Memory 文件清單、上傳／ingest、搜尋、封存、下載、刪除與版本還原（目前 UI 還原最新版本）。
-- API function 另已封裝 Delegate profiles、Meeting BaaS Bot 與投票明細；尚未都有對應完整頁面。
+- Neon Auth 登入／註冊、session cookie 與短效 JWT Bearer 注入；邀請 JWT 缺少 Email 資料時由後端查詢同帳號 session。
+- 站內邀請不寄送 Email；受邀者登入後可接受／拒絕，領取時仍需驗證信箱所有權。
+- Audio Setup 的瀏覽器收音與批次轉錄。
+- 團隊入口拆為團隊總覽、成員與邀請、團隊會議、團隊記憶四個子頁；成員角色、移除、邀請清單與取消邀請均可操作。
+- 建立會議採「團隊 → 會議資訊 → 議程」流程，提供常用議程範本與手動增修；AI 介入程度改為含說明的低／中／高選項。
+- 會前 Prepare 整合會議生命週期、Brief、議程、參與者、Personal Sidekick 的私訊／預覽／公開，以及 Delegate 的立場、限制與 must-raise 設定。
+- Dashboard 僅作跨團隊的下一步入口，不混入單一會議的共識或行動項目。
+- Review 可建立／確認共識、送出及查看回饋明細；行動項目可編輯名稱、負責人、期限、狀態及刪除。
+- Team Memory 支援上傳、搜尋、下載、封存、刪除，並可選擇指定版本還原。
+- Settings 可讀取及儲存顯示名稱、Email；所有畫面均避免將內部 UUID 當作使用者可讀資訊。
+- Live fallback 讀取 snapshot、連接會議 events WebSocket 並投票 AI suggestions；Add-on 保留窄版的建議與 Sidekick 操作。
 
-## 後端已有、前端仍未完成的 UI／adapter
+## 已有後端資料，但仍缺少完整前端產品流程
 
-- `GET/PATCH /api/v1/meetings/{id}/state` 與 `WS /api/v1/meetings/{id}/events`：尚未建立前端 snapshot state、cursor、重連、事件去重與狀態更新 hook。
-- `POST /api/v1/meetings/{id}/brief`：尚未在 Prepare／Add-on 顯示 Brief、重新生成與錯誤狀態。
-- `WS /meetbot/ws/audio-in`：目前只有批次轉錄 UI，尚未做音訊 chunk、重連與權限狀態。
-- Delegate profiles、Meeting BaaS bot join/status/leave/speak：有 API wrapper，尚無正式 Web App 操作頁與 meeting-scoped 流程。
-- 邀請清單／取消邀請、文件版本選擇／詳細檢視／chunks、Action Item assignee／due date、suggestion vote details 的完整操作 UI 尚未補齊。
+- Audio WebSocket：目前 Audio Setup 是批次轉錄，尚未把瀏覽器音訊切 chunk、送 `/meetbot/ws/audio-in`、斷線重連與權限狀態整合成 Capture 流程。
+- 即時事件：Live 有基本 WebSocket 訂閱及較新版本覆蓋保護，但沒有 cursor replay、事件 ID 去重、指數退避重連或跨分頁同步。
+- Meeting BaaS Bot：後端 join／status／leave／speak 雖有 wrapper，尚未有可安全操作的 meeting-scoped Host 控制頁；因回應 schema、授權與投票政策尚未固定，前端不應假裝已可正式發言。
+- Brief：Prepare 可呼叫 `/brief`，但目前後端只以正式 Agenda 組成摘要；尚未依已授權的 Team Memory 文件、歷史決策產出 AI 議程建議或來源引用。
+- Delegate：可建立設定，但沒有規劃中的條件觸發、署名舉手卡、有效期間和停用操作。
+- Consensus：目前 API 沒有規劃中 required participants、未回覆者、衝突狀態與新版產生完整模型，前端只能呈現既有回饋／確認資料。
 
-## 仍需後端契約或部署決策
+## 需要後端契約或部署決策
 
-- Add-on 專用 meeting access-token handoff、Google Meet manifest／正式部署。
-- Realtime 的生產級 broker、事件持久化與跨程序一致性（目前後端是 in-process primitives）。
-- VAD／streaming STT、meeting-scoped Voice Bot 的正式事件與權限矩陣。
+- Add-on 專用短效 meeting-token handoff、Google Meet manifest／正式部署。
+- Realtime 後端已有 Redis broker、事件持久化與 cursor replay；仍需完成前端 replay／重連串接及生產環境跨程序一致性驗收。
+- VAD／streaming STT、meeting-scoped Voice Bot 的權限矩陣與正式事件 schema。
+- Host、會議政策、required participants 的持久化 schema；目前會議建立 API 沒有這些可儲存欄位。
 
 ## 驗證狀態
 
 | 檢查 | 狀態 |
 | --- | --- |
-| TypeScript `tsc --noEmit` | 通過 |
-| ESLint | 尚未驗證（本機 npm script 曾卡住） |
-| `git diff --check` | 通過 |
+| TypeScript `tsc --noEmit` | 通過（2026-09-05） |
+| `git diff --check` | 通過（2026-09-05） |
+| ESLint | 尚未驗證；本機 npm script 曾卡住 |
 | Next production build | 受本機 Windows Turbopack 子程序權限阻擋，需在可 spawn 子程序的環境重試 |

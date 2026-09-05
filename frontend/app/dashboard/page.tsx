@@ -1,56 +1,27 @@
 "use client";
 
+import { IconArrowRight, IconCalendarPlus, IconUsersGroup } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../components/app-shell";
 import { listMeetings } from "../../lib/api/meetings";
 import { listTeams } from "../../lib/api/teams";
-import type { MeetingSummary } from "../../types/api";
-import type { Team } from "../../types/api";
+import type { MeetingSummary, Team } from "../../types/api";
+
+const statusLabel: Record<string, string> = { draft: "等待準備", scheduled: "已排程", in_progress: "進行中", completed: "已結束", cancelled: "已取消" };
+const timeValue = (meeting: MeetingSummary) => meeting.scheduled_at ? new Date(meeting.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
 
 export default function DashboardPage() {
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [meetingsLoaded, setMeetingsLoaded] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([listMeetings(), listTeams()])
-      .then(([meetingResult, teamResult]) => {
-        if (!active) return;
-        setMeetings(meetingResult);
-        setTeams(teamResult.teams);
-        setMeetingsLoaded(true);
-      })
-      .catch(() => {
-        if (active) setMeetingsLoaded(true);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return (
-    <AppShell>
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Overview</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">工作總覽</h1>
-          <p className="mt-2 text-[var(--muted)]">從團隊工作區進入會議、文件與成員管理。</p>
-        </div>
-        <Link href="/meetings/new" className="inline-flex w-fit items-center justify-center rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b8978]">快速建立會議</Link>
-      </div>
-      <section className="mt-8 grid gap-4 sm:grid-cols-2">
-        <Link href="/workspaces" className="rounded-2xl bg-[var(--surface)] p-5 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-[var(--accent)]">
-          <p className="text-sm text-[var(--muted)]">我的團隊</p><p className="mt-2 text-3xl font-semibold">{teams.length}</p><p className="mt-1 text-xs text-[var(--muted)]">進入團隊管理成員與會議</p>
-        </Link>
-        <div className="rounded-2xl bg-[var(--surface)] p-5 ring-1 ring-black/5"><p className="text-sm text-[var(--muted)]">近期會議</p><p className="mt-2 text-3xl font-semibold">{meetingsLoaded ? meetings.length : "—"}</p><p className="mt-1 text-xs text-[var(--muted)]">跨團隊的最近會議</p></div>
-      </section>
-      <section className="mt-10">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">近期會議</h2><span className="text-sm text-[var(--muted)]">{meetingsLoaded ? `${meetings.length} 場` : "載入中…"}</span></div>
-        {meetings.length > 0 ? <div className="grid gap-3">{meetings.map((meeting) => <Link key={meeting.id} href={`/meetings/${meeting.id}/prepare`} className="rounded-2xl border border-black/5 bg-[var(--surface)] p-5 transition hover:-translate-y-0.5 hover:ring-1 hover:ring-[var(--accent)]"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold">{meeting.title}</h3><span className="rounded-full bg-[#e7f7ef] px-3 py-1 text-xs text-[#1d6b4d]">{meeting.status}</span></div><p className="mt-2 text-sm text-[var(--muted)]">{meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString("zh-TW") : "尚未排程"}</p></Link>)}</div> : <div className="rounded-2xl border border-dashed border-black/10 bg-[var(--surface)] p-8 text-center"><p className="font-medium">目前沒有可顯示的會議</p><p className="mt-2 text-sm text-[var(--muted)]">請先到「團隊」選擇工作區，再建立第一場會議。</p></div>}
-      </section>
-    </AppShell>
-  );
+  const [error, setError] = useState("");
+  useEffect(() => { Promise.all([listMeetings(), listTeams()]).then(([meetingResult, teamResult]) => { setMeetings(meetingResult.sort((a, b) => timeValue(a) - timeValue(b))); setTeams(teamResult.teams); }).catch((cause) => setError(cause instanceof Error ? cause.message : "無法讀取工作總覽。")); }, []);
+  const activeMeetings = meetings.filter((item) => item.status !== "completed" && item.status !== "cancelled");
+  const nextMeeting = activeMeetings[0];
+  const teamName = (id: string) => teams.find((item) => item.id === id)?.name ?? "所屬團隊";
+  return <AppShell><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Overview</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">今天要推進什麼？</h1><p className="mt-2 text-[#787774]">從下一場會議開始準備，或直接進入團隊管理資料與成員。</p></div><Link href="/meetings/new" className="inline-flex w-fit items-center gap-2 rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"><IconCalendarPlus size={17} />建立會議</Link></div>
+    {error && <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+    <section className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]"><div className="rounded-2xl border border-[#cde5df] bg-[#f0fbf8] p-6"><p className="text-sm font-semibold text-[#087e6d]">下一場會議</p>{nextMeeting ? <><h2 className="mt-3 text-2xl font-semibold">{nextMeeting.title}</h2><p className="mt-2 text-sm text-[#4c6e65]">{teamName(nextMeeting.team_id)} · {nextMeeting.scheduled_at ? new Date(nextMeeting.scheduled_at).toLocaleString("zh-TW") : "尚未設定時間"}</p><Link href={`/meetings/${nextMeeting.id}/prepare`} className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white">繼續會前準備 <IconArrowRight size={17} /></Link></> : <><h2 className="mt-3 text-xl font-semibold">還沒有待處理會議</h2><p className="mt-2 text-sm text-[#4c6e65]">從團隊開始建立一場會議，設定議程與會前 Brief。</p><Link href="/workspaces" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#087e6d]">前往團隊 <IconArrowRight size={16} /></Link></>}</div><Link href="/workspaces" className="rounded-2xl border border-[#e6e6e3] bg-white p-6 transition hover:border-[#9ddbc8] hover:shadow-sm"><IconUsersGroup className="text-[#0f9f8a]" size={23} /><p className="mt-6 text-sm text-[#787774]">我的團隊</p><p className="mt-1 text-3xl font-semibold">{teams.length}</p><p className="mt-2 text-sm text-[#087e6d]">管理成員、會議與共用資料 <IconArrowRight className="inline" size={15} /></p></Link></section>
+    <section className="mt-10"><div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">近期會議</h2><p className="mt-1 text-sm text-[#787774]">優先顯示尚需準備或正在進行的會議。</p></div><Link href="/workspaces" className="text-sm font-medium text-[#087e6d]">依團隊查看</Link></div>{activeMeetings.length ? <div className="mt-5 grid gap-3">{activeMeetings.slice(0, 6).map((meeting) => <Link key={meeting.id} href={`/meetings/${meeting.id}/prepare`} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"><div><h3 className="font-semibold">{meeting.title}</h3><p className="mt-2 text-sm text-[#787774]">{teamName(meeting.team_id)} · {meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString("zh-TW") : "尚未設定時間"}</p></div><span className="rounded-full bg-[#e7f7ef] px-3 py-1 text-xs font-medium text-[#087e6d]">{statusLabel[meeting.status] ?? meeting.status}</span></Link>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#d8d8d5] bg-white p-10 text-center"><p className="font-medium">目前沒有待處理會議</p><p className="mt-2 text-sm text-[#787774]">先選擇一個團隊，建立下一場需要討論的會議。</p></div>}</section>
+  </AppShell>;
 }

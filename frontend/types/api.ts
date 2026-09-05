@@ -88,6 +88,9 @@ export type MeetingUpdateRequest = {
   scheduled_at?: string | null;
   ai_intervention_level?: string | null;
 };
+export type MeetingBrief = { meeting_id: string; generated_at: string; generated_by: string; summary: string; agenda: Array<{ position: number; title: string; description: string | null }> };
+export type MeetingStateSnapshot = { meeting_id: string; state_version: number; state: Record<string, unknown>; updated_at: string | null };
+export type MeetingRealtimeEvent = { event_id: string; meeting_id: string; timestamp: string; schema_version: number; payload: Record<string, unknown> };
 
 export type ParticipantAddRequest = { user_id: string; role?: string };
 export type ParticipantUpdateRequest = { role?: string | null; attendance_status?: string | null };
