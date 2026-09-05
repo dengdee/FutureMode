@@ -96,7 +96,29 @@ Base URL：`http://localhost:8000`
 | POST | `/meetbot/{bot_id}/leave` | Bot 離開會議 |
 | POST | `/meetbot/speak` | Bot 語音輸出 |
 | WebSocket | `/meetbot/ws/audio-in` | Bot 音訊輸入串流 |
+| POST | `/api/v1/meetings/{meeting_id}/voice-bot/generate-and-speak` | 核准後由 Gemini 產生發言稿，再用 Edge TTS 播放到會議 |
 | WebSocket | `/api/v1/meetings/{meeting_id}/events` | 會議即時事件串流 |
+
+### 會議中的 AI 語音發言流程
+
+1. 呼叫 `POST /api/v1/meetings/{meeting_id}/voice-bot/request` 建立發言請求。
+2. 由 Host 呼叫 `POST /api/v1/meetings/{meeting_id}/voice-bot/host-action`，`action` 設為 `approve`。
+3. 呼叫 `POST /api/v1/meetings/{meeting_id}/voice-bot/generate-and-speak`：
+
+```json
+{
+  "prompt": "請提醒大家目前已知的上線風險",
+  "context": "目前正在討論版本發布時程"
+}
+```
+
+後端會依序執行：Gemini 產生 120 字內的繁體中文發言稿、Edge TTS 轉成 24 kHz mono WAV，
+再透過 `/meetbot/ws/audio-in` 傳入會議。處理狀態會透過會議事件串流送出：
+`preparing_audio` → `speaking` → `completed`（失敗時為 `failed`）。
+
+需要設定 `GEMINI_API_KEY`（或 `LLM_API_KEY`）、`LLM_PROVIDER=gemini`，並在會議開始前建立
+Meeting BaaS 音訊連線；伺服器需安裝 `ffmpeg`。若沒有音訊連線，API 會回傳 503，發言稿仍會
+保存在 voice request 的 `approved_text` 欄位中。
 
 ## 常見錯誤
 
