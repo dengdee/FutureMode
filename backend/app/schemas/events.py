@@ -3,7 +3,20 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_FORBIDDEN_PAYLOAD_KEYS = {"chain_of_thought", "private_prompt"}
+
+
+def _contains_forbidden_payload_key(value: object) -> bool:
+    if isinstance(value, dict):
+        return any(
+            key in _FORBIDDEN_PAYLOAD_KEYS or _contains_forbidden_payload_key(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(_contains_forbidden_payload_key(item) for item in value)
+    return False
 
 
 class MeetingEvent(BaseModel):
@@ -18,6 +31,13 @@ class MeetingEvent(BaseModel):
     timestamp: datetime
     schema_version: int = Field(ge=1)
     payload: dict[str, object]
+
+    @field_validator("payload")
+    @classmethod
+    def payload_must_not_contain_sensitive_reasoning(cls, value: dict[str, object]) -> dict[str, object]:
+        if _contains_forbidden_payload_key(value):
+            raise ValueError("event payload contains a prohibited sensitive field")
+        return value
 
 
 class MeetingStateSnapshot(BaseModel):

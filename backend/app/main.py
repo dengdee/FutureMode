@@ -19,6 +19,7 @@ from app.api.transcripts import router as transcripts_router
 from app.config import get_settings
 from app.db.session import database_check
 from app.realtime.rooms import RoomRegistry
+from app.realtime.events import EventJournal
 from app.api.meetbot import router as meetbot_router
 from app.websocket.events import router as realtime_events_router
 
@@ -33,6 +34,7 @@ app = FastAPI(
 )
 app.state.settings = settings
 app.state.room_registry = RoomRegistry()
+app.state.event_journal = EventJournal()
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,9 +1,19 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +31,7 @@ from app.models import (
     User,
 )
 from app.schemas.backup import TranscriptBackupRequest
-from app.schemas.events import MeetingStateSnapshot, MeetingStateUpdate
+from app.schemas.events import MeetingEvent, MeetingStateSnapshot, MeetingStateUpdate
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
@@ -168,6 +178,7 @@ async def get_meeting_state(
 async def update_meeting_state(
     meeting_id: UUID,
     payload: MeetingStateUpdate,
+    request: Request,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> MeetingStateSnapshot:
@@ -198,7 +209,21 @@ async def update_meeting_state(
             snapshot.updated_by = user_id
         await session.commit()
         await session.refresh(snapshot)
-        return MeetingStateSnapshot.model_validate(snapshot)
+        response = MeetingStateSnapshot.model_validate(snapshot)
+        event = MeetingEvent(
+            event_id=uuid4(),
+            meeting_id=meeting_id,
+            timestamp=datetime.now(UTC),
+            schema_version=1,
+            payload={
+                "type": "meeting_state:update",
+                "state_version": response.state_version,
+                "state": response.state,
+            },
+        )
+        await request.app.state.event_journal.append(event)
+        await request.app.state.room_registry.publish(event)
+        return response
     except HTTPException:
         raise
     except IntegrityError:
