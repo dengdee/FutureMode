@@ -97,7 +97,6 @@ const levels = [
     description: "更常提出替代方案、歷史提醒與風險。",
   },
 ] as const;
-type Attendance = "invited" | "joined" | "left";
 
 export default function NewMeetingPage() {
   const router = useRouter();
@@ -115,7 +114,6 @@ export default function NewMeetingPage() {
   const [selectedMembers, setSelectedMembers] = useState<
     Record<string, boolean>
   >({});
-  const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -139,7 +137,6 @@ export default function NewMeetingPage() {
         .then(({ members: result }) => {
           setMembers(result);
           setSelectedMembers({});
-          setAttendance({});
         })
         .catch(() => setMembers([]));
   }, [teamId]);
@@ -176,11 +173,9 @@ export default function NewMeetingPage() {
         (member) => selectedMembers[member.user_id],
       )) {
         await addParticipant(meeting.id, { user_id: member.user_id });
-        const status = attendance[member.user_id];
-        if (status && status !== "invited")
-          await updateParticipant(meeting.id, member.user_id, {
-            attendance_status: status,
-          });
+        await updateParticipant(meeting.id, member.user_id, {
+          attendance_status: "joined",
+        });
       }
       for (const [position, item] of agenda
         .map((item) => item.trim())
@@ -343,22 +338,6 @@ export default function NewMeetingPage() {
                 <span className="min-w-0 flex-1 text-sm font-medium">
                   {member.display_name || "未設定名稱的成員"}
                 </span>
-                {selectedMembers[member.user_id] && (
-                  <select
-                    value={attendance[member.user_id] ?? "joined"}
-                    onChange={(event) =>
-                      setAttendance((current) => ({
-                        ...current,
-                        [member.user_id]: event.target.value as Attendance,
-                      }))
-                    }
-                    className="control-primary w-auto text-xs"
-                  >
-                    <option value="joined">將出席</option>
-                    <option value="left">無法出席</option>
-                    <option value="invited">待確認</option>
-                  </select>
-                )}
               </label>
             ))}
             {members.length === 0 && (
