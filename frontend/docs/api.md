@@ -6,7 +6,7 @@
 - Base URL：`NEXT_PUBLIC_API_BASE_URL`，本機預設 `http://localhost:8000`。
 - API function 依功能各自放在 `lib/api/*.ts`，頁面不可直接散落 Axios 呼叫。
 - JSON body 才設定 `Content-Type`；GET 只使用 `Accept`，避免不必要的 CORS preflight。
-- API key 與第三方 token 只由後端持有；前端只接收可公開的 response 或短效 meeting token。
+- API key 與第三方 token 只由後端持有；MVP 前端沿用 Neon Auth session，不自行保存長效 token。
 - `/api/v1/*` 請求會由 Axios interceptor 讀取 Neon Auth session 的短效 JWT，加入 `Authorization: Bearer <token>`；FastAPI 以 Neon JWKS 驗證，前端不會轉送 httpOnly cookie。
 
 ## 目前已封裝
@@ -42,5 +42,5 @@
 ## 目前限制
 
 - 成員 API 已提供 `user_id`，前端可安全加入會議參與者。
-- Live 音訊串流、WebSocket 事件、Meet access token handoff 與 meeting-scoped Voice Bot contract 尚待後端提供事件格式及權限流程。
+- Live 音訊串流、WebSocket 事件與 meeting-scoped Voice Bot contract 尚待後端提供事件格式及權限流程；meeting token handoff 暫不列入 MVP。
 - 單次會議文件透過 `metadata.meeting_id` 綁定會議；上傳限制 PDF／TXT。
