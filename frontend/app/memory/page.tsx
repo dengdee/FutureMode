@@ -1,6 +1,16 @@
 "use client";
 
-import { IconArchive, IconArrowLeft, IconDownload, IconFileText, IconFolder, IconHistory, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
+import {
+  IconArchive,
+  IconArrowLeft,
+  IconDownload,
+  IconFileText,
+  IconFolder,
+  IconHistory,
+  IconSearch,
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, type DragEvent } from "react";
@@ -11,45 +21,588 @@ import { toast } from "../../components/ui/toast";
 import { Tooltip } from "../../components/ui/tooltip";
 import { listTeams } from "../../lib/api/teams";
 import { listMeetings } from "../../lib/api/meetings";
-import { archiveDocument, createDocument, deleteDocument, getDocumentDownloadUrl, listDocumentVersions, listDocuments, restoreDocumentVersion, searchMemory, uploadDocument } from "../../lib/api/documents";
-import type { DocumentSearchResult, DocumentSummary, DocumentVersion, MeetingSummary, Team } from "../../types/api";
+import {
+  archiveDocument,
+  deleteDocument,
+  getDocumentDownloadUrl,
+  listDocumentVersions,
+  listDocuments,
+  restoreDocumentVersion,
+  searchMemory,
+  uploadDocuments,
+} from "../../lib/api/documents";
+import type {
+  DocumentSearchResult,
+  DocumentSummary,
+  DocumentVersion,
+  MeetingSummary,
+  Team,
+} from "../../types/api";
 
 type PendingUpload = { file: File; previewUrl?: string; textPreview?: string };
 const isSupportedFile = (file: File) => /\.pdf$|\.txt$/i.test(file.name);
-const formatFileSize = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+const formatFileSize = (bytes: number) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 export default function MemoryPage() {
   const searchParams = useSearchParams();
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamId, setTeamId] = useState(() => searchParams.get("teamId") ?? "");
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
-  const [meetingId, setMeetingId] = useState(() => searchParams.get("meetingId") ?? "");
-  const [scope, setScope] = useState<"shared" | "meeting">(() => searchParams.get("scope") === "meeting" ? "meeting" : "shared");
+  const [meetingId, setMeetingId] = useState(
+    () => searchParams.get("meetingId") ?? "",
+  );
+  const [scope, setScope] = useState<"shared" | "meeting">(() =>
+    searchParams.get("scope") === "meeting" ? "meeting" : "shared",
+  );
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [results, setResults] = useState<DocumentSearchResult[]>([]);
   const [query, setQuery] = useState("");
-  const [versionTarget, setVersionTarget] = useState<{ id: string; name: string; versions: DocumentVersion[] } | null>(null);
+  const [versionTarget, setVersionTarget] = useState<{
+    id: string;
+    name: string;
+    versions: DocumentVersion[];
+  } | null>(null);
 
-  useEffect(() => { Promise.all([listTeams(), listMeetings()]).then(([teamResult, meetingResult]) => { setTeams(teamResult.teams); setTeamId((current) => current || teamResult.teams[0]?.id || ""); setMeetings(meetingResult); setMeetingId((current) => current || meetingResult[0]?.id || ""); }).catch(() => undefined); }, []);
-  useEffect(() => { if (teamId) listDocuments(teamId).then(setDocuments).catch(() => setDocuments([])); }, [teamId]);
-  async function stageFiles(fileList: FileList | null) { if (!fileList || !teamId) return; const accepted = Array.from(fileList).filter(isSupportedFile); if (!accepted.length) { toast.error("請選擇 PDF 或 .txt 文字檔。"); return; } const staged = await Promise.all(accepted.map(async (file) => ({ file, previewUrl: /\.pdf$/i.test(file.name) ? URL.createObjectURL(file) : undefined, textPreview: /\.txt$/i.test(file.name) ? (await file.text()).slice(0, 2400) : undefined }))); setPendingUploads(staged); }
-  function onDrop(event: DragEvent<HTMLDivElement>) { event.preventDefault(); setDragging(false); void stageFiles(event.dataTransfer.files); }
-  function closePreview() { if (!uploading) { pendingUploads.forEach(({ previewUrl }) => previewUrl && URL.revokeObjectURL(previewUrl)); setPendingUploads([]); } }
-  async function confirmUpload() { if (!teamId || !pendingUploads.length) return; setUploading(true); const count = pendingUploads.length; const failed: string[] = []; for (const { file } of pendingUploads) { try { const document = await createDocument(teamId, { name: file.name, source_type: scope === "meeting" ? "meeting" : "team", metadata: scope === "meeting" && meetingId ? { meeting_id: meetingId } : undefined }); await uploadDocument(document.id, file); } catch { failed.push(file.name); } } pendingUploads.forEach(({ previewUrl }) => previewUrl && URL.revokeObjectURL(previewUrl)); setUploading(false); setPendingUploads([]); await listDocuments(teamId).then(setDocuments).catch(() => undefined); if (failed.length) toast.error(`${failed.join("、")} 上傳失敗。`); else toast.success(`${count} 個檔案已送出，正在處理文件。`); }
-  async function runSearch() { if (!teamId || !query.trim()) return setResults([]); try { setResults(await searchMemory(teamId, query.trim())); } catch (cause) { toast.error(cause instanceof Error ? cause.message : "搜尋失敗。"); } }
-  async function documentAction(id: string, action: "archive" | "delete" | "download") { try { if (action === "archive") await archiveDocument(id); if (action === "delete") { await deleteDocument(id); setDocuments((items) => items.filter((item) => item.id !== id)); } if (action === "download") { const result = await getDocumentDownloadUrl(id); window.open(result.url, "_blank", "noopener,noreferrer"); } toast.success(action === "delete" ? "文件已刪除。" : action === "archive" ? "文件已封存。" : "已開啟文件下載。"); if (action !== "delete") listDocuments(teamId).then(setDocuments).catch(() => undefined); } catch (cause) { toast.error(cause instanceof Error ? cause.message : "文件操作失敗。"); } }
-  async function openVersions(document: DocumentSummary) { try { setVersionTarget({ id: document.id, name: document.name, versions: await listDocumentVersions(document.id) }); } catch (cause) { toast.error(cause instanceof Error ? cause.message : "無法讀取文件版本。"); } }
-  async function restoreVersion(version: number) { if (!versionTarget) return; try { await restoreDocumentVersion(versionTarget.id, version); const name = versionTarget.name; setVersionTarget(null); toast.success(`已還原「${name}」的版本 ${version}。`); listDocuments(teamId).then(setDocuments).catch(() => undefined); } catch (cause) { toast.error(cause instanceof Error ? cause.message : "還原文件版本失敗。"); } }
+  useEffect(() => {
+    Promise.all([listTeams(), listMeetings()])
+      .then(([teamResult, meetingResult]) => {
+        setTeams(teamResult.teams);
+        setTeamId((current) => current || teamResult.teams[0]?.id || "");
+        setMeetings(meetingResult);
+        setMeetingId((current) => current || meetingResult[0]?.id || "");
+      })
+      .catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (teamId)
+      listDocuments(teamId, {
+        scope: scope === "shared" ? "team" : "meeting",
+        meeting_id: scope === "meeting" ? meetingId || undefined : undefined,
+      })
+        .then(setDocuments)
+        .catch(() => setDocuments([]));
+  }, [teamId, scope, meetingId]);
+  async function stageFiles(fileList: FileList | null) {
+    if (!fileList || !teamId) return;
+    const accepted = Array.from(fileList).filter(isSupportedFile);
+    if (!accepted.length) {
+      toast.error("請選擇 PDF 或 .txt 文字檔。");
+      return;
+    }
+    const staged = await Promise.all(
+      accepted.map(async (file) => ({
+        file,
+        previewUrl: /\.pdf$/i.test(file.name)
+          ? URL.createObjectURL(file)
+          : undefined,
+        textPreview: /\.txt$/i.test(file.name)
+          ? (await file.text()).slice(0, 2400)
+          : undefined,
+      })),
+    );
+    setPendingUploads(staged);
+  }
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    void stageFiles(event.dataTransfer.files);
+  }
+  function closePreview() {
+    if (!uploading) {
+      pendingUploads.forEach(
+        ({ previewUrl }) => previewUrl && URL.revokeObjectURL(previewUrl),
+      );
+      setPendingUploads([]);
+    }
+  }
+  async function confirmUpload() {
+    if (!teamId || !pendingUploads.length) return;
+    setUploading(true);
+    const count = pendingUploads.length;
+    try {
+      await uploadDocuments(
+        teamId,
+        pendingUploads.map(({ file }) => file),
+        {
+          source_type: scope === "shared" ? "team" : "meeting",
+          meeting_id: scope === "meeting" ? meetingId || undefined : undefined,
+        },
+      );
+      pendingUploads.forEach(
+        ({ previewUrl }) => previewUrl && URL.revokeObjectURL(previewUrl),
+      );
+      setPendingUploads([]);
+      await listDocuments(teamId, {
+        scope: scope === "shared" ? "team" : "meeting",
+        meeting_id: scope === "meeting" ? meetingId || undefined : undefined,
+      })
+        .then(setDocuments)
+        .catch(() => undefined);
+      toast.success(`${count} 個檔案已送出，正在處理文件。`);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "檔案上傳失敗。");
+    } finally {
+      setUploading(false);
+    }
+  }
+  async function runSearch() {
+    if (!teamId || !query.trim()) return setResults([]);
+    try {
+      setResults(await searchMemory(teamId, query.trim()));
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "搜尋失敗。");
+    }
+  }
+  async function documentAction(
+    id: string,
+    action: "archive" | "delete" | "download",
+  ) {
+    try {
+      if (action === "archive") await archiveDocument(id);
+      if (action === "delete") {
+        await deleteDocument(id);
+        setDocuments((items) => items.filter((item) => item.id !== id));
+      }
+      if (action === "download") {
+        const result = await getDocumentDownloadUrl(id);
+        window.open(result.url, "_blank", "noopener,noreferrer");
+      }
+      toast.success(
+        action === "delete"
+          ? "文件已刪除。"
+          : action === "archive"
+            ? "文件已封存。"
+            : "已開啟文件下載。",
+      );
+      if (action !== "delete")
+        listDocuments(teamId, {
+          scope: scope === "shared" ? "team" : "meeting",
+          meeting_id: scope === "meeting" ? meetingId || undefined : undefined,
+        })
+          .then(setDocuments)
+          .catch(() => undefined);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "文件操作失敗。");
+    }
+  }
+  async function openVersions(document: DocumentSummary) {
+    try {
+      setVersionTarget({
+        id: document.id,
+        name: document.name,
+        versions: await listDocumentVersions(document.id),
+      });
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "無法讀取文件版本。",
+      );
+    }
+  }
+  async function restoreVersion(version: number) {
+    if (!versionTarget) return;
+    try {
+      await restoreDocumentVersion(versionTarget.id, version);
+      const name = versionTarget.name;
+      setVersionTarget(null);
+      toast.success(`已還原「${name}」的版本 ${version}。`);
+      listDocuments(teamId, {
+        scope: scope === "shared" ? "team" : "meeting",
+        meeting_id: scope === "meeting" ? meetingId || undefined : undefined,
+      })
+        .then(setDocuments)
+        .catch(() => undefined);
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "還原文件版本失敗。",
+      );
+    }
+  }
 
-  return <AppShell><PageHeader eyebrow="Team memory" title="團隊記憶" description="依團隊整理共用文件與單次會議資料，讓 AI 使用正確的脈絡。" actions={teamId ? <Link href={`/workspaces/${teamId}`} className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"><IconArrowLeft size={17} />返回團隊</Link> : undefined} />
-    {teamId && <TeamSubnav teamId={teamId} active="memory" />}
-    <div className="mt-8 flex flex-wrap items-center gap-3"><label className="text-sm font-medium">目前團隊<select value={teamId} onChange={(event) => setTeamId(event.target.value)} className="control-primary ml-3 inline-block w-auto min-w-52 cursor-pointer"><option value="">選擇團隊</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>{scope === "meeting" && <label className="text-sm font-medium">目前會議<select value={meetingId} onChange={(event) => setMeetingId(event.target.value)} className="control-primary ml-3 inline-block w-auto min-w-64 cursor-pointer"><option value="">選擇會議</option>{meetings.filter((meeting) => meeting.team_id === teamId).map((meeting) => <option key={meeting.id} value={meeting.id}>{meeting.title}</option>)}</select></label>}</div>
-    <div className="mt-5 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]"><aside className="rounded-2xl border border-[#e6e6e3] bg-white p-3"><p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#8b8b87]">文件範圍</p>{[["shared", "團隊共用文件"], ["meeting", "單次會議文件"]].map(([value, label]) => <button key={value} type="button" onClick={() => setScope(value as "shared" | "meeting")} className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm ${scope === value ? "bg-[#efefec] font-medium" : "text-[#787774] hover:bg-[#f7f7f5]"}`}><IconFolder size={17} />{label}</button>)}</aside>
-      <section><div className="flex gap-2"><label className="relative block min-w-0 flex-1"><IconSearch className="absolute left-3 top-3 text-[#8b8b87]" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void runSearch(); }} className="control-primary w-full pl-10" placeholder="搜尋文件、決策或關鍵字" /></label><button type="button" onClick={() => void runSearch()} className="rounded-primary border border-[#d7e8e5] px-4 text-sm font-medium text-[#087e6d]">搜尋</button></div><div role="button" tabIndex={0} onClick={() => document.getElementById("memory-file-picker")?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") document.getElementById("memory-file-picker")?.click(); }} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={onDrop} className={`mt-5 cursor-pointer rounded-2xl border-2 border-dashed bg-white p-10 text-center transition-colors ${dragging ? "border-[#0f9f8a] bg-[#f0fbf8]" : "border-[#e6e6e3]"}`}><IconFileText className="mx-auto text-[#0f9f8a]" size={32} /><h2 className="mt-4 font-semibold">選擇文件後先預覽</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">目前區域：{scope === "shared" ? "團隊共用文件" : `單次會議文件${meetingId ? ` · ${meetings.find((meeting) => meeting.id === meetingId)?.title ?? ""}` : " · 請先選擇會議"}`}。支援 PDF 與 .txt；確認後才會上傳。</p><input id="memory-file-picker" className="sr-only" type="file" accept=".pdf,.txt" multiple onClick={(event) => event.stopPropagation()} onChange={(event) => { void stageFiles(event.target.files); event.currentTarget.value = ""; }} /></div>{documents.length > 0 && <div className="mt-5 space-y-2">{documents.map((document) => <div key={document.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e6e6e3] bg-white px-4 py-3 text-sm"><span className="min-w-0 flex-1 truncate">{document.name}</span><span className="text-xs text-[#787774]">{document.status}</span><Tooltip content="下載"><button type="button" aria-label="下載" onClick={() => void documentAction(document.id, "download")}><IconDownload size={16} /></button></Tooltip><Tooltip content="封存"><button type="button" aria-label="封存" onClick={() => void documentAction(document.id, "archive")}><IconArchive size={16} /></button></Tooltip><Tooltip content="選擇要還原的版本"><button type="button" aria-label="選擇要還原的版本" onClick={() => void openVersions(document)}><IconHistory size={16} /></button></Tooltip><Tooltip content="刪除"><button type="button" aria-label="刪除" onClick={() => void documentAction(document.id, "delete")} className="text-red-600"><IconTrash size={16} /></button></Tooltip></div>)}</div>}{results.length > 0 && <div className="mt-5 space-y-2">{results.map((result) => <article key={result.chunk_id} className="rounded-xl border border-[#e6e6e3] bg-white p-4"><p className="text-xs text-[#787774]">{result.document_name} · 第 {result.position + 1} 段</p><p className="mt-2 text-sm leading-6">{result.content}</p></article>)}</div>}</section></div>
-    {versionTarget && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setVersionTarget(null)}><section role="dialog" aria-modal="true" aria-labelledby="document-version-title" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><h2 id="document-version-title" className="text-lg font-semibold">選擇要還原的文件版本</h2><p className="mt-1 text-sm text-[#787774]">{versionTarget.name}</p></div><button type="button" onClick={() => setVersionTarget(null)} className="text-sm text-[#787774] underline">關閉</button></div><div className="mt-5 space-y-2">{versionTarget.versions.length ? versionTarget.versions.map((version) => <div key={version.version} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6e6e3] p-3"><div><p className="text-sm font-medium">版本 {version.version}</p><p className="mt-1 text-xs text-[#787774]">{version.created_at ? new Date(version.created_at).toLocaleString("zh-TW") : "建立時間未提供"} · {version.chunk_count} 個內容片段</p></div><button type="button" onClick={() => void restoreVersion(version.version)} className="rounded-primary border border-[#cde5df] px-3 py-2 text-sm font-medium text-[#087e6d]">還原此版本</button></div>) : <p className="text-sm text-[#787774]">這份文件尚無可還原的版本。</p>}</div></section></div>}
-    {pendingUploads.length > 0 && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closePreview()}><section role="dialog" aria-modal="true" aria-labelledby="upload-preview-title" className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0f9f8a]">Upload preview</p><h2 id="upload-preview-title" className="mt-2 text-xl font-semibold">確認要上傳的檔案</h2><p className="mt-1 text-sm text-[#787774]">確認後才會將檔案送至團隊記憶。</p></div><button type="button" onClick={closePreview} disabled={uploading} aria-label="關閉預覽" className="rounded-lg p-2 text-[#787774] hover:bg-[#f4f4f2] disabled:opacity-50"><IconX size={20} /></button></div><div className="mt-5 space-y-3">{pendingUploads.map(({ file, previewUrl, textPreview }) => <article key={`${file.name}-${file.lastModified}`} className="rounded-xl border border-[#e6e6e3] p-4"><div className="flex items-start gap-3"><IconFileText className="mt-0.5 shrink-0 text-[#0f9f8a]" size={21} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{file.name}</p><p className="mt-1 text-xs text-[#787774]">{file.name.toLowerCase().endsWith(".txt") ? ".txt 文字檔" : "PDF 文件"} · {formatFileSize(file.size)}</p>{textPreview !== undefined ? <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-lg bg-[#f7f7f5] p-3 text-xs leading-5 text-[#4b4b48]">{textPreview || "（空白文字檔）"}</pre> : previewUrl ? <iframe src={previewUrl} title={`${file.name} 預覽`} className="mt-3 h-56 w-full rounded-lg border border-[#e6e6e3]" /> : null}</div></div></article>)}</div><div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-[#ededeb] pt-5"><button type="button" disabled={uploading} onClick={closePreview} className="rounded-lg border border-[#dededb] px-4 py-2.5 text-sm font-medium disabled:opacity-50">取消</button><button type="button" disabled={uploading} onClick={() => void confirmUpload()} className="rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{uploading ? "上傳中…" : `確認上傳 ${pendingUploads.length} 個檔案`}</button></div></section></div>}
-  </AppShell>;
+  return (
+    <AppShell>
+      <PageHeader
+        eyebrow="Team memory"
+        title="團隊記憶"
+        description="依團隊整理共用文件與單次會議資料，讓 AI 使用正確的脈絡。"
+        actions={
+          teamId ? (
+            <Link
+              href={`/workspaces/${teamId}`}
+              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
+            >
+              <IconArrowLeft size={17} />
+              返回團隊
+            </Link>
+          ) : undefined
+        }
+      />
+      {teamId && <TeamSubnav teamId={teamId} active="memory" />}
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <label className="text-sm font-medium">
+          目前團隊
+          <select
+            value={teamId}
+            onChange={(event) => setTeamId(event.target.value)}
+            className="control-primary ml-3 inline-block w-auto min-w-52 cursor-pointer"
+          >
+            <option value="">選擇團隊</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {scope === "meeting" && (
+          <label className="text-sm font-medium">
+            目前會議
+            <select
+              value={meetingId}
+              onChange={(event) => setMeetingId(event.target.value)}
+              className="control-primary ml-3 inline-block w-auto min-w-64 cursor-pointer"
+            >
+              <option value="">選擇會議</option>
+              {meetings
+                .filter((meeting) => meeting.team_id === teamId)
+                .map((meeting) => (
+                  <option key={meeting.id} value={meeting.id}>
+                    {meeting.title}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="mt-5 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="rounded-2xl border border-[#e6e6e3] bg-white p-3">
+          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#8b8b87]">
+            文件範圍
+          </p>
+          {[
+            ["shared", "團隊共用文件"],
+            ["meeting", "單次會議文件"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setScope(value as "shared" | "meeting")}
+              className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm ${scope === value ? "bg-[#efefec] font-medium" : "text-[#787774] hover:bg-[#f7f7f5]"}`}
+            >
+              <IconFolder size={17} />
+              {label}
+            </button>
+          ))}
+        </aside>
+        <section>
+          <div className="flex gap-2">
+            <label className="relative block min-w-0 flex-1">
+              <IconSearch
+                className="absolute left-3 top-3 text-[#8b8b87]"
+                size={18}
+              />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void runSearch();
+                }}
+                className="control-primary w-full pl-10"
+                placeholder="搜尋文件、決策或關鍵字"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void runSearch()}
+              className="rounded-primary border border-[#d7e8e5] px-4 text-sm font-medium text-[#087e6d]"
+            >
+              搜尋
+            </button>
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              document.getElementById("memory-file-picker")?.click()
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ")
+                document.getElementById("memory-file-picker")?.click();
+            }}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            className={`mt-5 cursor-pointer rounded-2xl border-2 border-dashed bg-white p-10 text-center transition-colors ${dragging ? "border-[#0f9f8a] bg-[#f0fbf8]" : "border-[#e6e6e3]"}`}
+          >
+            <IconFileText className="mx-auto text-[#0f9f8a]" size={32} />
+            <h2 className="mt-4 font-semibold">拖曳多檔上傳</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">支援 PDF、.txt</p>
+            <input
+              id="memory-file-picker"
+              className="sr-only"
+              type="file"
+              accept=".pdf,.txt"
+              multiple
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => {
+                void stageFiles(event.target.files);
+                event.currentTarget.value = "";
+              }}
+            />
+          </div>
+          {documents.length > 0 && (
+            <div className="mt-5 space-y-2">
+              {documents.map((document) => (
+                <div
+                  key={document.id}
+                  className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e6e6e3] bg-white px-4 py-3 text-sm"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {document.name}
+                  </span>
+                  <span className="text-xs text-[#787774]">
+                    {document.status}
+                  </span>
+                  <Tooltip content="下載">
+                    <button
+                      type="button"
+                      aria-label="下載"
+                      onClick={() =>
+                        void documentAction(document.id, "download")
+                      }
+                    >
+                      <IconDownload size={16} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="封存">
+                    <button
+                      type="button"
+                      aria-label="封存"
+                      onClick={() =>
+                        void documentAction(document.id, "archive")
+                      }
+                    >
+                      <IconArchive size={16} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="選擇要還原的版本">
+                    <button
+                      type="button"
+                      aria-label="選擇要還原的版本"
+                      onClick={() => void openVersions(document)}
+                    >
+                      <IconHistory size={16} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="刪除">
+                    <button
+                      type="button"
+                      aria-label="刪除"
+                      onClick={() => void documentAction(document.id, "delete")}
+                      className="text-red-600"
+                    >
+                      <IconTrash size={16} />
+                    </button>
+                  </Tooltip>
+                </div>
+              ))}
+            </div>
+          )}
+          {results.length > 0 && (
+            <div className="mt-5 space-y-2">
+              {results.map((result) => (
+                <article
+                  key={result.chunk_id}
+                  className="rounded-xl border border-[#e6e6e3] bg-white p-4"
+                >
+                  <p className="text-xs text-[#787774]">
+                    {result.document_name} · 第 {result.position + 1} 段
+                  </p>
+                  <p className="mt-2 text-sm leading-6">{result.content}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+      {versionTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4"
+          role="presentation"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && setVersionTarget(null)
+          }
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="document-version-title"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2
+                  id="document-version-title"
+                  className="text-lg font-semibold"
+                >
+                  選擇要還原的文件版本
+                </h2>
+                <p className="mt-1 text-sm text-[#787774]">
+                  {versionTarget.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVersionTarget(null)}
+                className="text-sm text-[#787774] underline"
+              >
+                關閉
+              </button>
+            </div>
+            <div className="mt-5 space-y-2">
+              {versionTarget.versions.length ? (
+                versionTarget.versions.map((version) => (
+                  <div
+                    key={version.version}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6e6e3] p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        版本 {version.version}
+                      </p>
+                      <p className="mt-1 text-xs text-[#787774]">
+                        {version.created_at
+                          ? new Date(version.created_at).toLocaleString("zh-TW")
+                          : "建立時間未提供"}{" "}
+                        · {version.chunk_count} 個內容片段
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void restoreVersion(version.version)}
+                      className="rounded-primary border border-[#cde5df] px-3 py-2 text-sm font-medium text-[#087e6d]"
+                    >
+                      還原此版本
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-[#787774]">
+                  這份文件尚無可還原的版本。
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+      {pendingUploads.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6"
+          role="presentation"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && closePreview()
+          }
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-preview-title"
+            className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0f9f8a]">
+                  Upload preview
+                </p>
+                <h2
+                  id="upload-preview-title"
+                  className="mt-2 text-xl font-semibold"
+                >
+                  確認要上傳的檔案
+                </h2>
+                <p className="mt-1 text-sm text-[#787774]">
+                  確認後才會將檔案送至團隊記憶。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePreview}
+                disabled={uploading}
+                aria-label="關閉預覽"
+                className="rounded-lg p-2 text-[#787774] hover:bg-[#f4f4f2] disabled:opacity-50"
+              >
+                <IconX size={20} />
+              </button>
+            </div>
+            <div className="mt-5 space-y-3">
+              {pendingUploads.map(({ file, previewUrl, textPreview }) => (
+                <article
+                  key={`${file.name}-${file.lastModified}`}
+                  className="rounded-xl border border-[#e6e6e3] p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <IconFileText
+                      className="mt-0.5 shrink-0 text-[#0f9f8a]"
+                      size={21}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">
+                        {file.name}
+                      </p>
+                      <p className="mt-1 text-xs text-[#787774]">
+                        {file.name.toLowerCase().endsWith(".txt")
+                          ? ".txt 文字檔"
+                          : "PDF 文件"}{" "}
+                        · {formatFileSize(file.size)}
+                      </p>
+                      {textPreview !== undefined ? (
+                        <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-lg bg-[#f7f7f5] p-3 text-xs leading-5 text-[#4b4b48]">
+                          {textPreview || "（空白文字檔）"}
+                        </pre>
+                      ) : previewUrl ? (
+                        <iframe
+                          src={previewUrl}
+                          title={`${file.name} 預覽`}
+                          className="mt-3 h-56 w-full rounded-lg border border-[#e6e6e3]"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-[#ededeb] pt-5">
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={closePreview}
+                className="rounded-lg border border-[#dededb] px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => void confirmUpload()}
+                className="rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {uploading
+                  ? "上傳中…"
+                  : `確認上傳 ${pendingUploads.length} 個檔案`}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </AppShell>
+  );
 }
