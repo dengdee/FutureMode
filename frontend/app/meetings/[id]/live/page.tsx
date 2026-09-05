@@ -1,7 +1,6 @@
 "use client";
 
 import { IconRefresh, IconWifi } from "@tabler/icons-react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
