@@ -38,7 +38,10 @@ async function getToken(): Promise<string> {
   if (tokenRequest) return tokenRequest;
   tokenRequest = (async () => {
     try {
-      const result = await authClient.getToken();
+      const tokenClient = authClient as typeof authClient & {
+        getToken: () => Promise<{ data?: { token?: unknown } }>;
+      };
+      const result = await tokenClient.getToken();
       const token = result.data?.token;
       if (typeof token === "string" && token) return token;
     } catch {
