@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 import jwt
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, WebSocket
 
 from app.config import Settings, get_settings
 
@@ -22,7 +22,17 @@ class Principal:
 async def get_current_principal(
     request: Request, settings: Settings = Depends(get_settings)
 ) -> Principal:
-    authorization = request.headers.get("Authorization", "")
+    return await principal_from_authorization(request.headers.get("Authorization", ""), settings)
+
+
+async def get_websocket_principal(
+    websocket: WebSocket, settings: Settings = Depends(get_settings)
+) -> Principal:
+    return await principal_from_authorization(websocket.headers.get("Authorization", ""), settings)
+
+
+async def principal_from_authorization(authorization: str, settings: Settings) -> Principal:
+    """Verify a bearer token shared by HTTP and WebSocket authentication."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
     if not settings.neon_auth_configured:

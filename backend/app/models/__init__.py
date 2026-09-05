@@ -5,9 +5,9 @@ from app.models.core import AgendaItem, Meeting, MeetingParticipant, Team, TeamI
 from app.models.document import Document, DocumentChunk, DocumentVersion
 from app.models.personal import DelegateProfile, PersonalAgentMessage, PublicContribution
 from app.models.realtime import MeetingEventCursor, MeetingState
-from app.models.suggestion import AISuggestion, SuggestionVote
-from app.models.transcript import Transcript
 from app.models.voice import BotSession, VoiceRequest
+from app.models.transcript import Transcript
+from app.models.suggestion import AISuggestion, SuggestionVote
 
 __all__ = [
     "AgendaItem",
@@ -20,15 +20,15 @@ __all__ = [
     "Transcript",
     "AISuggestion",
     "SuggestionVote",
-    "PersonalAgentMessage",
-    "PublicContribution",
-    "DelegateProfile",
     "ActionItem",
     "ConsensusFeedback",
     "ConsensusVersion",
     "Document",
     "DocumentChunk",
     "DocumentVersion",
+    "PersonalAgentMessage",
+    "PublicContribution",
+    "DelegateProfile",
     "Team",
     "TeamMember",
     "TeamInvitation",

@@ -90,6 +90,21 @@ class TranscriptSummary(BaseModel):
     confidence: float | None
 
 
+class ActionItemCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    assignee_user_id: UUID | None = None
+    due_date: date | None = None
+    status: str = Field(default="open", pattern="^(open|in_progress|done|cancelled)$")
+
+
+class ActionItemUpdate(ActionItemCreate):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class SuggestionStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|expanded|deferred|ignored|accepted)$")
+
+
 class SuggestionSummary(BaseModel):
     model_config = {"from_attributes": True}
     id: UUID
@@ -104,10 +119,6 @@ class SuggestionSummary(BaseModel):
 
 class SuggestionVoteCreate(BaseModel):
     vote: str = Field(pattern="^(support|reject|abstain)$")
-
-
-class SuggestionStatusUpdate(BaseModel):
-    status: str = Field(pattern="^(pending|expanded|deferred|ignored|accepted)$")
 
 
 class PersonalMessageCreate(BaseModel):
@@ -143,20 +154,6 @@ class ConsensusFeedbackCreate(BaseModel):
     comment: str | None = Field(default=None, max_length=20_000)
 
 
-class ActionItemCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
-    assignee_user_id: UUID | None = None
-    due_date: date | None = None
-    status: str = Field(default="open", pattern="^(open|in_progress|done|cancelled)$")
-
-
-class ActionItemUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=255)
-    assignee_user_id: UUID | None = None
-    due_date: date | None = None
-    status: str | None = Field(default=None, pattern="^(open|in_progress|done|cancelled)$")
-
-
 class DocumentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     source_type: str = Field(default="text", min_length=1, max_length=32)
@@ -167,14 +164,3 @@ class DocumentChunkCreate(BaseModel):
     position: int = Field(ge=1)
     content: str = Field(min_length=1, max_length=100_000)
     metadata: dict[str, object] = Field(default_factory=dict)
-
-
-class MeetingSummary(BaseModel):
-    model_config = {"from_attributes": True}
-
-    id: UUID
-    team_id: UUID
-    title: str
-    scheduled_at: datetime | None
-    status: str
-    ai_intervention_level: str

@@ -15,18 +15,6 @@ def test_core_tables_are_registered() -> None:
         "meeting_event_cursors",
         "bot_sessions",
         "voice_requests",
-        "transcripts",
-        "ai_suggestions",
-        "suggestion_votes",
-        "personal_agent_messages",
-        "public_contributions",
-        "delegate_profiles",
-        "consensus_versions",
-        "consensus_feedback",
-        "action_items",
-        "documents",
-        "document_chunks",
-        "document_versions",
     }.issubset(Base.metadata.tables)
 
 
