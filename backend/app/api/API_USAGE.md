@@ -71,6 +71,8 @@ Base URL：`http://localhost:8000`
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/publish` | 發布個人貢獻 |
 | GET/POST | `/api/v1/teams/{team_id}/documents` | 文件列表／建立文件紀錄 |
 | GET | `/api/v1/teams/{team_id}/memory/hybrid-search` | Team Memory 混合搜尋 |
+| GET | `/api/v1/meetings/{meeting_id}/memory/search` | 會議中查詢該會議已發布的議前 RAG |
+| GET | `/api/v1/meetings/{meeting_id}/memory/hybrid-search` | 會議中以 embedding＋全文檢索查詢議前 RAG |
 | GET | `/api/v1/documents/{document_id}` | 文件詳細資料 |
 | POST | `/api/v1/documents/{document_id}/upload` | 上傳文件並啟動 ingestion |
 | GET | `/api/v1/documents/{document_id}/chunks` | 文件切分內容 |
@@ -82,8 +84,8 @@ Base URL：`http://localhost:8000`
 
 議前文件流程：先建立數筆 `preparation/messages`，再呼叫 `generate-document`。
 回應中的 `document_id` 傳給 `publish-to-rag`；發布後可透過
-`/api/v1/teams/{team_id}/memory/search` 查詢。若要使用向量／混合搜尋，另呼叫
-`POST /api/v1/documents/{document_id}/embed`（需設定 embedding provider）。
+`/api/v1/meetings/{meeting_id}/memory/search` 查詢。發布時會自動建立 embedding；若是
+一般文件，仍可另呼叫 `POST /api/v1/documents/{document_id}/embed`（需設定 embedding provider）。
 
 ## Meeting Bot 與即時事件
 

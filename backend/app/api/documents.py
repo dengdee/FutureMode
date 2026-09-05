@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.meetings import database_session
+from app.api.meetings import authorized_meeting, database_session
 from app.auth.principal import Principal, get_current_principal
 from app.config import get_settings
 from app.models import Document, DocumentChunk, DocumentVersion, TeamMember, User
@@ -637,6 +637,99 @@ async def hybrid_search_memory(
             select(DocumentChunk, Document, hybrid_score)
             .join(Document, Document.id == DocumentChunk.document_id)
             .where(*filters)
+            .order_by(hybrid_score.desc(), DocumentChunk.position)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        {
+            "chunk_id": str(chunk.id),
+            "document_id": str(document.id),
+            "document_name": document.name,
+            "position": chunk.position,
+            "content": chunk.content,
+            "score": float(score),
+        }
+        for chunk, document, score in rows
+    ]
+
+
+@router.get(
+    "/meetings/{meeting_id}/memory/search", response_model=list[DocumentSearchResult]
+)
+async def search_meeting_memory(
+    meeting_id: UUID,
+    q: str = Query(min_length=1, max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[DocumentSearchResult]:
+    """Search only preparation documents published for the current meeting."""
+    await authorized_meeting(meeting_id, principal, session)
+    document_vector = func.to_tsvector("simple", DocumentChunk.content)
+    query_vector = func.plainto_tsquery("simple", q)
+    rank = func.ts_rank_cd(document_vector, query_vector).label("rank")
+    rows = (
+        await session.execute(
+            select(DocumentChunk, Document, rank)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(
+                Document.source_type == "preparation",
+                Document.status.in_({"ready", "embedded"}),
+                Document.metadata_json.contains({"meeting_id": str(meeting_id)}),
+                document_vector.op("@@")(query_vector),
+            )
+            .order_by(rank.desc(), DocumentChunk.position)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        {
+            "chunk_id": str(chunk.id),
+            "document_id": str(document.id),
+            "document_name": document.name,
+            "position": chunk.position,
+            "content": chunk.content,
+            "score": float(score),
+        }
+        for chunk, document, score in rows
+    ]
+
+
+@router.get(
+    "/meetings/{meeting_id}/memory/hybrid-search", response_model=list[DocumentSearchResult]
+)
+async def hybrid_search_meeting_memory(
+    meeting_id: UUID,
+    q: str = Query(min_length=1, max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[DocumentSearchResult]:
+    """Use embedding plus lexical ranking over the meeting's preparation RAG only."""
+    await authorized_meeting(meeting_id, principal, session)
+    try:
+        query_vector = (await embed_texts([q], settings))[0]
+    except EmbeddingConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="embedding provider unavailable") from None
+    distance = DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
+    text_rank = func.ts_rank_cd(
+        func.to_tsvector("simple", DocumentChunk.content),
+        func.plainto_tsquery("simple", q),
+    )
+    hybrid_score = ((1 - distance) * 0.7 + text_rank * 0.3).label("hybrid_score")
+    rows = (
+        await session.execute(
+            select(DocumentChunk, Document, hybrid_score)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(
+                Document.source_type == "preparation",
+                Document.status == "embedded",
+                Document.metadata_json.contains({"meeting_id": str(meeting_id)}),
+                DocumentChunk.embedding.is_not(None),
+            )
             .order_by(hybrid_score.desc(), DocumentChunk.position)
             .limit(limit)
         )

@@ -19,9 +19,9 @@ class Settings(BaseSettings):
     meeting_baas_url: str = "https://api.meetingbaas.com/v2/bots"
     meeting_baas_input_url: str | None = None
     meeting_baas_webhook_secret: str | None = None
-    embedding_provider: str = "openai"
+    embedding_provider: str = "gemini"
     embedding_api_key: str | None = None
-    embedding_model: str = "text-embedding-3-small"
+    embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 1536
     embedding_batch_size: int = 64
     embedding_max_chunks: int = 500

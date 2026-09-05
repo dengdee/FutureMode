@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,6 +19,7 @@ from app.schemas.meeting import (
     PreparationPublishRequest,
     PreparationPublishResponse,
 )
+from app.services.embeddings import EmbeddingConfigurationError, embed_texts
 from app.services.llm import (
     LLMConfigurationError,
     LLMProviderError,
@@ -193,6 +195,7 @@ async def publish_preparation_to_rag(
     payload: PreparationPublishRequest,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
+    settings: Settings = Depends(get_settings),
 ) -> PreparationPublishResponse:
     """Publish a generated preparation draft to the team's searchable document memory."""
     meeting = await authorized_meeting(meeting_id, principal, session)
@@ -225,9 +228,18 @@ async def publish_preparation_to_rag(
             published_at=document.indexed_at or datetime.now(UTC),
         )
 
+    try:
+        vectors = await embed_texts([chunk.content for chunk in chunks], settings)
+    except EmbeddingConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="embedding provider unavailable") from None
+    for chunk, vector in zip(chunks, vectors, strict=True):
+        chunk.embedding = vector
+
     published_at = datetime.now(UTC)
     content = "\n\n".join(chunk.content for chunk in chunks)
-    document.status = "ready"
+    document.status = "embedded"
     document.indexed_at = published_at
     document.index_error = None
     document.metadata_json = {**document.metadata_json, "published_to_rag": True}

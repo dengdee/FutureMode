@@ -150,3 +150,27 @@ def test_publish_preparation_to_rag_requires_authentication() -> None:
 
     response = asyncio.run(request())
     assert response.status_code == 401
+
+
+def test_meeting_memory_search_requires_authentication() -> None:
+    async def request():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            return await client.get(
+                "/api/v1/meetings/00000000-0000-0000-0000-000000000000/memory/search",
+                params={"q": "決策"},
+            )
+
+    response = asyncio.run(request())
+    assert response.status_code == 401
+
+
+def test_meeting_memory_hybrid_search_requires_authentication() -> None:
+    async def request():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            return await client.get(
+                "/api/v1/meetings/00000000-0000-0000-0000-000000000000/memory/hybrid-search",
+                params={"q": "決策"},
+            )
+
+    response = asyncio.run(request())
+    assert response.status_code == 401
