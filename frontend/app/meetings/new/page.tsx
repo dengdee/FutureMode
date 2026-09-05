@@ -1,6 +1,14 @@
 "use client";
 
-import { IconCalendarEvent, IconLink, IconPlus, IconSparkles, IconTrash, IconUsersGroup } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconCalendarEvent,
+  IconLink,
+  IconPlus,
+  IconSparkles,
+  IconTrash,
+  IconUsersGroup,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -8,36 +16,462 @@ import { AppShell } from "../../../components/app-shell";
 import { PageHeader } from "../../../components/page-header";
 import { addAgendaItem } from "../../../lib/api/agenda";
 import { createMeeting } from "../../../lib/api/meetings";
-import { addParticipant, updateParticipant } from "../../../lib/api/participants";
+import {
+  addParticipant,
+  updateParticipant,
+} from "../../../lib/api/participants";
 import { listTeamMembers, listTeams } from "../../../lib/api/teams";
 import type { Team, TeamMember } from "../../../types/api";
 
 const fieldClass = "control-primary mt-2 placeholder:text-[#a5a5a1]";
 const templates = [
-  { id: "decision", label: "決策會議", agenda: ["確認今天需要做的決定", "釐清成功標準與不可妥協條件", "比較選項、成本與風險", "確認未解問題與需要補充的資料", "確認決策、負責人與下一步"] },
-  { id: "sync", label: "專案同步", agenda: ["上次行動項目進度", "本期完成事項與重要變更", "目前阻礙與需要協助的事項", "檢視時程、依賴與風險", "確認本期行動項目與負責人"] },
-  { id: "retro", label: "回顧會議", agenda: ["這次做得好的地方", "哪些地方造成延遲或摩擦", "從資料與事實找出根因", "下一輪要停止、開始或繼續什麼", "確認改善實驗與追蹤方式"] },
-  { id: "planning", label: "季度規劃", agenda: ["回顧目標與現況差距", "確認使用者與業務優先順序", "盤點資源、預算與限制", "排列季度目標與里程碑", "確認取捨、負責人與檢查節點"] },
-  { id: "one-on-one", label: "一對一", agenda: ["近況與工作負荷", "進展、成果與卡點", "需要的支持與資源", "回饋與成長方向", "確認下一次前的行動"] },
+  {
+    id: "decision",
+    label: "決策會議",
+    agenda: [
+      "確認今天需要做的決定",
+      "釐清成功標準與不可妥協條件",
+      "比較選項、成本與風險",
+      "確認未解問題與需要補充的資料",
+      "確認決策、負責人與下一步",
+    ],
+  },
+  {
+    id: "sync",
+    label: "專案同步",
+    agenda: [
+      "上次行動項目進度",
+      "本期完成事項與重要變更",
+      "目前阻礙與需要協助的事項",
+      "檢視時程、依賴與風險",
+      "確認本期行動項目與負責人",
+    ],
+  },
+  {
+    id: "retro",
+    label: "回顧會議",
+    agenda: [
+      "這次做得好的地方",
+      "哪些地方造成延遲或摩擦",
+      "從資料與事實找出根因",
+      "下一輪要停止、開始或繼續什麼",
+      "確認改善實驗與追蹤方式",
+    ],
+  },
+  {
+    id: "planning",
+    label: "季度規劃",
+    agenda: [
+      "回顧目標與現況差距",
+      "確認使用者與業務優先順序",
+      "盤點資源、預算與限制",
+      "排列季度目標與里程碑",
+      "確認取捨、負責人與檢查節點",
+    ],
+  },
+  {
+    id: "one-on-one",
+    label: "一對一",
+    agenda: [
+      "近況與工作負荷",
+      "進展、成果與卡點",
+      "需要的支持與資源",
+      "回饋與成長方向",
+      "確認下一次前的行動",
+    ],
+  },
 ] as const;
-const levels = [{ id: "low", label: "僅在高風險時提醒", description: "AI 只在被詢問或發現重大風險時提出觀點。" }, { id: "medium", label: "重要時主動提醒", description: "發現重要風險、反例或未決問題時舉手。" }, { id: "high", label: "積極補充觀點", description: "更常提出替代方案、歷史提醒與風險。" }] as const;
+const levels = [
+  {
+    id: "low",
+    label: "僅在高風險時提醒",
+    description: "AI 只在被詢問或發現重大風險時提出觀點。",
+  },
+  {
+    id: "medium",
+    label: "重要時主動提醒",
+    description: "發現重要風險、反例或未決問題時舉手。",
+  },
+  {
+    id: "high",
+    label: "積極補充觀點",
+    description: "更常提出替代方案、歷史提醒與風險。",
+  },
+] as const;
 type Attendance = "invited" | "joined" | "left";
 
 export default function NewMeetingPage() {
-  const router = useRouter(); const searchParams = useSearchParams();
-  const [teams, setTeams] = useState<Team[]>([]); const [members, setMembers] = useState<TeamMember[]>([]);
-  const [title, setTitle] = useState(""); const [teamId, setTeamId] = useState(""); const [scheduledAt, setScheduledAt] = useState(""); const [prepDeadline, setPrepDeadline] = useState(""); const [meetUrl, setMeetUrl] = useState(""); const [level, setLevel] = useState("medium");
-  const [agenda, setAgenda] = useState<string[]>([""]); const [template, setTemplate] = useState(""); const [selectedMembers, setSelectedMembers] = useState<Record<string, boolean>>({}); const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
-  const [submitting, setSubmitting] = useState(false); const [error, setError] = useState<string | null>(null);
-  useEffect(() => { const requested = searchParams.get("teamId"); listTeams().then(async ({ teams: result }) => { setTeams(result); const selected = result.some((team) => team.id === requested) ? requested! : result[0]?.id ?? ""; setTeamId(selected); if (selected) setMembers((await listTeamMembers(selected)).members); }).catch((cause) => setError(cause instanceof Error ? cause.message : "無法讀取團隊。")); }, [searchParams]);
-  useEffect(() => { if (teamId) listTeamMembers(teamId).then(({ members: result }) => { setMembers(result); setSelectedMembers({}); setAttendance({}); }).catch(() => setMembers([])); }, [teamId]);
-  function chooseTemplate(value: string) { const next = templates.find((item) => item.id === value); setTemplate(value); setAgenda(next ? [...next.agenda] : [""]); }
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!title.trim() || !teamId) { setError("請選擇團隊並填寫會議名稱。"); return; } setSubmitting(true); setError(null); try { const meeting = await createMeeting({ team_id: teamId, title: title.trim(), scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null, ai_intervention_level: level }); if (meetUrl.trim()) localStorage.setItem(`proximate:meeting-url:${meeting.id}`, meetUrl.trim()); if (prepDeadline) localStorage.setItem(`proximate:prep-deadline:${meeting.id}`, prepDeadline); for (const member of members.filter((member) => selectedMembers[member.user_id])) { await addParticipant(meeting.id, { user_id: member.user_id }); const status = attendance[member.user_id]; if (status && status !== "invited") await updateParticipant(meeting.id, member.user_id, { attendance_status: status }); } for (const [position, item] of agenda.map((item) => item.trim()).filter(Boolean).entries()) await addAgendaItem(meeting.id, { position: position + 1, title: item }); router.push(`/meetings/${meeting.id}/prepare`); } catch (cause) { setError(cause instanceof Error ? cause.message : "建立會議失敗，請稍後再試。"); setSubmitting(false); } }
-  return <AppShell><PageHeader eyebrow="New meeting" title="建立會議" description="先設定團隊、時間、參與者與共同議程；建立後再讓每位成員和自己的 Agent 完成議前討論。" /><form onSubmit={handleSubmit} className="mt-8 max-w-4xl space-y-6">
-    <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7"><h2 className="text-lg font-semibold">基本資訊</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium">所屬團隊<select required value={teamId} onChange={(event) => setTeamId(event.target.value)} className={fieldClass}><option value="">選擇團隊</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label><label className="block text-sm font-medium">會議名稱<input required value={title} onChange={(event) => setTitle(event.target.value)} className={fieldClass} placeholder="例如：產品方向校準會議" /></label><label className="block text-sm font-medium">開始時間<span className="ml-1 font-normal text-[#787774]">（可稍後設定）</span><input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className={fieldClass} /></label><label className="block text-sm font-medium">參與者填寫期限<span className="ml-1 font-normal text-[#787774]">（選填）</span><input type="datetime-local" value={prepDeadline} onChange={(event) => setPrepDeadline(event.target.value)} className={fieldClass} /><span className="mt-1 block text-xs font-normal text-[#787774]">期限到後才開放 AI 的議前整理。</span></label></div><label className="mt-4 block text-sm font-medium"><span className="inline-flex items-center gap-1">Google Meet 連結 <IconLink size={15} className="text-[#0f9f8a]" /></span><input type="url" value={meetUrl} onChange={(event) => setMeetUrl(event.target.value)} className={fieldClass} placeholder="https://meet.google.com/..." /><span className="mt-1 block text-xs font-normal text-[#787774]">僅在建立時設定，作為這場會議的入口。</span></label></section>
-    <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7"><div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e7f7ef] text-[#087e6d]"><IconSparkles size={20} /></span><div><h2 className="text-lg font-semibold">AI 參與方式</h2><p className="mt-1 text-sm leading-6 text-[#787774]">決定 AI 在會議中多久以「舉手」方式提醒風險；它不會自行插話或替人決策。</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-3">{levels.map((item) => <label key={item.id} className={`cursor-pointer rounded-xl border p-4 transition ${level === item.id ? "border-[#0f9f8a] bg-[#f0fbf8] ring-1 ring-[#0f9f8a]" : "border-[#e6e6e3] hover:border-[#9ddbc8]"}`}><input className="sr-only" type="radio" name="intervention" checked={level === item.id} onChange={() => setLevel(item.id)} /><span className="block font-medium">{item.label}</span><span className="mt-2 block text-xs leading-5 text-[#787774]">{item.description}</span></label>)}</div></section>
-    <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7"><div className="flex items-start gap-3"><IconUsersGroup className="mt-0.5 text-[#0f9f8a]" size={21} /><div><h2 className="text-lg font-semibold">本場參與者</h2><p className="mt-1 text-sm leading-6 text-[#787774]">選擇本場成員並標示出席情況；缺席代理會在後續的議前討論頁，依已確認內容設定。</p></div></div><div className="mt-5 space-y-2">{members.map((member) => <label key={member.user_id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[#ededeb] p-3"><input type="checkbox" checked={!!selectedMembers[member.user_id]} onChange={() => setSelectedMembers((current) => ({ ...current, [member.user_id]: !current[member.user_id] }))} className="accent-[#0f9f8a]" /><span className="min-w-0 flex-1 text-sm font-medium">{member.display_name || "未設定名稱的成員"}</span>{selectedMembers[member.user_id] && <select value={attendance[member.user_id] ?? "joined"} onChange={(event) => setAttendance((current) => ({ ...current, [member.user_id]: event.target.value as Attendance }))} className="control-primary w-auto text-xs"><option value="joined">將出席</option><option value="left">無法出席</option><option value="invited">待確認</option></select>}</label>)}{members.length === 0 && <p className="rounded-xl bg-[#f7f7f5] p-4 text-sm text-[#787774]">此團隊目前沒有可選的成員。</p>}</div></section>
-    <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7"><div className="flex items-start gap-3"><IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} /><div><h2 className="text-lg font-semibold">議程範本</h2><p className="mt-1 text-sm leading-6 text-[#787774]">範本是共同起點；建立後每位參與者針對同一組議程和自己的 Agent 討論。</p></div></div><label className="mt-5 block text-sm font-medium">快速套用<select value={template} onChange={(event) => chooseTemplate(event.target.value)} className="control-primary mt-2 text-sm"><option value="">不套用範本</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><div className="mt-5 space-y-3">{agenda.map((item, index) => <div key={index} className="flex items-center gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e7f7ef] text-sm font-semibold text-[#087e6d]">{index + 1}</span><input value={item} onChange={(event) => setAgenda((items) => items.map((current, itemIndex) => itemIndex === index ? event.target.value : current))} className="control-primary" placeholder="輸入要討論的議題" /><button type="button" disabled={agenda.length === 1} onClick={() => setAgenda((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="rounded-lg p-2 text-[#787774] hover:bg-red-50 hover:text-red-700 disabled:opacity-40" aria-label="移除此議程"><IconTrash size={18} /></button></div>)}</div><button type="button" onClick={() => setAgenda((items) => [...items, ""])} className="mt-4 inline-flex items-center gap-1 rounded-lg border border-[#d7e8e5] px-3 py-2 text-sm font-medium text-[#087e6d]"><IconPlus size={17} />新增議題</button></section>
-    {error && <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}<div className="flex flex-col-reverse justify-end gap-3 sm:flex-row"><Link href="/workspaces" className="rounded-lg px-4 py-2.5 text-center text-sm font-medium text-[#5f5f5b] hover:bg-[#f4f4f2]">取消</Link><button disabled={submitting || !teams.length} type="submit" className="rounded-lg bg-[#0f9f8a] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{submitting ? "建立中…" : "建立並進入議前討論"}</button></div>
-  </form></AppShell>;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [title, setTitle] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [prepDeadline, setPrepDeadline] = useState("");
+  const [meetUrl, setMeetUrl] = useState("");
+  const [level, setLevel] = useState("medium");
+  const [agenda, setAgenda] = useState<string[]>([""]);
+  const [template, setTemplate] = useState("");
+  const [selectedMembers, setSelectedMembers] = useState<
+    Record<string, boolean>
+  >({});
+  const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const requested = searchParams.get("teamId");
+    listTeams()
+      .then(async ({ teams: result }) => {
+        setTeams(result);
+        const selected = result.some((team) => team.id === requested)
+          ? requested!
+          : (result[0]?.id ?? "");
+        setTeamId(selected);
+        if (selected) setMembers((await listTeamMembers(selected)).members);
+      })
+      .catch((cause) =>
+        setError(cause instanceof Error ? cause.message : "無法讀取團隊。"),
+      );
+  }, [searchParams]);
+  useEffect(() => {
+    if (teamId)
+      listTeamMembers(teamId)
+        .then(({ members: result }) => {
+          setMembers(result);
+          setSelectedMembers({});
+          setAttendance({});
+        })
+        .catch(() => setMembers([]));
+  }, [teamId]);
+  function chooseTemplate(value: string) {
+    const next = templates.find((item) => item.id === value);
+    setTemplate(value);
+    setAgenda(next ? [...next.agenda] : [""]);
+  }
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!title.trim() || !teamId) {
+      setError("請選擇團隊並填寫會議名稱。");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const meeting = await createMeeting({
+        team_id: teamId,
+        title: title.trim(),
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        ai_intervention_level: level,
+      });
+      if (meetUrl.trim())
+        localStorage.setItem(
+          `proximate:meeting-url:${meeting.id}`,
+          meetUrl.trim(),
+        );
+      if (prepDeadline)
+        localStorage.setItem(
+          `proximate:prep-deadline:${meeting.id}`,
+          prepDeadline,
+        );
+      for (const member of members.filter(
+        (member) => selectedMembers[member.user_id],
+      )) {
+        await addParticipant(meeting.id, { user_id: member.user_id });
+        const status = attendance[member.user_id];
+        if (status && status !== "invited")
+          await updateParticipant(meeting.id, member.user_id, {
+            attendance_status: status,
+          });
+      }
+      for (const [position, item] of agenda
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .entries())
+        await addAgendaItem(meeting.id, {
+          position: position + 1,
+          title: item,
+        });
+      router.push(`/meetings/${meeting.id}/prepare`);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "建立會議失敗，請稍後再試。",
+      );
+      setSubmitting(false);
+    }
+  }
+  return (
+    <AppShell>
+      <PageHeader
+        eyebrow="New meeting"
+        title="建立會議"
+        description="先設定團隊、時間、參與者與共同議程；建立後再讓每位成員和自己的 Agent 完成議前討論。"
+        actions={
+          teamId ? (
+            <Link
+              href={`/workspaces/${teamId}`}
+              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
+            >
+              <IconArrowLeft size={17} />
+              返回團隊
+            </Link>
+          ) : undefined
+        }
+      />
+      <form onSubmit={handleSubmit} className="mt-8 max-w-4xl space-y-6">
+        <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
+          <h2 className="text-lg font-semibold">基本資訊</h2>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium">
+              所屬團隊
+              <select
+                required
+                value={teamId}
+                onChange={(event) => setTeamId(event.target.value)}
+                className={fieldClass}
+              >
+                <option value="">選擇團隊</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-medium">
+              會議名稱
+              <input
+                required
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className={fieldClass}
+                placeholder="例如：產品方向校準會議"
+              />
+            </label>
+            <label className="block text-sm font-medium">
+              開始時間
+              <span className="ml-1 font-normal text-[#787774]">
+                （可稍後設定）
+              </span>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(event) => setScheduledAt(event.target.value)}
+                className={fieldClass}
+              />
+            </label>
+            <label className="block text-sm font-medium">
+              參與者填寫期限
+              <span className="ml-1 font-normal text-[#787774]">（選填）</span>
+              <input
+                type="datetime-local"
+                value={prepDeadline}
+                onChange={(event) => setPrepDeadline(event.target.value)}
+                className={fieldClass}
+              />
+              <span className="mt-1 block text-xs font-normal text-[#787774]">
+                期限到後才開放 AI 的議前整理。
+              </span>
+            </label>
+          </div>
+          <label className="mt-4 block text-sm font-medium">
+            <span className="inline-flex items-center gap-1">
+              Google Meet 連結 <IconLink size={15} className="text-[#0f9f8a]" />
+            </span>
+            <input
+              type="url"
+              value={meetUrl}
+              onChange={(event) => setMeetUrl(event.target.value)}
+              className={fieldClass}
+              placeholder="https://meet.google.com/..."
+            />
+            <span className="mt-1 block text-xs font-normal text-[#787774]">
+              僅在建立時設定，作為這場會議的入口。
+            </span>
+          </label>
+        </section>
+        <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e7f7ef] text-[#087e6d]">
+              <IconSparkles size={20} />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold">AI 參與方式</h2>
+              <p className="mt-1 text-sm leading-6 text-[#787774]">
+                決定 AI
+                在會議中多久以「舉手」方式提醒風險；它不會自行插話或替人決策。
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {levels.map((item) => (
+              <label
+                key={item.id}
+                className={`cursor-pointer rounded-xl border p-4 transition ${level === item.id ? "border-[#0f9f8a] bg-[#f0fbf8] ring-1 ring-[#0f9f8a]" : "border-[#e6e6e3] hover:border-[#9ddbc8]"}`}
+              >
+                <input
+                  className="sr-only"
+                  type="radio"
+                  name="intervention"
+                  checked={level === item.id}
+                  onChange={() => setLevel(item.id)}
+                />
+                <span className="block font-medium">{item.label}</span>
+                <span className="mt-2 block text-xs leading-5 text-[#787774]">
+                  {item.description}
+                </span>
+              </label>
+            ))}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
+          <div className="flex items-start gap-3">
+            <IconUsersGroup className="mt-0.5 text-[#0f9f8a]" size={21} />
+            <div>
+              <h2 className="text-lg font-semibold">本場參與者</h2>
+              <p className="mt-1 text-sm leading-6 text-[#787774]">
+                選擇本場成員並標示出席情況；缺席代理會在後續的議前討論頁，依已確認內容設定。
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 space-y-2">
+            {members.map((member) => (
+              <label
+                key={member.user_id}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-[#ededeb] p-3"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!selectedMembers[member.user_id]}
+                  onChange={() =>
+                    setSelectedMembers((current) => ({
+                      ...current,
+                      [member.user_id]: !current[member.user_id],
+                    }))
+                  }
+                  className="accent-[#0f9f8a]"
+                />
+                <span className="min-w-0 flex-1 text-sm font-medium">
+                  {member.display_name || "未設定名稱的成員"}
+                </span>
+                {selectedMembers[member.user_id] && (
+                  <select
+                    value={attendance[member.user_id] ?? "joined"}
+                    onChange={(event) =>
+                      setAttendance((current) => ({
+                        ...current,
+                        [member.user_id]: event.target.value as Attendance,
+                      }))
+                    }
+                    className="control-primary w-auto text-xs"
+                  >
+                    <option value="joined">將出席</option>
+                    <option value="left">無法出席</option>
+                    <option value="invited">待確認</option>
+                  </select>
+                )}
+              </label>
+            ))}
+            {members.length === 0 && (
+              <p className="rounded-xl bg-[#f7f7f5] p-4 text-sm text-[#787774]">
+                此團隊目前沒有可選的成員。
+              </p>
+            )}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
+          <div className="flex items-start gap-3">
+            <IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} />
+            <div>
+              <h2 className="text-lg font-semibold">議程範本</h2>
+              <p className="mt-1 text-sm leading-6 text-[#787774]">
+                範本是共同起點；建立後每位參與者針對同一組議程和自己的 Agent
+                討論。
+              </p>
+            </div>
+          </div>
+          <label className="mt-5 block text-sm font-medium">
+            快速套用
+            <select
+              value={template}
+              onChange={(event) => chooseTemplate(event.target.value)}
+              className="control-primary mt-2 text-sm"
+            >
+              <option value="">不套用範本</option>
+              {templates.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-5 space-y-3">
+            {agenda.map((item, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e7f7ef] text-sm font-semibold text-[#087e6d]">
+                  {index + 1}
+                </span>
+                <input
+                  value={item}
+                  onChange={(event) =>
+                    setAgenda((items) =>
+                      items.map((current, itemIndex) =>
+                        itemIndex === index ? event.target.value : current,
+                      ),
+                    )
+                  }
+                  className="control-primary"
+                  placeholder="輸入要討論的議題"
+                />
+                <button
+                  type="button"
+                  disabled={agenda.length === 1}
+                  onClick={() =>
+                    setAgenda((items) =>
+                      items.filter((_, itemIndex) => itemIndex !== index),
+                    )
+                  }
+                  className="rounded-lg p-2 text-[#787774] hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+                  aria-label="移除此議程"
+                >
+                  <IconTrash size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setAgenda((items) => [...items, ""])}
+            className="mt-4 inline-flex items-center gap-1 rounded-lg border border-[#d7e8e5] px-3 py-2 text-sm font-medium text-[#087e6d]"
+          >
+            <IconPlus size={17} />
+            新增議題
+          </button>
+        </section>
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {error}
+          </div>
+        )}
+        <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+          <Link
+            href="/workspaces"
+            className="rounded-lg px-4 py-2.5 text-center text-sm font-medium text-[#5f5f5b] hover:bg-[#f4f4f2]"
+          >
+            取消
+          </Link>
+          <button
+            disabled={submitting || !teams.length}
+            type="submit"
+            className="rounded-lg bg-[#0f9f8a] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {submitting ? "建立中…" : "建立並進入議前討論"}
+          </button>
+        </div>
+      </form>
+    </AppShell>
+  );
 }
