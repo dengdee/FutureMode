@@ -96,8 +96,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? pathname.split("/")
     : [];
   const workspaceId = workspacePath[2];
-  const meetingTeamId = searchParams.get("teamId");
-  const contextTeamId = workspaceId ?? meetingTeamId;
+  const teamIdQuery = searchParams.get("teamId");
+  const contextTeamId = workspaceId ?? teamIdQuery;
   const meetingPhase = isMeetingRoute
     ? (
         {
@@ -152,7 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const memoryScope = searchParams.get("scope");
   const breadcrumbItems = meetingPhase
     ? pathname === "/meetings/new"
-      ? meetingTeamId
+      ? teamIdQuery
         ? ["團隊", workspaceName ?? "團隊", meetingPhase]
         : ["儀表板", meetingPhase]
       : workspaceId
@@ -172,6 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     : pathname === "/memory"
       ? [
           "團隊",
+          ...(teamIdQuery ? [workspaceName ?? "團隊"] : []),
           memoryScope === "meeting"
             ? "會議文件"
             : memoryScope === "shared"
