@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconCalendarPlus,
   IconChevronRight,
   IconUsersGroup,
@@ -49,6 +48,7 @@ export default function TeamOverviewPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [summaryReady, setSummaryReady] = useState<Record<string, boolean>>({});
+  const [meetingPage, setMeetingPage] = useState(1);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -91,12 +91,16 @@ export default function TeamOverviewPage() {
     };
   }, [workspaceId]);
 
-  const upcoming = meetings
-    .filter(
-      (meeting) =>
-        meeting.status !== "completed" && meeting.status !== "cancelled",
-    )
-    .slice(0, 3);
+  const upcoming = meetings.filter((meeting) => meeting.status !== "cancelled");
+  const meetingPageSize = 10;
+  const meetingPageCount = Math.max(
+    1,
+    Math.ceil(upcoming.length / meetingPageSize),
+  );
+  const visibleUpcoming = upcoming.slice(
+    (meetingPage - 1) * meetingPageSize,
+    meetingPage * meetingPageSize,
+  );
 
   return (
     <AppShell>
@@ -104,15 +108,10 @@ export default function TeamOverviewPage() {
         eyebrow="Team"
         title={team?.name ?? "團隊"}
         description="集中管理成員、共用資料與本團隊的會議流程。"
+        backHref="/workspaces"
+        backLabel="返回團隊"
         actions={
           <>
-            <Link
-              href="/workspaces"
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
             <Link
               href={`/meetings/new?teamId=${workspaceId}`}
               className="inline-flex items-center gap-2 rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"
@@ -135,49 +134,33 @@ export default function TeamOverviewPage() {
         </p>
       ) : (
         <>
-          <section className="mt-6 grid gap-4 sm:grid-cols-2">
+          <section className="mt-6">
             <Link
               href={`/workspaces/${workspaceId}/members`}
-              className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
+              className="block rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
             >
-              <IconUsersGroup className="text-[#0f9f8a]" size={22} />
-              <p className="mt-5 text-sm text-[#787774]">團隊成員</p>
-              <p className="mt-1 text-3xl font-semibold">{members.length}</p>
-              <p className="mt-2 text-sm text-[#087e6d]">
+              <div className="flex flex-col items-center text-center">
+                <IconUsersGroup className="text-[#0f9f8a]" size={22} />
+                <p className="mt-5 text-sm text-[#787774]">團隊成員</p>
+                <p className="mt-1 text-3xl font-semibold">{members.length}</p>
+              </div>
+              <p className="mt-2 flex justify-end items-center text-sm text-[#087e6d]">
                 管理角色與邀請 <IconChevronRight className="inline" size={15} />
-              </p>
-            </Link>
-            <Link
-              href={`/workspaces/${workspaceId}/meetings`}
-              className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
-            >
-              <IconCalendarPlus className="text-[#0f9f8a]" size={22} />
-              <p className="mt-5 text-sm text-[#787774]">全部會議</p>
-              <p className="mt-1 text-3xl font-semibold">{meetings.length}</p>
-              <p className="mt-2 text-sm text-[#087e6d]">
-                查看排程與會前準備{" "}
-                <IconChevronRight className="inline" size={15} />
               </p>
             </Link>
           </section>
           <section className="mt-8 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">下一步</h2>
+                <h2 className="text-lg font-semibold">團隊會議</h2>
                 <p className="mt-1 text-sm text-[#787774]">
-                  從最近一場未結束的會議繼續準備，或建立新的會議。
+                  查看最近會議並繼續議前準備，或建立新的會議。
                 </p>
               </div>
-              <Link
-                href={`/workspaces/${workspaceId}/meetings`}
-                className="text-sm font-medium text-[#087e6d]"
-              >
-                查看全部
-              </Link>
             </div>
-            {upcoming.length ? (
+            {visibleUpcoming.length ? (
               <div className="mt-5 space-y-3">
-                {upcoming.map((meeting) => (
+                {visibleUpcoming.map((meeting) => (
                   <article
                     key={meeting.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ededeb] p-4"
@@ -222,6 +205,32 @@ export default function TeamOverviewPage() {
                     </div>
                   </article>
                 ))}
+                {upcoming.length > 0 && (
+                  <nav
+                    aria-label="團隊會議分頁"
+                    className="flex items-center justify-center gap-2 pt-3"
+                  >
+                    <button
+                      type="button"
+                      disabled={meetingPage === 1}
+                      onClick={() => setMeetingPage((current) => current - 1)}
+                      className="rounded-lg border border-[#dededb] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      上一頁
+                    </button>
+                    <span className="px-2 text-sm text-[#787774]">
+                      第 {meetingPage} / {meetingPageCount} 頁
+                    </span>
+                    <button
+                      type="button"
+                      disabled={meetingPage === meetingPageCount}
+                      onClick={() => setMeetingPage((current) => current + 1)}
+                      className="rounded-lg border border-[#dededb] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      下一頁
+                    </button>
+                  </nav>
+                )}
               </div>
             ) : (
               <div className="mt-5 rounded-xl border border-dashed border-[#d8d8d5] p-7 text-center">

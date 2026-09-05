@@ -1,21 +1,38 @@
-import { IconCalendarEvent, IconFileText, IconHome2, IconUsersGroup } from "@tabler/icons-react";
+import { IconFileText, IconHome2, IconUsersGroup } from "@tabler/icons-react";
 import Link from "next/link";
 
 type TeamSubnavProps = {
   teamId: string;
-  active: "overview" | "members" | "meetings" | "memory";
+  active: "overview" | "members" | "memory";
 };
 
 const items = [
-  { id: "overview", label: "團隊總覽", icon: IconHome2, href: (id: string) => `/workspaces/${id}` },
-  { id: "members", label: "成員與邀請", icon: IconUsersGroup, href: (id: string) => `/workspaces/${id}/members` },
-  { id: "meetings", label: "團隊會議", icon: IconCalendarEvent, href: (id: string) => `/workspaces/${id}/meetings` },
-  { id: "memory", label: "團隊記憶", icon: IconFileText, href: (id: string) => `/workspaces/${id}/memory/shared` },
+  {
+    id: "overview",
+    label: "團隊總覽",
+    icon: IconHome2,
+    href: (id: string) => `/workspaces/${id}`,
+  },
+  {
+    id: "members",
+    label: "成員與邀請",
+    icon: IconUsersGroup,
+    href: (id: string) => `/workspaces/${id}/members`,
+  },
+  {
+    id: "memory",
+    label: "團隊記憶",
+    icon: IconFileText,
+    href: (id: string) => `/workspaces/${id}/memory/shared`,
+  },
 ] as const;
 
 export function TeamSubnav({ teamId, active }: TeamSubnavProps) {
   return (
-    <nav aria-label="團隊功能" className="flex flex-wrap gap-2 border-b border-[#e6e6e3] pb-5">
+    <nav
+      aria-label="團隊功能"
+      className="flex flex-wrap gap-2 border-b border-[#e6e6e3] pb-5"
+    >
       {items.map((item) => {
         const Icon = item.icon;
         const selected = item.id === active;

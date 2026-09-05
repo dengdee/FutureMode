@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconDownload,
   IconEye,
   IconFileText,
@@ -66,6 +65,11 @@ export default function MemoryPage() {
     name: string;
     versions: DocumentVersion[];
   } | null>(null);
+  const visibleDocuments = query.trim()
+    ? documents.filter((document) =>
+        document.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+      )
+    : documents;
 
   useEffect(() => {
     Promise.all([listTeams(), listMeetings()])
@@ -214,17 +218,8 @@ export default function MemoryPage() {
         eyebrow="Team memory"
         title="團隊記憶"
         description="依團隊整理共用文件與單次會議資料，讓 AI 使用正確的脈絡。"
-        actions={
-          teamId ? (
-            <Link
-              href={`/workspaces/${teamId}`}
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
-          ) : undefined
-        }
+        backHref={teamId ? `/workspaces/${teamId}` : "/workspaces"}
+        backLabel="返回團隊"
       />
       {teamId && <TeamSubnav teamId={teamId} active="memory" />}
       <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -345,9 +340,9 @@ export default function MemoryPage() {
               }}
             />
           </div>
-          {documents.length > 0 && (
+          {visibleDocuments.length > 0 && (
             <div className="mt-5 space-y-2">
-              {documents.map((document) => (
+              {visibleDocuments.map((document) => (
                 <div
                   key={document.id}
                   className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e6e6e3] bg-white px-4 py-3 text-sm"
@@ -393,6 +388,11 @@ export default function MemoryPage() {
                 </div>
               ))}
             </div>
+          )}
+          {query.trim() && visibleDocuments.length === 0 && results.length === 0 && (
+            <p className="mt-5 rounded-xl border border-dashed border-[#d8d8d5] p-6 text-center text-sm text-[#787774]">
+              找不到符合的文件。
+            </p>
           )}
           {results.length > 0 && (
             <div className="mt-5 space-y-2">
