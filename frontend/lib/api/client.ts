@@ -24,32 +24,42 @@ export const http = axios.create({
   headers: { Accept: "application/json" },
 });
 
+let tokenRequest: Promise<string> | null = null;
+
+async function getToken(): Promise<string> {
+  if (tokenRequest) return tokenRequest;
+  tokenRequest = (async () => {
+    let response: Response;
+    try {
+      response = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
+    } catch {
+      throw new ApiClientError({ status: 503, message: "登入驗證服務暫時無法連線，請稍後重試。" });
+    }
+    if (!response.ok) {
+      throw new ApiClientError({ status: response.status, message: response.status === 401
+        ? "登入已失效，請重新登入。" : "登入驗證服務暫時無法使用，請稍後重試。" });
+    }
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object" || !("token" in payload)
+        || typeof payload.token !== "string" || !payload.token) {
+      throw new ApiClientError({ status: 401, message: "無法取得登入憑證，請重新登入。" });
+    }
+    return payload.token;
+  })();
+  try {
+    return await tokenRequest;
+  } finally {
+    tokenRequest = null;
+  }
+}
+
 http.interceptors.request.use(async (config) => {
   // Neon Auth keeps its session cookie httpOnly. Its client exchanges that
   // session for a short-lived JWT that FastAPI can validate via Neon JWKS.
   if (config.url?.startsWith("/api/v1/")) {
     // The Next.js adapter exposes Better Auth's JWT endpoint through the local
     // auth proxy. The React session object itself does not contain a bearer JWT.
-    let token: string | null = null;
-    try {
-      const tokenResponse = await fetch("/api/auth/token", { credentials: "include" });
-      if (tokenResponse.ok) {
-        const payload: unknown = await tokenResponse.json();
-        if (
-          typeof payload === "object" &&
-          payload &&
-          "token" in payload &&
-          typeof payload.token === "string"
-        ) {
-          token = payload.token;
-        }
-      }
-    } catch {
-      throw new ApiClientError({ status: 503, message: "登入驗證服務暫時無法連線，請稍後重試。" });
-    }
-    if (!token) {
-      throw new ApiClientError({ status: 401, message: "無法取得登入憑證，請重新登入。" });
-    }
+    const token = await getToken();
     config.headers.set("Authorization", `Bearer ${token}`);
   }
 
@@ -78,7 +88,15 @@ function errorMessage(data: unknown, fallback: string): { message: string; code?
 
 export async function request<T>(operation: () => Promise<AxiosResponse<T>>): Promise<T> {
   try {
-    const response = await operation();
+    const response = await operation().catch(async (error: unknown) => {
+      // Retry only idempotent reads, once. Never replay writes or authentication failures.
+      if (axios.isAxiosError(error) && error.response?.status === 503
+          && error.config?.method?.toLowerCase() === "get" && !error.config.signal?.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return http.request<T>(error.config);
+      }
+      throw error;
+    });
     return response.data;
   } catch (error) {
     if (error instanceof ApiClientError) throw error;

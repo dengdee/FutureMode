@@ -9,6 +9,7 @@ import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request, WebSocket
 
+from app.auth.jwks import get_keys
 from app.config import Settings, get_settings
 
 logger = logging.getLogger("proximate.auth")
@@ -116,11 +117,9 @@ async def principal_from_authorization(
             audience = settings.neon_auth_base_url
         if not issuer or not audience or not settings.neon_auth_jwks_url:
             raise HTTPException(status_code=503, detail="JWT authentication is not configured")
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(settings.neon_auth_jwks_url)
-            response.raise_for_status()
+        keys = await get_keys(settings.neon_auth_jwks_url)
         key = next(
-            (item for item in response.json().get("keys", []) if item.get("kid") == key_id), None
+            (item for item in keys if item.get("kid") == key_id), None
         )
         if key is None:
             raise ValueError("signing key not found")

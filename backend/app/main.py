@@ -101,6 +101,19 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     status_code = exc.status_code
     message = status_messages.get(status_code, "服務暫時無法處理請求")
     code = "http_error" if status_code < 500 else "upstream_error"
+    if status_code == 503:
+        known_failures = {
+            "authentication service unavailable": (
+                "auth_unavailable", "登入驗證服務暫時無法連線，請稍後重試。"
+            ),
+            "database is unavailable": (
+                "database_unavailable", "資料庫暫時無法連線，請稍後重試。"
+            ),
+            "JWT authentication is not configured": (
+                "auth_not_configured", "登入驗證設定尚未完成。"
+            ),
+        }
+        code, message = known_failures.get(str(exc.detail), (code, message))
     return error_response(request, status_code, code, message)
 
 

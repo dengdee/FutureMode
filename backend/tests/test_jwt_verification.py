@@ -10,8 +10,15 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from fastapi import HTTPException
 
+from app.auth import jwks
 from app.auth.principal import principal_from_authorization
 from app.config import Settings
+
+
+@pytest.fixture(autouse=True)
+def isolate_jwks_cache(monkeypatch):
+    monkeypatch.setattr(jwks, "_cache", {})
+    monkeypatch.setattr(jwks, "_lock", asyncio.Lock())
 
 
 @pytest.fixture(params=["RS256", "ES256", "EdDSA"])
