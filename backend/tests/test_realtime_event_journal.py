@@ -62,6 +62,28 @@ def test_event_journal_does_not_replay_events_from_another_meeting() -> None:
     asyncio.run(scenario())
 
 
+def test_event_journal_never_replays_a_private_event_to_another_user() -> None:
+    async def scenario() -> None:
+        meeting_id = uuid4()
+        recipient_user_id = uuid4()
+        another_user_id = uuid4()
+        journal = EventJournal()
+        private_event = _event(meeting_id)
+        public_event = _event(meeting_id)
+        private_stored = await journal.append(private_event, recipient_user_id=recipient_user_id)
+        public_stored = await journal.append(public_event)
+
+        assert await journal.replay(meeting_id, after_cursor=0, recipient_user_id=recipient_user_id) == [
+            private_stored,
+            public_stored,
+        ]
+        assert await journal.replay(meeting_id, after_cursor=0, recipient_user_id=another_user_id) == [
+            public_stored
+        ]
+
+    asyncio.run(scenario())
+
+
 def _event(meeting_id):
     return MeetingEvent(
         event_id=uuid4(),

@@ -30,6 +30,7 @@ from app.models import (
     Transcript,
     User,
 )
+from app.realtime.gateway import publish_realtime_event
 from app.schemas.backup import TranscriptBackupRequest
 from app.schemas.events import MeetingEvent, MeetingStateSnapshot, MeetingStateUpdate
 from app.schemas.meeting import (
@@ -221,8 +222,11 @@ async def update_meeting_state(
                 "state": response.state,
             },
         )
-        await request.app.state.event_journal.append(event)
-        await request.app.state.room_registry.publish(event)
+        await publish_realtime_event(
+            request.app.state.event_journal,
+            request.app.state.room_registry,
+            event,
+        )
         return response
     except HTTPException:
         raise

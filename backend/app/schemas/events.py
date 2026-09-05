@@ -1,6 +1,7 @@
 """Stable schemas for realtime meeting event transport."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -56,3 +57,10 @@ class MeetingStateUpdate(BaseModel):
 
     expected_state_version: int = Field(ge=0)
     state: dict[str, object]
+
+
+class MeetingEventAck(BaseModel):
+    """A client acknowledgement that makes reconnect replay durable."""
+
+    type: Literal["ack"]
+    cursor: int = Field(ge=0)

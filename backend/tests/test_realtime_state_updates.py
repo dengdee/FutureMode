@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
 from app.main import app
-from app.schemas.events import MeetingStateUpdate
+from app.schemas.events import MeetingEventAck, MeetingStateUpdate
 
 
 def test_state_update_accepts_the_initial_state_version() -> None:
@@ -34,3 +34,8 @@ def test_meeting_state_update_requires_authentication() -> None:
     response = asyncio.run(request())
 
     assert response.status_code == 401
+
+
+def test_event_ack_rejects_a_negative_cursor() -> None:
+    with pytest.raises(ValidationError):
+        MeetingEventAck(type="ack", cursor=-1)

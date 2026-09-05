@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -13,6 +14,7 @@ from app.realtime.rooms import RoomRegistry
 from app.schemas.events import MeetingEvent
 from app.websocket.events import (
     MeetingWebSocketContext,
+    _publish_presence_event,
     _send_queued_events,
     get_meeting_websocket_context,
 )
@@ -125,5 +127,30 @@ def test_event_websocket_forwards_room_events_to_the_connected_client() -> None:
                 await sender
 
         assert socket.events == [delivered_event.model_dump(mode="json")]
+
+    asyncio.run(scenario())
+
+
+def test_presence_events_are_journaled_and_broadcast_to_the_meeting_room() -> None:
+    async def scenario() -> None:
+        meeting_id = uuid4()
+        user_id = uuid4()
+        journal = EventJournal()
+        rooms = RoomRegistry()
+        recipient = await rooms.connect(meeting_id, uuid4())
+        websocket = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(event_journal=journal, room_registry=rooms))
+        )
+
+        await _publish_presence_event(websocket, meeting_id, user_id, status="joined")
+
+        delivered = await recipient.next_event()
+        stored = await journal.replay(meeting_id, after_cursor=0)
+        assert delivered == stored[0].event
+        assert delivered.payload == {
+            "type": "participant:update",
+            "user_id": str(user_id),
+            "status": "joined",
+        }
 
     asyncio.run(scenario())
