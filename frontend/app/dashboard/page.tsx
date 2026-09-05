@@ -156,7 +156,7 @@ export default function DashboardPage() {
                   </span>
                 )}
                 <Link
-                  href={`/meetings/${nextMeeting.id}/pre-meeting-summary#start-meeting`}
+                  href={`/meetings/${nextMeeting.id}/start`}
                   className="rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white"
                 >
                   開始會議
@@ -253,7 +253,7 @@ export default function DashboardPage() {
                     </span>
                   )}
                   <Link
-                    href={`/meetings/${meeting.id}/pre-meeting-summary#start-meeting`}
+                    href={`/meetings/${meeting.id}/start`}
                     className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
                   >
                     開始會議

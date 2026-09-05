@@ -224,7 +224,7 @@ export default function TeamOverviewPage() {
                         </span>
                       )}
                       <Link
-                        href={`/meetings/${meeting.id}/pre-meeting-summary#start-meeting`}
+                        href={`/meetings/${meeting.id}/start`}
                         className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
                       >
                         開始會議
