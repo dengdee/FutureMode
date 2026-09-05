@@ -123,7 +123,7 @@ export default function TeamOverviewPage() {
         }
       />
       <div className="mt-8">
-        <TeamSubnav teamId={workspaceId} active="overview" hideMeetings />
+        <TeamSubnav teamId={workspaceId} active="overview" />
       </div>
       {error ? (
         <p
