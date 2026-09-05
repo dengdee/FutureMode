@@ -1,6 +1,6 @@
 "use client";
 
-import { IconExternalLink, IconRefresh, IconWifi } from "@tabler/icons-react";
+import { IconRefresh, IconWifi } from "@tabler/icons-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -343,44 +343,6 @@ export default function LivePage() {
             >
               {speaking ? "正在準備並播放…" : "生成文字並發言"}
             </button>
-          </section>
-          <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
-            <h2 className="font-semibold">收音與 Meet</h2>
-            <p className="mt-2 text-sm leading-6 text-[#787774]">
-              保持 Capture Page 開啟以送出你的授權音訊。若 Meet Add-on
-              不可用，可在此瀏覽器頁查看公共會議狀態。
-            </p>
-            <Link
-              href={`/meetings/${id}/audio-setup`}
-              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#087e6d]"
-            >
-              開啟收音設定 <IconExternalLink size={16} />
-            </Link>
-            <div className="mt-4 border-t border-[#ededeb] pt-4">
-              <p className="text-xs font-semibold text-[#5f5f5b]">會議入口</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-lg bg-[#e7f7ef] px-3 py-2 text-xs font-semibold text-[#087e6d]">
-                  瀏覽器即時會議
-                </span>
-                <Link
-                  href={`/meetings/${id}/addon`}
-                  className="rounded-lg border border-[#cde5df] px-3 py-2 text-xs font-semibold text-[#087e6d] hover:bg-[#f0fbf8]"
-                >
-                  開啟 Meet Add-on
-                </Link>
-                {process.env.NODE_ENV !== "production" && (
-                  <Link
-                    href={`/meetings/${id}/addon?preview=live`}
-                    className="rounded-lg border border-dashed border-[#dededb] px-3 py-2 text-xs text-[#787774] hover:bg-[#f7f7f5]"
-                  >
-                    Add-on 預覽（開發）
-                  </Link>
-                )}
-              </div>
-              <p className="mt-2 text-xs leading-5 text-[#787774]">
-                在 Google Meet 中使用 Add-on；若無法載入，再使用此瀏覽器頁面。
-              </p>
-            </div>
           </section>
         </aside>
       </div>
