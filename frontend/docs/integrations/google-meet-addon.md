@@ -13,7 +13,7 @@ Add-on iframe 入口固定為 `/meetings/[id]/addon`。使用者在 Web App 以 
 ## 需要人工設定的項目
 
 1. Google Cloud 專案擁有者建立 Google Workspace Add-on manifest。
-2. 設定 development deployment，並將 Vercel Preview／正式 URL 列入允許來源。
+2. 設定 development deployment，並將正式 URL `https://future-mode-proximate.vercel.app` 列入允許來源。
 3. OAuth consent screen 使用「外部」＋「測試中」模式，不需要先申請正式驗證；在「測試使用者」中加入要試用的 Google 帳號（上限 100 位）。
 4. 設定 Meet context、SSO／OAuth 與 development deployment；實際欄位依 Google Workspace 官方文件確認。
 5. 以已加入清單的測試帳號在 Google Meet 開啟 Add-on，確認窄版 URL 可載入並能沿用登入 session 呼叫 API。
@@ -35,3 +35,10 @@ Add-on iframe 入口固定為 `/meetings/[id]/addon`。使用者在 Web App 以 
 注意：Email 必須確實綁定有效的 Google／Google Workspace／Cloud Identity 帳戶，否則 Google 不會接受儲存。
 
 Manifest、OAuth secret、短效 token 簽發與撤銷由後端／Google Cloud 管理；前端只負責 route UI 與連線狀態。
+
+目前 Google Cloud 已啟用：
+
+- Google Workspace Marketplace SDK（`appsmarket-component.googleapis.com`）
+- Google Workspace Add-ons API（`gsuiteaddons.googleapis.com`）
+
+前端現在提供固定的 `/addon` context 入口：它會使用 Meet Add-ons Web SDK 取得目前會議的 `meetingId`，再導向既有的 `/meetings/[id]/addon` 面板；若從一般瀏覽器開啟且沒有 Meet context，會顯示重新從 Meet 活動面板開啟的提示。
