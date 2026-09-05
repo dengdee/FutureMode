@@ -48,6 +48,7 @@ export default function TeamOverviewPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [summaryReady, setSummaryReady] = useState<Record<string, boolean>>({});
+  const [meetingPage, setMeetingPage] = useState(1);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -90,12 +91,16 @@ export default function TeamOverviewPage() {
     };
   }, [workspaceId]);
 
-  const upcoming = meetings
-    .filter(
-      (meeting) =>
-        meeting.status !== "completed" && meeting.status !== "cancelled",
-    )
-    .slice(0, 3);
+  const upcoming = meetings.filter((meeting) => meeting.status !== "cancelled");
+  const meetingPageSize = 10;
+  const meetingPageCount = Math.max(
+    1,
+    Math.ceil(upcoming.length / meetingPageSize),
+  );
+  const visibleUpcoming = upcoming.slice(
+    (meetingPage - 1) * meetingPageSize,
+    meetingPage * meetingPageSize,
+  );
 
   return (
     <AppShell>
@@ -162,16 +167,10 @@ export default function TeamOverviewPage() {
                   查看最近會議並繼續議前準備，或建立新的會議。
                 </p>
               </div>
-              <Link
-                href={`/workspaces/${workspaceId}/meetings`}
-                className="text-sm font-medium text-[#087e6d]"
-              >
-                查看全部
-              </Link>
             </div>
-            {upcoming.length ? (
+            {visibleUpcoming.length ? (
               <div className="mt-5 space-y-3">
-                {upcoming.map((meeting) => (
+                {visibleUpcoming.map((meeting) => (
                   <article
                     key={meeting.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ededeb] p-4"
@@ -216,6 +215,32 @@ export default function TeamOverviewPage() {
                     </div>
                   </article>
                 ))}
+                {upcoming.length > meetingPageSize && (
+                  <nav
+                    aria-label="團隊會議分頁"
+                    className="flex items-center justify-center gap-2 pt-3"
+                  >
+                    <button
+                      type="button"
+                      disabled={meetingPage === 1}
+                      onClick={() => setMeetingPage((current) => current - 1)}
+                      className="rounded-lg border border-[#dededb] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      上一頁
+                    </button>
+                    <span className="px-2 text-sm text-[#787774]">
+                      第 {meetingPage} / {meetingPageCount} 頁
+                    </span>
+                    <button
+                      type="button"
+                      disabled={meetingPage === meetingPageCount}
+                      onClick={() => setMeetingPage((current) => current + 1)}
+                      className="rounded-lg border border-[#dededb] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      下一頁
+                    </button>
+                  </nav>
+                )}
               </div>
             ) : (
               <div className="mt-5 rounded-xl border border-dashed border-[#d8d8d5] p-7 text-center">
