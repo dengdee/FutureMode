@@ -65,7 +65,9 @@ export const uploadDocuments = (
   body.append("source_type", payload.source_type);
   if (payload.meeting_id) body.append("meeting_id", payload.meeting_id);
   return request<Record<string, unknown>[]>(() =>
-    http.post(`/api/v1/teams/${teamId}/documents/upload`, body),
+    http.post(`/api/v1/teams/${teamId}/documents/upload`, body, {
+      timeout: 120_000,
+    }),
   );
 };
 export const ingestDocument = (documentId: string, content: string) =>
