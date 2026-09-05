@@ -6,10 +6,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "../../components/app-shell";
 import { PageHeader } from "../../components/page-header";
 import { listMeetings } from "../../lib/api/meetings";
-import { createTeam, listTeamMembers, listTeams, removeTeamMember, updateTeamMember } from "../../lib/api/teams";
+import { createInvitation, createTeam, listTeamMembers, listTeams, removeTeamMember, updateTeamMember } from "../../lib/api/teams";
 import type { MeetingSummary, Team, TeamMember } from "../../types/api";
 
-type InviteRow = { id: number; email: string; role: "member" | "owner" };
+type InviteRow = { id: number; email: string; role: "member" | "admin" };
 
 export default function WorkspacesPage() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -61,13 +61,15 @@ export default function WorkspacesPage() {
     if (!workspaceName.trim()) { setNotice("請填寫工作區名稱。"); return; }
     try {
       const team = await createTeam({ name: workspaceName.trim() });
+      const invitations = inviteRows.filter((row) => row.email.trim());
+      await Promise.all(invitations.map((row) => createInvitation(team.id, { email: row.email.trim(), role: row.role === "admin" ? "admin" : "member" })));
       setCreateOpen(false);
       setTeams((current) => [...current, team]);
       setSelectedTeamId(team.id);
       setWorkspaceName("");
       setInviteRows([{ id: 1, email: "", role: "member" }]);
-      setNotice(inviteRows.some((row) => row.email.trim()) ? "工作區已建立；邀請名單已保留，等待後端邀請 API。" : "工作區已建立。");
-    } catch (cause) {
+      setNotice(invitations.length ? `團隊已建立，已送出 ${invitations.length} 封邀請。` : "團隊已建立。");
+      } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "建立工作區失敗，請稍後再試。");
     }
   }
