@@ -22,7 +22,7 @@ import {
 import type { AgendaItem, MeetingSummary } from "../../../../types/api";
 
 const statusLabels: Record<string, string> = {
-  draft: "草稿",
+  draft: "待討論",
   scheduled: "已排程",
   in_progress: "進行中",
   completed: "已結束",

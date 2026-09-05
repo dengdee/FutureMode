@@ -11,7 +11,7 @@ import { cancelMeeting, endMeeting, getMeeting, startMeeting } from "../../../..
 import { createPreparationMessage, generatePreparationDocument, listPreparationMessages, publishPreparationToRag } from "../../../../lib/api/preparation";
 import type { AgendaItem, DelegateProfile, MeetingSummary, PreparationDocument, PreparationMessage } from "../../../../types/api";
 
-const statusLabel: Record<string, string> = { draft: "草稿", scheduled: "已排程", in_progress: "進行中", completed: "已結束", cancelled: "已取消" };
+const statusLabel: Record<string, string> = { draft: "待討論", scheduled: "已排程", in_progress: "進行中", completed: "已結束", cancelled: "已取消" };
 const errorMessage = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback;
 
 export default function PreparePage() {

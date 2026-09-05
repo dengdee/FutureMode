@@ -19,7 +19,7 @@ function statusLabel(status: string) {
   return (
     (
       {
-        draft: "草稿",
+        draft: "待討論",
         scheduled: "已排程",
         in_progress: "進行中",
         completed: "已結束",
@@ -40,6 +40,10 @@ function statusClass(status: string) {
       } as Record<string, string>
     )[status] ?? "bg-slate-100 text-slate-700"
   );
+}
+
+function preparationDeadline(meetingId: string) {
+  return window.localStorage.getItem(`proximate:prep-deadline:${meetingId}`);
 }
 
 export default function TeamOverviewPage() {
@@ -67,9 +71,7 @@ export default function TeamOverviewPage() {
         setSummaryReady(
           Object.fromEntries(
             teamMeetings.map((meeting) => {
-              const deadline = window.localStorage.getItem(
-                `proximate:prep-deadline:${meeting.id}`,
-              );
+              const deadline = preparationDeadline(meeting.id);
               return [
                 meeting.id,
                 Boolean(deadline) &&
@@ -173,6 +175,12 @@ export default function TeamOverviewPage() {
                               "zh-TW",
                             )
                           : "尚未設定"}
+                        <br />
+                        議前討論填寫期限：{preparationDeadline(meeting.id)
+                          ? new Date(
+                              preparationDeadline(meeting.id)!,
+                            ).toLocaleString("zh-TW")
+                          : "尚未設定"}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -196,7 +204,7 @@ export default function TeamOverviewPage() {
                         </Link>
                       ) : (
                         <span
-                          title="參與者填寫期限到後開放"
+                          title="議前討論填寫期限到後開放"
                           className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]"
                         >
                           議前準備

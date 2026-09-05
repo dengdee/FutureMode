@@ -14,7 +14,7 @@ import { listTeams } from "../../lib/api/teams";
 import type { MeetingSummary, Team } from "../../types/api";
 
 const statusLabel: Record<string, string> = {
-  draft: "等待準備",
+  draft: "待討論",
   scheduled: "已排程",
   in_progress: "進行中",
   completed: "已結束",
@@ -32,6 +32,12 @@ const timeValue = (meeting: MeetingSummary) =>
     ? new Date(meeting.scheduled_at).getTime()
     : Number.MAX_SAFE_INTEGER;
 
+const preparationDeadline = (meetingId: string) =>
+  window.localStorage.getItem(`proximate:prep-deadline:${meetingId}`);
+
+const formatDateTime = (value: string | null) =>
+  value ? new Date(value).toLocaleString("zh-TW") : "尚未設定時間";
+
 export default function DashboardPage() {
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -48,9 +54,7 @@ export default function DashboardPage() {
         setSummaryReady(
           Object.fromEntries(
             ordered.map((meeting) => {
-              const deadline = window.localStorage.getItem(
-                `proximate:prep-deadline:${meeting.id}`,
-              );
+              const deadline = preparationDeadline(meeting.id);
               return [
                 meeting.id,
                 Boolean(deadline) &&
@@ -110,10 +114,13 @@ export default function DashboardPage() {
                 {nextMeeting.title}
               </h2>
               <p className="mt-2 text-sm text-[#4c6e65]">
-                {teamName(nextMeeting.team_id)} ·{" "}
-                {nextMeeting.scheduled_at
-                  ? new Date(nextMeeting.scheduled_at).toLocaleString("zh-TW")
-                  : "尚未設定時間"}
+                {teamName(nextMeeting.team_id)} · 會議時間：
+                {formatDateTime(nextMeeting.scheduled_at)}
+                <br />
+                議前討論填寫期限：
+                {preparationDeadline(nextMeeting.id)
+                  ? formatDateTime(preparationDeadline(nextMeeting.id))
+                  : "尚未設定"}
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <Link
@@ -131,7 +138,7 @@ export default function DashboardPage() {
                   </Link>
                 ) : (
                   <span
-                    title="參與者填寫期限到後開放"
+                    title="議前討論填寫期限到後開放"
                     className="cursor-not-allowed rounded-lg bg-white/60 px-4 py-2.5 text-sm font-semibold text-[#8ba89f]"
                   >
                     議前整理
@@ -192,10 +199,13 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="font-semibold">{meeting.title}</h3>
                   <p className="mt-2 text-sm text-[#787774]">
-                    {teamName(meeting.team_id)} ·{" "}
-                    {meeting.scheduled_at
-                      ? new Date(meeting.scheduled_at).toLocaleString("zh-TW")
-                      : "尚未設定時間"}
+                    {teamName(meeting.team_id)} · 會議時間：
+                    {formatDateTime(meeting.scheduled_at)}
+                    <br />
+                    議前討論填寫期限：
+                    {preparationDeadline(meeting.id)
+                      ? formatDateTime(preparationDeadline(meeting.id))
+                      : "尚未設定"}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -219,7 +229,7 @@ export default function DashboardPage() {
                     </Link>
                   ) : (
                     <span
-                      title="參與者填寫期限到後開放"
+                      title="議前討論填寫期限到後開放"
                       className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]"
                     >
                   議前整理
