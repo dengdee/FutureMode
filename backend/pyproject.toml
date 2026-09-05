@@ -19,6 +19,10 @@ dependencies = [
     "pypdf>=5.0,<7.0",
     "boto3>=1.35,<2.0",
     "redis>=5.0,<7.0",
+    "google-cloud-texttospeech>=2.37.0",
+    "edge-tts>=7.2.8",
+    "elevenlabs>=2.66.0",
+    "python-dotenv>=1.2.3",
 ]
 
 [dependency-groups]
