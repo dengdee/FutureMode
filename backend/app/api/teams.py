@@ -25,7 +25,8 @@ def invitation_email(principal: Principal) -> str:
     claims = principal.claims
     email = claims.get("email")
     verified = claims.get("email_verified") is True or claims.get("emailVerified") is True
-    if not verified or not isinstance(email, str) or not email.strip():
+    # if not verified or not isinstance(email, str) or not email.strip():
+    if  not isinstance(email, str) or not email.strip():
         raise HTTPException(status_code=403, detail="請先驗證登入帳號的 Email，再查看站內邀請。")
     return email.strip().lower()
 
