@@ -24,15 +24,10 @@ def principal_name(principal: Principal) -> str | None:
 def invitation_email(principal: Principal) -> str:
     claims = principal.claims
     email = claims.get("email")
-    # Opaque Neon Auth sessions were authenticated by /get-session with the session cookie.
-    # Some deployments omit an explicit email_verified field, so the authenticated session
-    # itself is sufficient. JWT callers still need an explicit verification claim.
+    # Authentication identifies the account; invitation redemption also requires email ownership.
     verification_values = (claims.get("email_verified"), claims.get("emailVerified"))
     verified = (
-        claims.get("session") is True
-        or any(value is True for value in verification_values)
-        # Older Neon projects omit the optional verification boolean.
-        or not any(key in claims for key in ("email_verified", "emailVerified"))
+        any(value is True for value in verification_values)
     )
     if not isinstance(email, str) or not email.strip():
         raise HTTPException(status_code=403, detail="invitation_identity_email_missing")

@@ -30,7 +30,65 @@ async def get_current_principal(
         token = _session_cookie_token(cookie_header)
         if token:
             authorization = f"Bearer {token}"
-    return await principal_from_authorization(authorization, settings, cookie_header=cookie_header)
+    principal = await principal_from_authorization(
+        authorization, settings, cookie_header=cookie_header,
+    )
+    if request.url.path.startswith("/api/v1/me/invitations"):
+        principal = await complete_invitation_identity(principal, settings, cookie_header)
+    return principal
+
+
+async def complete_invitation_identity(
+    principal: Principal, settings: Settings, cookie_header: str,
+) -> Principal:
+    """Complete sparse JWT profiles using a server-validated session for the same subject."""
+    claims = principal.claims
+    email = claims.get("email")
+    has_verification = any(key in claims for key in ("email_verified", "emailVerified"))
+    if isinstance(email, str) and email.strip() and has_verification:
+        return principal
+    token = _session_cookie_token(cookie_header)
+    if not token:
+        return principal
+    session_url = settings.neon_auth_session_url or (
+        f"{settings.neon_auth_base_url.rstrip('/')}/get-session"
+        if settings.neon_auth_base_url else None
+    )
+    if not session_url:
+        raise HTTPException(503, "authentication is not configured")
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
+            response = await client.get(session_url, headers={"Cookie": (
+                f"__Secure-neon-auth.session_token={token}; neon-auth.session_token={token}"
+            )})
+        if response.status_code in {401, 403}:
+            raise HTTPException(401, "invalid auth session")
+        response.raise_for_status()
+        body = response.json()
+        if isinstance(body, dict) and isinstance(body.get("data"), dict):
+            body = body["data"]
+        user = body.get("user") if isinstance(body, dict) else None
+        session = body.get("session") if isinstance(body, dict) else None
+        if not isinstance(session, dict) or not session or not isinstance(user, dict):
+            raise HTTPException(401, "invalid auth session")
+        if user.get("id") != principal.subject or (
+            "userId" in session and session["userId"] != principal.subject
+        ):
+            raise HTTPException(401, "auth session subject mismatch")
+    except httpx.HTTPError:
+        raise HTTPException(503, "authentication service unavailable") from None
+    except (ValueError, TypeError):
+        raise HTTPException(503, "authentication service unavailable") from None
+    # Replace Email and its verification flags together; never attach a stale true flag
+    # from the JWT to a different email returned by the session.
+    completed = {key: value for key, value in claims.items()
+                 if key not in {"email", "email_verified", "emailVerified"}}
+    for key in ("email", "email_verified", "emailVerified", "name"):
+        if key in user:
+            completed[key] = user[key]
+    logger.info("invitation_identity_session_matched=true email_present=%s",
+                isinstance(completed.get("email"), str))
+    return Principal(principal.subject, completed)
 
 
 async def get_websocket_principal(

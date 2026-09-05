@@ -113,4 +113,6 @@ Base URL：`http://localhost:8000`
 
 登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`、`GET /api/v1/me/invitations`。
 
-站內邀請以 Neon Auth 已驗證 session 或簽章 JWT 的 Email claim 配對；使用者登入任一頁面即可看到待處理邀請。接受／拒絕後可在團隊頁重新整理，無任何 Email 發送流程。Opaque session 由 `/get-session` 驗證；舊版 Neon JWT 若未回傳 `email_verified`，只要 JWT 本身含 Email claim 也可正常配對。
+站內邀請以 Neon Auth 的 Email 及明確為 true 的 `email_verified`／`emailVerified` 配對。JWT 缺少 Email 或驗證旗標時，後端使用請求中的 Neon Auth session Cookie 查詢 `NEON_AUTH_SESSION_URL`（例如服務實際的 `/auth/get-session`）；未指定則使用 `NEON_AUTH_BASE_URL/get-session`。只有 session 使用者 ID 與已驗證 JWT 的 sub 相符才補入資料。JWT 簽章、issuer、audience、有效期限仍會先驗證。不接受前端自行提供的 Email，也不會寄送邀請 Email。
+
+session Cookie 必須實際送到後端；缺少 Cookie／Email 回傳 403，session 過期或帳號不符回傳 401，上游失敗回傳 503。session 回應即使為 200，Email 未驗證仍回傳 403。測試使用真實簽章 JWT 與模擬 Neon Auth 回應；實際登入仍需確認瀏覽器請求包含 Cookie。
