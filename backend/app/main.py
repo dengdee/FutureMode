@@ -15,6 +15,7 @@ from app.api.delegates import router as delegates_router
 from app.api.documents import router as documents_router
 from app.api.me import router as identity_router
 from app.api.meetbot import router as meetbot_router
+from app.api.voice import router as voice_router
 from app.api.meetings import router as meetings_router
 from app.api.personal import router as personal_router
 from app.api.preparation import router as preparation_router
@@ -226,6 +227,7 @@ async def ready() -> dict[str, object]:
 
 
 app.include_router(meetbot_router)
+app.include_router(voice_router)
 app.include_router(identity_router)
 app.include_router(auth_router)
 app.include_router(teams_router)
