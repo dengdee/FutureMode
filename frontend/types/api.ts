@@ -15,6 +15,15 @@ export type JoinMeetingRequest = {
 export type MeetingBotResponse = Record<string, unknown>;
 
 export type UserResponse = Record<string, unknown>;
+export type AddonAccessTokenResponse = { token: string; expires_at?: string; expiresIn?: number };
+export type VoteChoice = "support" | "later" | "ignore";
+export type LiveSnapshotResponse = {
+  meeting?: MeetingSummary;
+  state?: Record<string, unknown>;
+  participants?: Array<Record<string, unknown>>;
+  suggestions?: Array<Record<string, unknown>>;
+  policy?: Record<string, unknown>;
+};
 export type TeamResponse = Record<string, unknown>;
 export type TeamMemberResponse = Record<string, unknown>;
 
