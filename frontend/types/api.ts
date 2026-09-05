@@ -53,6 +53,15 @@ export type TeamMember = {
 export type TeamMemberResponse = {
   members: TeamMember[];
 };
+export type AddonAccessTokenResponse = { token: string; expires_at?: string; expiresIn?: number };
+export type VoteChoice = "support" | "later" | "ignore";
+export type LiveSnapshotResponse = {
+  meeting?: MeetingSummary;
+  state?: Record<string, unknown>;
+  participants?: Array<Record<string, unknown>>;
+  suggestions?: Array<Record<string, unknown>>;
+  policy?: Record<string, unknown>;
+};
 
 export type MeetingSummary = {
   id: string;
