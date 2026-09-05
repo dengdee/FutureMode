@@ -45,11 +45,12 @@ http.interceptors.request.use(async (config) => {
         }
       }
     } catch {
-      token = null;
+      throw new ApiClientError({ status: 503, message: "登入驗證服務暫時無法連線，請稍後重試。" });
     }
-    if (token) {
-      config.headers.set("Authorization", `Bearer ${token}`);
+    if (!token) {
+      throw new ApiClientError({ status: 401, message: "無法取得登入憑證，請重新登入。" });
     }
+    config.headers.set("Authorization", `Bearer ${token}`);
   }
 
   return config;
@@ -80,6 +81,7 @@ export async function request<T>(operation: () => Promise<AxiosResponse<T>>): Pr
     const response = await operation();
     return response.data;
   } catch (error) {
+    if (error instanceof ApiClientError) throw error;
     if (!axios.isAxiosError(error)) {
       throw new ApiClientError({ message: "發生未知錯誤。" });
     }

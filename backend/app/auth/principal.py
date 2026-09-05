@@ -73,16 +73,18 @@ async def principal_from_authorization(
         if token.count(".") != 2:
             logger.info("authorization_present=true token_type=opaque")
             session_url = settings.neon_auth_session_url or (
-                f"{settings.neon_auth_base_url.rstrip('/')}/api/auth/get-session"
+                f"{settings.neon_auth_base_url.rstrip('/')}/get-session"
                 if settings.neon_auth_base_url
                 else None
             )
             if not session_url:
                 raise ValueError("session endpoint is not configured")
             async with httpx.AsyncClient(timeout=5.0) as client:
-                session_cookie = cookie_header or (
-                    f"__Secure-neon-auth.session_token={token}; "
-                    f"neon-auth.session_token={token}"
+                original_token = _session_cookie_token(cookie_header)
+                session_token = original_token or token
+                session_cookie = (
+                    f"__Secure-neon-auth.session_token={session_token}; "
+                    f"neon-auth.session_token={session_token}"
                 )
                 response = await client.get(session_url, headers={"Cookie": session_cookie})
                 response.raise_for_status()
@@ -105,8 +107,15 @@ async def principal_from_authorization(
         header = jwt.get_unverified_header(token)
         logger.info("authorization_present=true token_type=jwt")
         key_id = header.get("kid")
-        if not key_id or header.get("alg") != "RS256":
+        algorithm = header.get("alg")
+        if not key_id or algorithm not in {"RS256", "ES256", "EdDSA"}:
             raise ValueError("unsupported token header")
+        issuer = settings.neon_auth_issuer or settings.neon_auth_base_url
+        audience = settings.neon_auth_audience
+        if not audience or audience == "your-neon-auth-audience":
+            audience = settings.neon_auth_base_url
+        if not issuer or not audience or not settings.neon_auth_jwks_url:
+            raise HTTPException(status_code=503, detail="JWT authentication is not configured")
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(settings.neon_auth_jwks_url)
             response.raise_for_status()
@@ -115,17 +124,24 @@ async def principal_from_authorization(
         )
         if key is None:
             raise ValueError("signing key not found")
-        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+        public_key = jwt.PyJWK.from_dict(key)
+        if public_key.algorithm_name != algorithm:
+            raise ValueError("signing algorithm mismatch")
         claims = jwt.decode(
             token,
-            public_key,
-            algorithms=["RS256"],
-            issuer=settings.neon_auth_issuer,
-            audience=settings.neon_auth_audience,
+            public_key.key,
+            algorithms=[algorithm],
+            issuer=issuer,
+            audience=audience,
+            options={"require": ["exp", "sub", "iss", "aud"]},
         )
         subject = claims.get("sub")
         if not isinstance(subject, str) or not subject:
             raise ValueError("subject is missing")
-    except (httpx.HTTPError, jwt.PyJWTError, ValueError, TypeError):
+    except httpx.HTTPError as exc:
+        logger.warning("authentication_upstream_failure=%s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="authentication service unavailable") from None
+    except (jwt.PyJWTError, ValueError, TypeError) as exc:
+        logger.info("principal_created=false reason=%s", type(exc).__name__)
         raise HTTPException(status_code=401, detail="invalid bearer token") from None
     return Principal(subject=subject, claims=claims)
