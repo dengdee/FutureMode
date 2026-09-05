@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -159,14 +160,24 @@ async def create_team(
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> dict[str, str]:
-    user = await session.scalar(select(User).where(User.external_id == principal.subject))
-    if user is None:
-        raise HTTPException(status_code=403, detail="user is not provisioned")
-    team = Team(name=payload.name)
-    session.add(team)
-    await session.flush()
-    session.add(TeamMember(team_id=team.id, user_id=user.id, role="owner"))
-    await session.commit()
+    try:
+        # Only provision the verified subject. Never identify accounts by client-provided email.
+        # Concurrent first requests share the unique external_id; existing profiles stay intact.
+        await session.execute(
+            insert(User).values(external_id=principal.subject)
+            .on_conflict_do_nothing(index_elements=[User.external_id])
+        )
+        user_id = await session.scalar(select(User.id).where(User.external_id == principal.subject))
+        if user_id is None:
+            raise SQLAlchemyError("user provisioning failed")
+        team = Team(name=payload.name)
+        session.add(team)
+        await session.flush()
+        session.add(TeamMember(team_id=team.id, user_id=user_id, role="owner"))
+        await session.commit()
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
     return {"id": str(team.id), "name": team.name, "role": "owner"}
 
 
