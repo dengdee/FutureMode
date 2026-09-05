@@ -53,6 +53,12 @@ export default function LivePage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState("");
   const state = snapshot?.state ?? {};
+  const meetingInProgress = Boolean(
+    meeting &&
+      meeting.status !== "completed" &&
+      meeting.status !== "cancelled" &&
+      (!meeting.scheduled_at || new Date(meeting.scheduled_at).getTime() <= Date.now()),
+  );
   const currentTopic =
     typeof state.current_topic === "string"
       ? state.current_topic
@@ -318,7 +324,7 @@ export default function LivePage() {
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
             <h2 className="font-semibold">會議狀態</h2>
             <p className="mt-2 text-sm text-[#787774]">
-              {meeting?.status === "in_progress"
+              {meetingInProgress
                 ? "會議進行中"
                 : "尚未開始或已結束"}
             </p>

@@ -1,7 +1,6 @@
 "use client";
 
-import { IconArrowUpRight, IconExternalLink, IconPlayerPlay } from "@tabler/icons-react";
-import Link from "next/link";
+import { IconExternalLink, IconPlayerPlay } from "@tabler/icons-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
@@ -44,7 +43,6 @@ export default function StartMeetingPage() {
       <div className="mt-5 flex flex-wrap gap-2">
         {meetUrl ? <a href={meetUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#9ddbc8] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]"><IconExternalLink size={16} />前往 Google Meet</a> : <span title="建立會議時尚未設定 Google Meet 連結" className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-[#dededb] bg-white/60 px-4 py-2.5 text-sm font-semibold text-[#9b9a97]"><IconExternalLink size={16} />尚未設定 Google Meet 連結</span>}
         <button type="button" onClick={enterLive} className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white"><IconPlayerPlay size={16} />進入即時會議</button>
-        <Link href={`/meetings/${id}/live`} className="inline-flex items-center gap-1 rounded-lg border border-[#9ddbc8] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]">預覽即時會議 <IconArrowUpRight size={16} /></Link>
       </div>
     </section>
   </AppShell>;
