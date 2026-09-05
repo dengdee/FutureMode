@@ -21,9 +21,9 @@
 | 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
 | 現有頁面 | `/` Landing、`/dashboard` 工作總覽、`/workspaces` 團隊管理與各 Meeting Workspace 路由 |
 | 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 會議清單 UI |
-| 尚未完成 | WebSocket、Google Meet Add-on 的正式 Meet SDK 部署與音訊實作；已提供 REST 均由 Web App／Add-on 接入 |
+| 尚未完成 | Brief、Realtime state／WebSocket、Audio WebSocket、邀請與文件版本進階 UI、Delegate／Bot 操作頁；已提供 REST 的主要流程已由 Web App／Add-on 接入 |
 
-> **與後端目前實作對齊（2026-09-05）**：後端已提供 `/health`、`/ready`、Neon JWT 保護的 `/api/v1/me`、teams、members、meetings、participants、agenda，以及未綁定 meeting scope 的 `/meetbot/join`。下方早期步驟中的「預期 endpoint」仍是產品規格，不代表後端已提供；以 `frontend/docs/api.md` 的接入表為準。
+> **與後端目前實作對齊（2026-09-05）**：後端已提供團隊／成員／邀請、會議生命週期、議程／參與者、Brief、文件生命週期／版本、transcription、consensus／action items、suggestions／投票、Personal Sidekick、Delegate、Meeting State 與 Realtime events。下方早期步驟保留為規劃背景；實作狀態以 `frontend/docs/progress.md` 與 `frontend/docs/backend-api-handoff.md` 為準。
 
 ### 現有檔案與可沿用基礎
 
@@ -40,12 +40,12 @@
 | 01 | 前端基礎與設計語言 | 已完成 | Tailwind token、共用 AppShell、表單控制項、Landing Page 與響應式基礎已完成 |
 | 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
 | 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已涵蓋目前 OpenAPI 的 teams、meetings、participants、agenda、documents、Review、Sidekick 與 suggestions REST function |
-| 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊與 API client JWT 注入已完成；FastAPI issuer／audience／JWKS 與正式測試帳號需由環境設定 |
+| 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊、cookie 與 API client JWT 注入已完成；issuer／audience／JWKS 與正式測試帳號由環境設定 |
 | 05 | 工作總覽與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings` 與 `GET /api/v1/teams`，只呈現跨團隊近期會議與導覽；健康檢查僅保留為診斷 API |
 | 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
-| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入 | Prepare、Review、Add-on Sidekick、Live suggestions／vote 均已接入；Audio／realtime 仍待 WebSocket |
-| 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成 | 目前 OpenAPI 的 REST endpoint 已集中封裝並接入 Web App；WebSocket、重連、事件 envelope 尚未由後端提供 |
-| 13–16 | 驗收、Memory、Settings、外部服務文件 | 部分完成 | Memory 文件生命週期、Review 回饋／行動項目與 Sidekick 已接入；仍需完整測試與正式部署驗收 |
+| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入／即時仍待補 | Prepare、Review、Add-on Sidekick、Live suggestions／vote 均已接入；Brief、state／events、Audio WebSocket UI 尚未完成 |
+| 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成／WebSocket 未完成 | REST 已集中封裝；後端已有 state／events 路由，但前端尚未完成重連、cursor、事件 reducer |
+| 13–16 | 驗收、Memory、Settings、外部服務文件 | 部分完成 | Memory、Review、Sidekick、Settings REST 已接入；仍需補進階 UI、完整測試與正式部署驗收 |
 
 > 狀態只代表 repository 中已完成且可驗證的程式碼。每完成一個步驟，需同步更新本表、步驟內容與驗證結果。
 
@@ -73,7 +73,7 @@
 
 - `/meetings/new` 已改為從 `GET /api/v1/teams` 選擇工作區，不再要求手動填 Team ID。
 - `POST /meetings` 與 agenda 寫入採序列處理；部分議程失敗時保留已建立會議的 Prepare 導入口，不假裝整筆交易成功。
-- Prepare 的 Brief、Audio WebSocket、Live Snapshot 與正式 Add-on realtime 尚待後端提供。
+- Prepare 的 Brief、Audio WebSocket、Live Snapshot 與正式 Add-on realtime 尚待前端接入；meeting access-token handoff 仍待後端／部署契約。
 - 文件封存、下載、版本還原、共識回饋與 Personal Sidekick 已完成目前 REST 契約範圍的操作 UI。
 - `POST /meetbot/join` 的 response 尚未有穩定 schema，且目前未綁定 meeting、政策、投票與 Host 授權；API function 保留供整合測試，正式 Prepare UI 不直接觸發 Voice Bot。
 - Team members 回傳 `external_id`，participant create 要求內部 UUID；前端不顯示 UUID 輸入，新增參與者等待後端提供可安全選取的契約。
@@ -158,7 +158,7 @@ backend/
 
 ### Add-on 身分與畫面同步
 
-Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 Web App 的 Neon Auth session，呼叫目前已提供的 meeting、suggestions、vote 與 Personal Sidekick REST；後端尚未提供正式 meeting access-token／Realtime endpoint，因此不在前端假造 token 或 WebSocket 流程。
+Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 Web App 的 Neon Auth session，呼叫目前已提供的 meeting、suggestions、vote 與 Personal Sidekick REST；後端已有 state／events 路由，但前端尚未完成 meeting access-token handoff 與 WebSocket adapter，因此不假造 token 或事件流程。
 
 同一個使用者的 Web App、瀏覽器 `/live` fallback 與 Meet Add-on 會看到相同的公共 Meeting State，也會看到自己的 Personal Sidekick 對話；其他成員看不到該私人內容。資料與功能元件共用，但版面不必完全相同：Add-on 是窄版 iframe，Web App 是完整工作區。
 
@@ -221,7 +221,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **狀態管理**：先以 React state／async function 介面；是否採 Zustand 待批准。
 - **資料來源**：正式後端 API，不建立 Mock Data。
 - **API 串接**：目前以 `lib/api/` 封裝健康檢查、Meeting BaaS、身分／團隊、Meeting CRUD、參與者與議程；其他產品 endpoint 等後端提供後再加入 repository。
-- **畫面狀態**：loading、成功、空回應、網路錯誤、HTTP 錯誤；尚無正式登入／權限 endpoint，暫不宣稱 unauthorized 已完成。
+- **畫面狀態**：loading、成功、空回應、網路錯誤、HTTP 錯誤與 unauthorized；Neon Auth 登入與後端 `/api/v1/*` 權限錯誤已由共用 client 處理。
 - **互動細節**：API 錯誤需轉為可讀訊息；API key 僅留在後端，前端不可接觸。
 - **響應式需求**：無。
 - **預計異動範圍**：`types/`、`lib/data/`、`lib/mocks/`、必要的環境 feature flag 文件。
@@ -295,7 +295,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **頁面／路由**：`/meetings/[id]/prepare`。
 - **元件規劃**：`MeetingWorkspaceHeader`、`BriefPanel`、`AgendaPanel`、`SidekickThread`、`ContributionDraft`、`PublishContributionDialog`、`HostPolicyPanel`。
 - **狀態管理**：meeting snapshot、personal thread、輸入草稿、公開確認 dialog、Host policy draft。
-- **資料來源**：正式 Meeting／Agenda／Participant API；Brief 與 Personal Agent API 尚未提供。
+- **資料來源**：正式 Meeting／Agenda／Participant API；Brief endpoint 已存在但前端尚未接入，Personal Sidekick REST 已由 Add-on 使用。
 - **API 串接**：預期 `GET /v1/meetings/:id`、`GET /v1/meetings/:id/brief`、`GET/POST /v1/meetings/:id/personal-agent/messages`、`POST /v1/meetings/:id/public-contributions`。request／response 與 authorization 均待確認。
 - **畫面狀態**：meeting loading、找不到會議、未加入會議、Sidekick thinking、空對話、草稿生成失敗、公開失敗。
 - **互動細節**：私訊送出後顯示處理中；公開前顯示將被分享的文字與對象；不可由 UI 自動公開。
@@ -314,7 +314,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **頁面／路由**：`/meetings/[id]/audio-setup`；由 Prepare CTA 開啟，不列入主導覽。
 - **元件規劃**：`AudioConsentCard`、`DeviceStatus`、`CaptureStatus`、`AudioTroubleshooting`、`ReturnToMeetLink`。
 - **狀態管理**：權限狀態、選定裝置、capture lifecycle、網路／WebSocket status 的 UI state；真實 MediaStream 實作另列後續。
-- **資料來源**：瀏覽器 Permissions API 與正式音訊連線狀態；目前後端尚未提供音訊 WebSocket，因此只規劃，不假造串流資料。
+- **資料來源**：瀏覽器 Permissions API 與批次 transcription；音訊 WebSocket 路由已存在但前端串流 adapter 尚未完成。
 - **API 串接**：無正式串流；後續預期 WebSocket handshake `{ meetingId, participantId, sequence }`，binary audio chunk schema 待後端確認。
 - **畫面狀態**：unsupported browser、permission prompt、denied、active、stopped、disconnected、reconnecting、fallback。
 - **互動細節**：開始與停止需明確；不可暗中收音。開始後 Capture Page 必須保持開啟並持續收音；若頁面被關閉、分頁休眠或 track／WebSocket 中斷，立即顯示停止狀態並提示重新啟動。
@@ -333,7 +333,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **頁面／路由**：`/meetings/[id]/addon`。
 - **元件規劃**：`AddonShell`、`AddonTabs`、`BriefTab`、`LiveStateTab`、`SidekickTab`、`HostControlsTab`、`AddonConnectionStatus`。
 - **狀態管理**：active tab、meeting snapshot、使用者角色、Add-on connection UI state。
-- **資料來源**：正式 Live Snapshot／Realtime API；目前後端尚未提供，因此只建立規格，不假造會議狀態。
+- **資料來源**：目前使用 meeting／suggestions REST；後端 state／events 已存在，正式 Live Snapshot adapter 尚未完成。
 - **API 串接**：先以 `GET /v1/meetings/:id/live-snapshot` 取得公共狀態；Add-on 啟動前使用 `POST /v1/meetings/:id/access-token` 取得短效 token，再建立 WebSocket 或 fallback polling。Google Meet context／manifest 欄位待確認，但不在 iframe 內重新登入。
 - **畫面狀態**：iframe 初始 loading、窄版 overflow、未登入、未加入會議、Host controls 隱藏、Add-on 不支援／context 缺失。
 - **互動細節**：Tab 支援鍵盤方向鍵或標準 Tab 行為；私人內容要明顯標示「僅你可見」。
@@ -352,7 +352,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **頁面／路由**：`/meetings/[id]/addon` 的 Live State 與 Host Controls tabs。
 - **元件規劃**：`MeetingStatePanel`、`AiSuggestionCard`、`VoteControl`、`ThresholdProgress`、`HostPolicyControls`、`ParkingLot`、`VoiceBotStatus`。
 - **狀態管理**：meeting snapshot、每張 suggestion 的投票狀態、pending action、Host policy；先以 reducer 或 feature-local state，是否升級 Zustand 待批准。
-- **資料來源**：正式 Realtime 與投票 API；目前後端尚未提供，因此本步尚未實作。
+- **資料來源**：投票 REST 已接入；Realtime 與 Host policy 的前端 adapter／完整 UI 尚未完成。
 - **API 串接**：預期 `POST /v1/meetings/:id/ai-suggestions/:suggestionId/vote` request `{ choice: "support" | "later" | "ignore" }`；Member 可再次呼叫以修改投票；Host 預期 `PATCH /v1/meetings/:id/intervention-policy`；response schema、門檻演算來源待確認。
 - **畫面狀態**：無目前議題、無 AI 建議、投票送出中、投票失敗、達門檻、Host 暫停、Voice Bot failed、資料過期。
 - **互動細節**：每位使用者每張卡保留一個目前選擇，可在「支持／稍後／忽略」間重新投票；Host 操作應有確認與 audit-friendly feedback；Bot 未成功播放不可顯示為已發言。
@@ -371,7 +371,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **頁面／路由**：`/meetings/[id]/review`。
 - **元件規劃**：`ReviewTabs`、`DecisionCard`、`ActionItemList`、`TranscriptTimeline`、`ConfirmationPanel`、`ConsensusStatusBadge`、`CorrectionForm`。
 - **狀態管理**：review snapshot、active tab、confirmation mutation、修正草稿、版本選擇。
-- **資料來源**：正式 Review／Consensus API；目前後端尚未提供，因此本步尚未實作。
+- **資料來源**：Review／Consensus API 已接入；完整回饋明細與 Action Item 欄位 UI 尚未完成。
 - **API 串接**：預期 `GET /v1/meetings/:id/review`、`POST /v1/meetings/:id/consensus/:versionId/responses` request `{ status: "agree" | "correction" | "different_understanding", comment? }`；實際版本規則待確認。
 - **畫面狀態**：generating、draft、awaiting responses、conflicted、confirmed、無逐字稿、沒有任務、無權限。
 - **互動細節**：`confirmed` 不可在有人未回覆時顯示；修正必須保留原版本；行動項目缺 owner／deadline 顯示 incomplete。
@@ -507,7 +507,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 
 - 後端目前透過 `/api/v1/*` 提供身分／團隊、Meeting CRUD、參與者與議程 API；前端 function 已完整對應這些路徑。
 - `/meetbot/join` 直接轉發 Meeting BaaS response，沒有穩定的前端 response schema；前端型別因此保留可擴充欄位，正式 UI 不應依賴未知欄位。
-- 後端尚未提供 access token、Brief、Live Snapshot、投票、Review、Memory 或 WebSocket；對應 UI 仍維持明確 placeholder。
+- 前端尚未接入 access-token handoff、Brief、Live Snapshot／state、Realtime WebSocket；投票、Review、Memory 的主要 REST UI 已完成，進階明細仍是待辦。
 
 ## 待確認問題與衝突
 
@@ -521,7 +521,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 
 ## 主要風險
 
-- 後端已有基礎 REST 與 Meeting BaaS join API；其他前端產品功能必須等待正式契約，不以假資料冒充完成。
+- 後端已有團隊、會議、文件、Review、Sidekick、Brief、state／events 等 REST／WebSocket 路由；前端對尚未完成的 adapter 以明確狀態呈現，不以假資料冒充完成。
 - 私人 Sidekick 的安全不能只靠前端：必須等待後端 user／team／meeting ACL。
 - Meet Add-on 與 Audio Capture 是兩種不同瀏覽器情境；Add-on iframe 不應自行假設可取得麥克風。
 - Meeting BaaS、Google Meet、STT 與 TTS 整合皆可能受帳號、額度、部署 URL 與平台政策影響；核心 Demo 必須保留文字卡回退。
@@ -532,3 +532,13 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 建議先執行 **步驟 01｜前端基礎與設計語言**。它不依賴後端或外部帳號，且會為後續所有頁面建立一致的可用性與樣式基礎。
 
 完成本文件後停止，等待使用者指定下一個步驟。
+
+## 2026-09-05 文件稽核：目前尚未完成
+
+本節優先於上方早期規劃段落，避免將歷史 placeholder 誤認為現況：
+
+- 後端已有但前端尚未完成：`/brief` 的 Brief UI、Meeting State snapshot、Realtime events WebSocket、Audio WebSocket 串流、邀請清單／取消、文件版本選擇／詳細檢視、Action Item 指派／期限、suggestion 投票明細、Delegate 與 Meeting BaaS Bot 操作頁。
+- 前端已完成主要 REST 操作：團隊與成員管理、會議生命週期／議程／參與者、批次 transcription、Consensus／回饋、Action Items 基本 CRUD、文件生命週期、suggestions／投票、Personal Sidekick preview／publish。
+- 仍需後端或部署決策：Add-on meeting access-token handoff、Google Meet manifest／正式部署、VAD／streaming STT、meeting-scoped Voice Bot 與 Realtime 生產 broker。
+
+詳細清單請看 [`docs/progress.md`](docs/progress.md) 與 [`docs/backend-api-handoff.md`](docs/backend-api-handoff.md)。

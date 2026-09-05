@@ -7,7 +7,7 @@
 - API function 依功能各自放在 `lib/api/*.ts`，頁面不可直接散落 Axios 呼叫。
 - JSON body 才設定 `Content-Type`；GET 只使用 `Accept`，避免不必要的 CORS preflight。
 - API key 與第三方 token 只由後端持有；MVP 前端沿用 Neon Auth session，不自行保存長效 token。
-- `/api/v1/*` 請求會由 Axios interceptor 讀取 Neon Auth session 的短效 JWT，加入 `Authorization: Bearer <token>`；FastAPI 以 Neon JWKS 驗證，前端不會轉送 httpOnly cookie。
+- `/api/v1/*` 請求會由 Axios interceptor 讀取 Neon Auth session 的短效 JWT，加入 `Authorization: Bearer <token>`；Axios `withCredentials: true` 同時轉送 Neon Auth httpOnly cookie，FastAPI 以 Neon JWKS／cookie 驗證。
 - Next.js adapter 不把 JWT 放在 `getSession()` 回傳的 session object；interceptor 會透過同源 `/api/auth/token` 取得短效 token，再附加 Bearer header。
 
 ## 目前已封裝
@@ -41,9 +41,10 @@
 | meeting features | Review 結論、逐字稿、回饋、行動項目與 suggestions | 已接入 Web App／Live／Add-on |
 | documents | Team Memory 清單、拖曳上傳、搜尋與生命週期操作 | 已接入 |
 | meetbot/join | API function 保留供整合測試；正式 Prepare UI 不直接觸發 | 已封裝，產品操作待 meeting-scoped contract |
+| brief／state／events | 尚無對應頁面或 adapter | 後端路由已存在，前端待接入 |
 
 ## 目前限制
 
 - 成員 API 已提供 `user_id`，前端可安全加入會議參與者。
-- Live 音訊串流與 WebSocket 事件尚待後端 realtime gateway；Audio Setup 已接入批次 `/transcription`，Voice Bot 保留 join/status/leave/speak function。
+- Audio WebSocket 與 Realtime events 尚未接入前端 adapter；Audio Setup 目前使用批次 `/transcription`，Live／Add-on 目前使用 REST suggestions 組合資料。
 - 單次會議文件透過 `metadata.meeting_id` 綁定會議；上傳限制 PDF／TXT。
