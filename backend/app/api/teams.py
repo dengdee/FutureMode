@@ -123,13 +123,23 @@ async def create_invitation(
         neon_user = await find_neon_auth_user(session, payload.email)
         if neon_user is None:
             raise HTTPException(404, "recipient account not found")
-        recipient = User(
-            external_id=neon_user["external_id"] or "",
-            display_name=neon_user["display_name"],
-            email=neon_user["email"],
-        )
-        session.add(recipient)
-        await session.flush()
+        external_id = neon_user["external_id"]
+        if not external_id:
+            raise HTTPException(404, "recipient account not found")
+        recipient = await session.scalar(select(User).where(User.external_id == external_id))
+        if recipient is None:
+            recipient = User(
+                external_id=external_id,
+                display_name=neon_user["display_name"],
+                email=neon_user["email"],
+            )
+            session.add(recipient)
+            await session.flush()
+        else:
+            if not recipient.email:
+                recipient.email = neon_user["email"]
+            if not recipient.display_name and neon_user["display_name"]:
+                recipient.display_name = neon_user["display_name"]
     if await session.scalar(
         select(TeamMember).where(
             TeamMember.team_id == team_id,
@@ -149,6 +159,7 @@ async def create_invitation(
         return existing
     invitation = TeamInvitation(
         team_id=team_id,
+        email=recipient.email,
         recipient_user_id=recipient.id,
         recipient_name=recipient.display_name or "未設定名稱的帳號",
         role=payload.role,
