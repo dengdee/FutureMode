@@ -24,7 +24,14 @@ def principal_name(principal: Principal) -> str | None:
 def invitation_email(principal: Principal) -> str:
     claims = principal.claims
     email = claims.get("email")
-    verified = claims.get("email_verified") is True or claims.get("emailVerified") is True
+    # Opaque Neon Auth sessions were authenticated by /get-session with the session cookie.
+    # Some deployments omit an explicit email_verified field, so the authenticated session
+    # itself is sufficient. JWT callers still need an explicit verification claim.
+    verified = (
+        claims.get("session") is True
+        or claims.get("email_verified") is True
+        or claims.get("emailVerified") is True
+    )
     if not verified or not isinstance(email, str) or not email.strip():
         raise HTTPException(status_code=403, detail="請先驗證登入帳號的 Email，再查看站內邀請。")
     return email.strip().lower()

@@ -36,7 +36,7 @@ def test_unverified_email_cannot_claim_invitation(claims):
 
 
 def test_verified_email_and_name_normalized():
-    assert invitation_email(principal()) == "person@example.com"
+    assert invitation_email(principal(email_verified=None, session=True)) == "person@example.com"
     assert (
         invitation_email(principal(email_verified=False, emailVerified=True))
         == "person@example.com"
