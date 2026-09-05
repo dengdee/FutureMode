@@ -13,6 +13,7 @@ def test_core_tables_are_registered() -> None:
         "agenda_items",
         "meeting_states",
         "meeting_event_cursors",
+        "meeting_events",
         "bot_sessions",
         "voice_requests",
     }.issubset(Base.metadata.tables)
@@ -38,6 +39,13 @@ def test_core_foreign_keys_use_safe_delete_actions() -> None:
 def test_realtime_tables_have_expected_keys() -> None:
     assert len(inspect(Base.metadata.tables["meeting_states"]).primary_key.columns) == 1
     assert len(inspect(Base.metadata.tables["meeting_event_cursors"]).primary_key.columns) == 2
+
+
+def test_durable_events_have_a_unique_event_id_and_replay_index() -> None:
+    table = Base.metadata.tables["meeting_events"]
+    assert len(inspect(table).primary_key.columns) == 1
+    assert any(constraint.name == "uq_meeting_events_event_id" for constraint in table.constraints)
+    assert "ix_meeting_events_meeting_sequence" in {index.name for index in table.indexes}
 
 
 def test_bot_session_is_one_per_meeting() -> None:

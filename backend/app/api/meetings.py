@@ -227,6 +227,7 @@ async def update_meeting_state(
             request.app.state.event_journal,
             request.app.state.room_registry,
             event,
+            broker=request.app.state.realtime_broker,
         )
         return response
     except HTTPException:

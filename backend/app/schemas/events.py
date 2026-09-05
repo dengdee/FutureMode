@@ -41,6 +41,12 @@ class MeetingEvent(BaseModel):
         return value
 
 
+class MeetingEventEnvelope(MeetingEvent):
+    """An event as delivered to a client, including its replay cursor."""
+
+    cursor: int = Field(ge=0)
+
+
 class MeetingStateSnapshot(BaseModel):
     """The latest public state available when a client joins or reconnects."""
 
