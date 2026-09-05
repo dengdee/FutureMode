@@ -114,6 +114,7 @@ export default function NewMeetingPage() {
   const [selectedMembers, setSelectedMembers] = useState<
     Record<string, boolean>
   >({});
+  const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -174,7 +175,7 @@ export default function NewMeetingPage() {
       )) {
         await addParticipant(meeting.id, { user_id: member.user_id });
         await updateParticipant(meeting.id, member.user_id, {
-          attendance_status: "joined",
+          attendance_status: attendance[member.user_id] ?? "joined",
         });
       }
       for (const [position, item] of agenda
@@ -338,6 +339,22 @@ export default function NewMeetingPage() {
                 <span className="min-w-0 flex-1 text-sm font-medium">
                   {member.display_name || "未設定名稱的成員"}
                 </span>
+                {selectedMembers[member.user_id] && (
+                  <select
+                    value={attendance[member.user_id] ?? "joined"}
+                    onChange={(event) =>
+                      setAttendance((current) => ({
+                        ...current,
+                        [member.user_id]: event.target.value as Attendance,
+                      }))
+                    }
+                    className="control-primary w-auto text-xs"
+                    aria-label={`${member.display_name || "成員"} 的參與方式`}
+                  >
+                    <option value="joined">會出席</option>
+                    <option value="left">不出席，由 Agent 代為討論</option>
+                  </select>
+                )}
               </label>
             ))}
             {members.length === 0 && (
@@ -445,3 +462,4 @@ export default function NewMeetingPage() {
     </AppShell>
   );
 }
+type Attendance = "joined" | "left";
