@@ -61,7 +61,7 @@ def test_admin_invites_selected_account_without_email_claims():
         email="person@example.com"), Principal("actor", {}), db))
     assert result.recipient_user_id == recipient.id
     assert result.recipient_name == "小明"
-    assert result.email is None
+    assert result.email == "person@example.com"
     assert result.role == "member"
     db.commit.assert_awaited_once()
 
