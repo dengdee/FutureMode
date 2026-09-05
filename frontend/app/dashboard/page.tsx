@@ -35,6 +35,17 @@ const timeValue = (meeting: MeetingSummary) =>
 const preparationDeadline = (meetingId: string) =>
   window.localStorage.getItem(`proximate:prep-deadline:${meetingId}`);
 
+const isPreparationReady = (meeting: MeetingSummary) => {
+  const deadline = preparationDeadline(meeting.id);
+  return meeting.status === "draft" && Boolean(deadline) && new Date(deadline!).getTime() <= Date.now();
+};
+
+const meetingStatusLabel = (meeting: MeetingSummary) =>
+  isPreparationReady(meeting) ? "準備中" : (statusLabel[meeting.status] ?? meeting.status);
+
+const meetingStatusClass = (meeting: MeetingSummary) =>
+  isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : (statusClass[meeting.status] ?? "bg-slate-100 text-slate-700");
+
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString("zh-TW") : "尚未設定時間";
 
@@ -210,9 +221,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[meeting.status] ?? "bg-slate-100 text-slate-700"}`}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${meetingStatusClass(meeting)}`}
                   >
-                    {statusLabel[meeting.status] ?? meeting.status}
+                    {meetingStatusLabel(meeting)}
                   </span>
                   <Link
                     href={`/meetings/${meeting.id}/prepare`}

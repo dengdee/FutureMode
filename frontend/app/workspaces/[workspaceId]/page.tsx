@@ -46,6 +46,19 @@ function preparationDeadline(meetingId: string) {
   return window.localStorage.getItem(`proximate:prep-deadline:${meetingId}`);
 }
 
+function isPreparationReady(meeting: MeetingSummary) {
+  const deadline = preparationDeadline(meeting.id);
+  return meeting.status === "draft" && Boolean(deadline) && new Date(deadline!).getTime() <= Date.now();
+}
+
+function meetingStatusLabel(meeting: MeetingSummary) {
+  return isPreparationReady(meeting) ? "準備中" : statusLabel(meeting.status);
+}
+
+function meetingStatusClass(meeting: MeetingSummary) {
+  return isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : statusClass(meeting.status);
+}
+
 export default function TeamOverviewPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [team, setTeam] = useState<Team | null>(null);
@@ -185,9 +198,9 @@ export default function TeamOverviewPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(meeting.status)}`}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${meetingStatusClass(meeting)}`}
                       >
-                        {statusLabel(meeting.status)}
+                        {meetingStatusLabel(meeting)}
                       </span>
                       <Link
                         href={`/meetings/${meeting.id}/prepare`}
