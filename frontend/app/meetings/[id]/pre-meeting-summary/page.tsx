@@ -8,7 +8,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
@@ -31,6 +31,7 @@ const statusLabels: Record<string, string> = {
 
 export default function PreMeetingSummaryPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [meeting, setMeeting] = useState<MeetingSummary | null>(null);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [deadline, setDeadline] = useState("");
@@ -71,6 +72,17 @@ export default function PreMeetingSummaryPage() {
       setBusy(false);
     }
   }
+  async function startAndEnterLive() {
+    setBusy(true);
+    setError("");
+    try {
+      await startMeeting(id);
+      router.push(`/meetings/${id}/live`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "無法開始會議。",);
+      setBusy(false);
+    }
+  }
   if (loading)
     return (
       <AppShell>
@@ -106,12 +118,20 @@ export default function PreMeetingSummaryPage() {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void run(() => startMeeting(id), "會議已開始。")}
+                onClick={() => void startAndEnterLive()}
                 className="inline-flex items-center gap-1 rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <IconPlayerPlay size={16} />
                 開始會議
               </button>
+            )}
+            {meeting.status === "in_progress" && (
+              <Link
+                href={`/meetings/${id}/live`}
+                className="inline-flex items-center gap-1 rounded-lg border border-[#9ddbc8] px-3 py-2 text-sm font-semibold text-[#087e6d]"
+              >
+                進入即時會議 <IconArrowUpRight size={16} />
+              </Link>
             )}
             {meeting.status === "in_progress" && (
               <button
