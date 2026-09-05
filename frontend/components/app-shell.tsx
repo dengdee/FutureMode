@@ -184,7 +184,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               Proximate
             </Link>
             <span className="mt-1 block text-xs text-[#9b9a97]">
-              AI meeting workspace
+              AI meeting collaboration
             </span>
           </div>
           <Tooltip content={sidebarCollapsed ? "展開側邊欄" : "收合側邊欄"}>

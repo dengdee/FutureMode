@@ -1,6 +1,6 @@
 # Proximate Frontend 開發計畫
 
-> **2026-09-05 整合狀態**：目前後端已提供的 REST 已由 Web App／Add-on 接入，包含團隊邀請與成員管理、會議生命週期、文件生命週期與版本、逐字稿轉錄、共識／回饋、行動項目、suggestions／投票、Personal Sidekick、Delegate，以及 Meeting BaaS Bot 操作。Audio Setup 使用批次 `/transcription`；Realtime WebSocket、Live Snapshot、meeting token handoff、VAD／streaming STT 與 meeting-scoped Voice Bot 仍等待後端正式契約，前端不以假 endpoint 取代。
+> **2026-09-05 整合狀態**：Web App 已接入團隊／邀請管理、會議生命週期、Brief、文件版本、共識／回饋、行動項目、Personal Sidekick、Delegate、Live Snapshot 與基本 events WebSocket。Audio Setup 仍使用批次 `/transcription`；production 級 WebSocket 重連／replay、meeting token handoff、VAD／streaming STT 與 meeting-scoped Voice Bot 仍等待可驗證的後端契約，前端不以假 endpoint 取代。
 
 本文件只規劃前端工作，不代表功能已實作。每次只執行使用者指定的一個步驟；未經指定不得提前建立頁面、安裝套件、修改後端或串接外部服務。
 
@@ -21,7 +21,7 @@
 | 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
 | 現有頁面 | `/` Landing、`/dashboard` 工作總覽、`/workspaces` 團隊管理與各 Meeting Workspace 路由 |
 | 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 會議清單 UI |
-| 尚未完成 | Brief、Realtime state／WebSocket、Audio WebSocket、邀請與文件版本進階 UI、Delegate／Bot 操作頁；已提供 REST 的主要流程已由 Web App／Add-on 接入 |
+| 尚未完成 | Audio WebSocket、production 級 Realtime 重連／replay、完整 Delegate 觸發、meeting-scoped Bot Host controls；已提供 REST 的主要流程已由 Web App／Add-on 接入 |
 
 > **與後端目前實作對齊（2026-09-05）**：後端已提供團隊／成員／邀請、會議生命週期、議程／參與者、Brief、文件生命週期／版本、transcription、consensus／action items、suggestions／投票、Personal Sidekick、Delegate、Meeting State 與 Realtime events。下方早期步驟保留為規劃背景；實作狀態以 `frontend/docs/progress.md` 與 `frontend/docs/backend-api-handoff.md` 為準。
 
@@ -43,8 +43,8 @@
 | 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊、cookie 與 API client JWT 注入已完成；issuer／audience／JWKS 與正式測試帳號由環境設定 |
 | 05 | 工作總覽與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings` 與 `GET /api/v1/teams`，只呈現跨團隊近期會議與導覽；健康檢查僅保留為診斷 API |
 | 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
-| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入／即時仍待補 | Prepare、Review、Add-on Sidekick、Live suggestions／vote 均已接入；Brief、state／events、Audio WebSocket UI 尚未完成 |
-| 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成／WebSocket 未完成 | REST 已集中封裝；後端已有 state／events 路由，但前端尚未完成重連、cursor、事件 reducer |
+| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入／即時部分完成 | Prepare 的 Brief／Sidekick／Delegate、Review、Add-on Sidekick、Live snapshot／events 與 suggestions／vote 均已接入；Audio WebSocket 仍未完成 |
+| 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成／WebSocket 基礎完成 | REST 已集中封裝；Live 可連 state／events，但尚未完成重連、cursor replay 與事件去重 |
 | 13–16 | 驗收、Memory、Settings、外部服務文件 | 部分完成 | Memory、Review、Sidekick、Settings REST 已接入；仍需補進階 UI、完整測試與正式部署驗收 |
 
 > 狀態只代表 repository 中已完成且可驗證的程式碼。每完成一個步驟，需同步更新本表、步驟內容與驗證結果。
