@@ -1,5 +1,6 @@
 """JWT verification and authenticated principal dependency."""
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,6 +9,8 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 
 from app.config import Settings, get_settings
+
+logger = logging.getLogger("proximate.auth")
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,7 @@ async def get_current_principal(
     try:
         # Neon Auth browser sessions commonly use an opaque cookie token.
         if token.count(".") != 2:
+            logger.info("authorization_present=true token_type=opaque")
             session_url = settings.neon_auth_session_url or (
                 f"{settings.neon_auth_base_url.rstrip('/')}/api/auth/get-session"
                 if settings.neon_auth_base_url
@@ -43,14 +47,24 @@ async def get_current_principal(
                     headers={"Cookie": f"__Secure-neon-auth.session_token={token}"},
                 )
                 response.raise_for_status()
+            logger.info("session_request_status=%s", response.status_code)
             body = response.json()
+            if isinstance(body, dict) and isinstance(body.get("data"), dict):
+                body = body["data"]
             user = body.get("user") if isinstance(body, dict) else None
+            logger.info(
+                "response_keys=%s user_exists=%s",
+                ",".join(body.keys()) if isinstance(body, dict) else "",
+                isinstance(user, dict),
+            )
             subject = user.get("id") if isinstance(user, dict) else None
             if not isinstance(subject, str) or not subject:
                 raise ValueError("session user is missing")
+            logger.info("user_id_exists=true principal_created=true")
             claims = {"sub": subject, "session": True}
             return Principal(subject=subject, claims=claims)
         header = jwt.get_unverified_header(token)
+        logger.info("authorization_present=true token_type=jwt")
         key_id = header.get("kid")
         if not key_id or header.get("alg") != "RS256":
             raise ValueError("unsupported token header")
