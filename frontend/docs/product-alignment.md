@@ -20,6 +20,7 @@ Prepare
 
 ## 已符合規劃的部分
 
+- 團隊邀請採站內接受／拒絕，不寄送 Email；管理員搜尋並選擇已註冊帳號，以使用者 ID 綁定邀請，可查看及取消待處理邀請，成員角色為 Admin／Member。舊 Email 邀請不自動綁定，需取消後重新邀請。
 - Dashboard 僅處理跨團隊「接下來要做什麼」，不把會議內部共識與任務混入總覽。
 - 團隊是會議、成員與共用記憶的邊界。團隊子頁採明確按鈕，而非在單一頁塞入所有操作。
 - 會議建立使用團隊、名稱、時間、AI 介入程度與議程；AI 介入的低／中／高均有對應文字說明。
@@ -36,7 +37,7 @@ Prepare
 | Personal Sidekick 對談 | 可保存私訊、預覽和發布 | 後端沒有多輪 LLM chat／thread endpoint；目前是受隔離的個人訊息工作區，不宣稱 Agent 已回覆。 |
 | Delegate 會中代表 | 可建立事前設定 | 無條件觸發、署名舉手、有效期間或停用 API，尚不能正式代理出席。 |
 | 主持人／會議政策 | 能選 AI 介入程度及在現有狀態下開始／結束會議 | Meeting schema 缺少 Host、逐次核准／團隊同意、required participants 的持久欄位。 |
-| 即時 Meeting State | Live 可讀 snapshot 和 WebSocket 事件 | 尚無 cursor replay、去重、重連策略與生產 broker。 |
+| 即時 Meeting State | Live 可讀 snapshot 和 WebSocket 事件；後端已有 replay、去重、durable events 與 Redis broker | 前端尚未完整串接 cursor replay、去重與重連策略；生產部署仍需驗收。 |
 | 聲音與 Voice Bot | Audio Setup 有批次轉錄，後端有 Bot wrapper | 尚未有 streaming audio、VAD、meeting-scoped 授權與可驗證的 Host 控制流程。 |
 | Consensus 完成判定 | 可送回饋並確認版本 | 缺少規劃的 awaiting responses、conflicted、required participants 與新版產生模型。 |
 

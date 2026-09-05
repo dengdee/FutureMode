@@ -100,13 +100,19 @@ class TeamInvitation(Base):
     __table_args__ = (
         Index("uq_team_invite_pending", "team_id", "email", unique=True,
               postgresql_where=text("status = 'pending'")),
+        Index("uq_team_invite_recipient_pending", "team_id", "recipient_user_id", unique=True,
+              postgresql_where=text("status = 'pending' AND recipient_user_id IS NOT NULL")),
     )
 
     id: Mapped[UUID] = mapped_column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)
     team_id: Mapped[UUID] = mapped_column(
         PostgresUUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
     )
-    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320))
+    recipient_user_id: Mapped[UUID | None] = mapped_column(
+        PostgresUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+    )
+    recipient_name: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(
         String(32), default=MembershipRole.MEMBER.value, nullable=False
     )

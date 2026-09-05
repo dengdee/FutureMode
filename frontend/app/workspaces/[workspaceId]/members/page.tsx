@@ -23,8 +23,8 @@ export default function WorkspaceMembersPage() {
   const [busy, setBusy] = useState(false);
 
   function load() {
-    Promise.all([listTeams(), listTeamMembers(workspaceId), listInvitations(workspaceId)])
-      .then(([teamResult, memberResult, invitationResult]) => { setTeam(teamResult.teams.find((item) => item.id === workspaceId) ?? null); setMembers(memberResult.members); setInvitations(invitationResult); })
+    Promise.all([listTeams(), listTeamMembers(workspaceId)])
+      .then(async ([teamResult, memberResult]) => { const current = teamResult.teams.find((item) => item.id === workspaceId) ?? null; setTeam(current); setMembers(memberResult.members); try { setInvitations(current?.role === "admin" ? await listInvitations(workspaceId) : []); } catch { setInvitations([]); } })
       .catch((cause) => setMessage(cause instanceof Error ? cause.message : "無法讀取成員資料。"));
   }
   useEffect(load, [workspaceId]);

@@ -21,15 +21,6 @@ def principal_name(principal: Principal) -> str | None:
     return name.strip()[:255] if isinstance(name, str) and name.strip() else None
 
 
-def invitation_email(principal: Principal) -> str:
-    claims = principal.claims
-    email = claims.get("email")
-    verified = claims.get("email_verified") is True or claims.get("emailVerified") is True
-    if not verified or not isinstance(email, str) or not email.strip():
-        raise HTTPException(status_code=403, detail="請先驗證登入帳號的 Email，再查看站內邀請。")
-    return email.strip().lower()
-
-
 async def database_session(
     settings: Settings = Depends(get_settings),
 ) -> AsyncIterator[AsyncSession]:
@@ -100,10 +91,17 @@ async def create_invitation(
         raise HTTPException(status_code=403, detail="insufficient permissions")
     # Serialize invitations for a team so retries cannot create duplicate pending rows.
     await session.scalar(select(Team).where(Team.id == team_id).with_for_update())
+    recipient = await session.scalar(select(User).where(func.lower(User.email) == payload.email))
+    if recipient is None:
+        raise HTTPException(404, "recipient account not found")
+    if await session.scalar(select(TeamMember).where(
+        TeamMember.team_id == team_id, TeamMember.user_id == recipient.id,
+    )):
+        raise HTTPException(409, "recipient is already a team member")
     existing = await session.scalar(
         select(TeamInvitation).where(
             TeamInvitation.team_id == team_id,
-            func.lower(TeamInvitation.email) == payload.email.strip().lower(),
+            TeamInvitation.recipient_user_id == recipient.id,
             TeamInvitation.status == "pending",
         )
     )
@@ -111,7 +109,9 @@ async def create_invitation(
         await session.commit()
         return existing
     invitation = TeamInvitation(
-        team_id=team_id, email=payload.email.strip().lower(), role=payload.role, invited_by=actor.id
+        team_id=team_id, recipient_user_id=recipient.id,
+        recipient_name=recipient.display_name or "未設定名稱的帳號",
+        role=payload.role, invited_by=actor.id,
     )
     session.add(invitation)
     await session.commit()
@@ -187,10 +187,11 @@ async def my_invitations(
         statement = statement.on_conflict_do_nothing(index_elements=[User.external_id])
     await session.execute(statement)
     await session.commit()
-    email = invitation_email(principal)
     rows = (await session.execute(
         select(TeamInvitation, Team.name).join(Team, Team.id == TeamInvitation.team_id)
-        .where(func.lower(TeamInvitation.email) == email, TeamInvitation.status == "pending")
+        .where(TeamInvitation.recipient_user_id.in_(
+            select(User.id).where(User.external_id == principal.subject)
+        ), TeamInvitation.status == "pending")
         .order_by(TeamInvitation.created_at.desc())
     )).all()
     return [dict(id=str(invite.id), team_id=str(invite.team_id), team_name=name,
@@ -206,9 +207,11 @@ async def respond_invitation(
 ) -> dict[str, str]:
     if action not in {"accept", "decline"}:
         raise HTTPException(status_code=422, detail="action must be accept or decline")
-    email = invitation_email(principal)
     invite = await session.scalar(select(TeamInvitation).where(
-        TeamInvitation.id == invitation_id, func.lower(TeamInvitation.email) == email,
+        TeamInvitation.id == invitation_id,
+        TeamInvitation.recipient_user_id.in_(
+            select(User.id).where(User.external_id == principal.subject)
+        ),
     ).with_for_update())
     if invite is None:
         raise HTTPException(status_code=404, detail="invitation not found")

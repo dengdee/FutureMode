@@ -1,5 +1,6 @@
 import { http, request } from "./client";
 import type { Invitation, Team, TeamMemberResponse, TeamResponse } from "../../types/api";
+export type InvitationUser = { id: string; display_name: string; email: string };
 
 export function listTeams() { return request<TeamResponse>(() => http.get("/api/v1/teams")); }
 export function listTeamMembers(teamId: string) { return request<TeamMemberResponse>(() => http.get(`/api/v1/teams/${teamId}/members`)); }
