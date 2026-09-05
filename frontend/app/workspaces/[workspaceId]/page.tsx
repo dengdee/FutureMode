@@ -124,7 +124,7 @@ export default function TeamOverviewPage() {
         }
       />
       <div className="mt-8">
-        <TeamSubnav teamId={workspaceId} active="overview" />
+        <TeamSubnav teamId={workspaceId} active="overview" hideMeetings />
       </div>
       {error ? (
         <p
@@ -163,9 +163,9 @@ export default function TeamOverviewPage() {
           <section className="mt-8 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">下一步</h2>
+                <h2 className="text-lg font-semibold">團隊會議</h2>
                 <p className="mt-1 text-sm text-[#787774]">
-                  從最近一場未結束的會議繼續準備，或建立新的會議。
+                  查看最近會議並繼續議前準備，或建立新的會議。
                 </p>
               </div>
               <Link

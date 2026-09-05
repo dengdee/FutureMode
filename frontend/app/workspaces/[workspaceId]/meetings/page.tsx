@@ -35,6 +35,7 @@ export default function WorkspaceMeetingsPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [summaryReady, setSummaryReady] = useState<Record<string, boolean>>({});
+  const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   useEffect(() => {
     Promise.all([listTeams(), listMeetings()])
@@ -61,6 +62,12 @@ export default function WorkspaceMeetingsPage() {
         setError(cause instanceof Error ? cause.message : "無法讀取團隊會議。"),
       );
   }, [workspaceId]);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(meetings.length / pageSize));
+  const visibleMeetings = meetings.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
   return (
     <AppShell>
       <PageHeader
@@ -98,7 +105,7 @@ export default function WorkspaceMeetingsPage() {
         </p>
       ) : (
         <section className="mt-6 space-y-3">
-          {meetings.map((meeting) => (
+          {visibleMeetings.map((meeting) => (
             <article
               key={meeting.id}
               className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6e6e3] bg-white p-5"
@@ -149,6 +156,32 @@ export default function WorkspaceMeetingsPage() {
                 建立第一場會議，再讓成員和 Agent 整理會前重點。
               </p>
             </div>
+          )}
+          {meetings.length > pageSize && (
+            <nav
+              aria-label="團隊會議分頁"
+              className="flex items-center justify-center gap-2 pt-4"
+            >
+              <button
+                type="button"
+                disabled={page === 1}
+                onClick={() => setPage((current) => current - 1)}
+                className="rounded-lg border border-[#dededb] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                上一頁
+              </button>
+              <span className="px-2 text-sm text-[#787774]">
+                第 {page} / {pageCount} 頁
+              </span>
+              <button
+                type="button"
+                disabled={page === pageCount}
+                onClick={() => setPage((current) => current + 1)}
+                className="rounded-lg border border-[#dededb] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                下一頁
+              </button>
+            </nav>
           )}
         </section>
       )}
