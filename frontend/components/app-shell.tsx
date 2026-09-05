@@ -86,11 +86,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [meetingTitle, setMeetingTitle] = useState<string | null>(null);
-  const meetingPath = pathname.startsWith("/meetings/")
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const meetingPath = pathname.split("/");
+  const isWorkspaceMeeting =
+    pathname.startsWith("/workspaces/") && meetingPath[3] === "meetings";
+  const isMeetingRoute = pathname.startsWith("/meetings/") || isWorkspaceMeeting;
+  const meetingId = isWorkspaceMeeting ? meetingPath[4] : meetingPath[2];
+  const workspacePath = pathname.startsWith("/workspaces/")
     ? pathname.split("/")
     : [];
-  const meetingId = meetingPath[2];
-  const meetingPhase = pathname.startsWith("/meetings/")
+  const workspaceId = workspacePath[2];
+  const meetingPhase = isMeetingRoute
     ? (
         {
           new: "建立會議",
@@ -120,11 +126,45 @@ export function AppShell({ children }: { children: ReactNode }) {
       active = false;
     };
   }, [meetingId]);
+  useEffect(() => {
+    if (!workspaceId) {
+      setWorkspaceName(null);
+      return;
+    }
+    let active = true;
+    listTeams()
+      .then((result) => {
+        if (active) {
+          setWorkspaceName(
+            result.teams.find((team) => team.id === workspaceId)?.name ?? null,
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setWorkspaceName(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspaceId]);
   const memoryScope = searchParams.get("scope");
   const breadcrumbItems = meetingPhase
     ? pathname === "/meetings/new"
       ? ["團隊", meetingPhase]
-      : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]
+      : workspaceId
+        ? ["團隊", workspaceName ?? "團隊", "會議", meetingTitle ?? "會議", meetingPhase]
+        : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]
+    : workspaceId
+      ? [
+          "團隊",
+          workspaceName ?? "團隊",
+          ...(workspacePath[3] === "members" ? ["成員與邀請"] : []),
+          ...(workspacePath[3] === "memory"
+            ? workspacePath[4] === "shared"
+              ? ["團隊記憶", "共用文件"]
+              : ["團隊記憶", "單次會議文件"]
+            : []),
+        ]
     : pathname === "/memory"
       ? [
           "團隊",
