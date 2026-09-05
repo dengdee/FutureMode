@@ -27,7 +27,7 @@ class InvitationSummary(BaseModel):
 
 
 class RoleUpdate(BaseModel):
-    role: str = Field(pattern="^(owner|admin|member)$")
+    role: str = Field(pattern="^(admin|member)$")
 
 
 class TeamSummary(BaseModel):

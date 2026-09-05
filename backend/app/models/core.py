@@ -12,7 +12,7 @@ from app.db.base import Base
 
 
 class MembershipRole(StrEnum):
-    OWNER = "owner"
+    ADMIN = "admin"
     MEMBER = "member"
 
 

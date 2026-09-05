@@ -115,7 +115,7 @@ uv run alembic current
 ### 步驟 4｜身分驗證、團隊與授權（已完成）
 
 - **目標**：驗證外部 session／JWT，並把使用者、團隊與角色權限套用到每個 endpoint。
-- **功能內容**：採用 Neon Auth，完成 token 驗證、principal dependency、team membership、owner／admin／member／host 權限矩陣。
+- **功能內容**：採用 Neon Auth，完成 token 驗證、principal dependency、team membership、admin／member 與會議 host 權限矩陣。
 - **預計異動範圍**：`app/auth/`、`app/dependencies/`、`app/services/`、`app/schemas/`、`tests/`。
 - **資料庫變更**：補 users external ID、teams、team_members 索引與角色欄位（依步驟 3 調整）。
 - **API 規格**：`GET /api/v1/me`、`GET /api/v1/teams`；401 未登入、403 無權限、404 不洩漏資源存在性。
@@ -293,3 +293,10 @@ uv run alembic current
 ## 建議開始步驟
 
 建議從 **步驟 0** 開始，先裁決認證、音訊主來源與 API hosting，再進入 **步驟 1**。目前若要先處理已存在的程式，則應先針對 `POST /meetbot/join` 補 provider mock、錯誤 schema、金鑰設定範例與測試，但這仍屬步驟 0／6 範圍，不應順便實作後續會議或 AI 功能。
+### 團隊角色轉換
+
+團隊角色僅有 `admin`、`member`；建立者預設為 `admin`，管理員可以調整成員角色。
+既有 `owner` 資料由 migration `0019_admin_member_roles` 轉成 `admin`。
+若 Alembic 因既有 `0005_transcripts` 缺失而無法執行，可在 `backend` 執行
+`uv run python -m scripts.migrate_team_roles --apply`，僅轉換角色，不變更 migration 版本紀錄。
+不加 `--apply` 僅查看角色數量。修復 migration 鏈後仍可安全執行 0019。

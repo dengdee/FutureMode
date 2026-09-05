@@ -3,9 +3,9 @@
 ## 首次建立團隊
 
 Neon Auth 帳號與應用程式 `users` 是不同資料。`POST /api/v1/teams` 會以已驗證的
-subject 對應 `users.external_id`，缺少時建立本機使用者，並建立團隊與 owner 成員。
+subject 對應 `users.external_id`，缺少時建立本機使用者，並建立團隊與 admin 成員。
 三項操作在同一筆交易內完成，失敗時全部 rollback。既有使用者的姓名、email 不會被覆寫；
-不需要手動插入 users，也不需要新增 migration。此流程不以 email 自動合併帳號。
+不需要手動插入 users，也舊有 owner 角色須執行 0019 migration 轉為 admin。此流程不以 email 自動合併帳號。
 
 前端透過同源 `GET /api/auth/token` 取得 JWT，再以 Authorization Bearer 呼叫後端。
 `getSession()` 的 session token 與 JWT 不應混用；`withCredentials` 只影響瀏覽器

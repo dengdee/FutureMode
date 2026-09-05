@@ -129,7 +129,7 @@ async def authorized_meeting(
     if row is None:
         raise HTTPException(status_code=404, detail="meeting not found")
     meeting, role = row
-    if write and role not in {"owner", "admin"} and meeting.host_user_id != await find_user_id(
+    if write and role != "admin" and meeting.host_user_id != await find_user_id(
         session, principal.subject
     ):
         raise HTTPException(status_code=403, detail="insufficient permissions")

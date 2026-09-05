@@ -1,4 +1,4 @@
-"""Authenticated creation must provision a local user and atomically grant ownership."""
+"""Authenticated creation must provision a local user and atomically grant admin membership."""
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
@@ -53,7 +53,7 @@ def send(session, authenticated=True):
         app.dependency_overrides.update(previous)
 
 
-def test_first_creation_provisions_user_and_owner(session):
+def test_first_creation_provisions_user_and_admin(session):
     response = send(session)
     assert response.status_code == 201
     statement = session.execute.call_args.args[0].compile(dialect=postgresql.dialect())
@@ -64,7 +64,7 @@ def test_first_creation_provisions_user_and_owner(session):
     assert isinstance(membership, TeamMember)
     assert membership.user_id == session.scalar.return_value
     assert membership.team_id == team.id
-    assert membership.role == response.json()["role"] == "owner"
+    assert membership.role == response.json()["role"] == "admin"
     assert not any(isinstance(item, User) for item in added)
     session.commit.assert_awaited_once()
 

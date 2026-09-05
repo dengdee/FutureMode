@@ -36,7 +36,7 @@ async def update_team(
             TeamMember.team_id == team_id, TeamMember.user_id == (actor.id if actor else None)
         )
     )
-    if membership is None or membership.role not in {"owner", "admin"}:
+    if membership is None or membership.role != "admin":
         raise HTTPException(status_code=403, detail="insufficient permissions")
     team = await session.get(Team, team_id)
     if team is None:
@@ -57,11 +57,11 @@ async def delete_team(
         select(TeamMember).where(
             TeamMember.team_id == team_id,
             TeamMember.user_id == (actor.id if actor else None),
-            TeamMember.role == "owner",
+            TeamMember.role == "admin",
         )
     )
     if membership is None:
-        raise HTTPException(status_code=403, detail="owner permission required")
+        raise HTTPException(status_code=403, detail="admin permission required")
     team = await session.get(Team, team_id)
     if team is None:
         raise HTTPException(status_code=404, detail="team not found")
@@ -82,7 +82,7 @@ async def create_invitation(
             TeamMember.team_id == team_id, TeamMember.user_id == (actor.id if actor else None)
         )
     )
-    if membership is None or membership.role not in {"owner", "admin"}:
+    if membership is None or membership.role != "admin":
         raise HTTPException(status_code=403, detail="insufficient permissions")
     invitation = TeamInvitation(
         team_id=team_id, email=payload.email.lower(), role=payload.role, invited_by=actor.id
@@ -105,7 +105,7 @@ async def list_invitations(
             TeamMember.team_id == team_id, TeamMember.user_id == (actor.id if actor else None)
         )
     )
-    if membership is None or membership.role not in {"owner", "admin"}:
+    if membership is None or membership.role != "admin":
         raise HTTPException(status_code=403, detail="insufficient permissions")
     return list(
         (
@@ -173,12 +173,12 @@ async def create_team(
         team = Team(name=payload.name)
         session.add(team)
         await session.flush()
-        session.add(TeamMember(team_id=team.id, user_id=user_id, role="owner"))
+        session.add(TeamMember(team_id=team.id, user_id=user_id, role="admin"))
         await session.commit()
     except SQLAlchemyError:
         await session.rollback()
         raise HTTPException(status_code=503, detail="database is unavailable") from None
-    return {"id": str(team.id), "name": team.name, "role": "owner"}
+    return {"id": str(team.id), "name": team.name, "role": "admin"}
 
 
 @router.patch("/teams/{team_id}/members/{user_id}")
@@ -195,7 +195,7 @@ async def update_member_role(
             TeamMember.team_id == team_id, TeamMember.user_id == (actor.id if actor else None)
         )
     )
-    if actor_membership is None or actor_membership.role not in {"owner", "admin"}:
+    if actor_membership is None or actor_membership.role != "admin":
         raise HTTPException(status_code=403, detail="insufficient permissions")
     membership = await session.scalar(
         select(TeamMember).where(TeamMember.team_id == team_id, TeamMember.user_id == user_id)
@@ -220,7 +220,7 @@ async def remove_member(
             TeamMember.team_id == team_id, TeamMember.user_id == (actor.id if actor else None)
         )
     )
-    if actor_membership is None or actor_membership.role not in {"owner", "admin"}:
+    if actor_membership is None or actor_membership.role != "admin":
         raise HTTPException(status_code=403, detail="insufficient permissions")
     membership = await session.scalar(
         select(TeamMember).where(TeamMember.team_id == team_id, TeamMember.user_id == user_id)
