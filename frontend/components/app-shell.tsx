@@ -96,6 +96,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? pathname.split("/")
     : [];
   const workspaceId = workspacePath[2];
+  const meetingTeamId = searchParams.get("teamId");
+  const contextTeamId = workspaceId ?? meetingTeamId;
   const meetingPhase = isMeetingRoute
     ? (
         {
@@ -127,7 +129,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [meetingId]);
   useEffect(() => {
-    if (!workspaceId) {
+    if (!contextTeamId) {
       setWorkspaceName(null);
       return;
     }
@@ -135,8 +137,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     listTeams()
       .then((result) => {
         if (active) {
-          setWorkspaceName(
-            result.teams.find((team) => team.id === workspaceId)?.name ?? null,
+            setWorkspaceName(
+            result.teams.find((team) => team.id === contextTeamId)?.name ?? null,
           );
         }
       })
@@ -146,11 +148,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [workspaceId]);
+  }, [contextTeamId]);
   const memoryScope = searchParams.get("scope");
   const breadcrumbItems = meetingPhase
     ? pathname === "/meetings/new"
-      ? ["團隊", meetingPhase]
+      ? meetingTeamId
+        ? ["團隊", workspaceName ?? "團隊", meetingPhase]
+        : ["儀表板", meetingPhase]
       : workspaceId
         ? ["團隊", workspaceName ?? "團隊", "會議", meetingTitle ?? "會議", meetingPhase]
         : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]
