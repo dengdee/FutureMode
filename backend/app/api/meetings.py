@@ -11,8 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
 from app.db.session import get_session
-from app.models import AgendaItem, Meeting, MeetingParticipant, TeamMember, Transcript, User
+from app.models import (
+    AgendaItem,
+    Meeting,
+    MeetingParticipant,
+    MeetingState,
+    TeamMember,
+    Transcript,
+    User,
+)
 from app.schemas.backup import TranscriptBackupRequest
+from app.schemas.events import MeetingStateSnapshot
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
@@ -123,6 +132,32 @@ async def get_meeting(
 ) -> Meeting:
     try:
         return await authorized_meeting(meeting_id, principal, session)
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+@router.get("/meetings/{meeting_id}/state", response_model=MeetingStateSnapshot)
+async def get_meeting_state(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> MeetingStateSnapshot:
+    """Return the current public snapshot for an authorized meeting participant."""
+    try:
+        await authorized_meeting(meeting_id, principal, session)
+        snapshot = await session.scalar(
+            select(MeetingState).where(MeetingState.meeting_id == meeting_id)
+        )
+        if snapshot is None:
+            return MeetingStateSnapshot(
+                meeting_id=meeting_id,
+                state_version=0,
+                state={},
+                updated_at=None,
+            )
+        return MeetingStateSnapshot.model_validate(snapshot)
     except HTTPException:
         raise
     except SQLAlchemyError:
