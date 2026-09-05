@@ -381,12 +381,12 @@ export default function NewMeetingPage() {
                 </p>
               </div>
             </div>
-            <label className="block text-sm font-medium sm:w-72 sm:shrink-0">
-              快速套用
+            <label className="block sm:w-72 sm:shrink-0">
               <select
+                aria-label="套用議程範本"
                 value={template}
                 onChange={(event) => chooseTemplate(event.target.value)}
-                className="control-primary mt-2 w-full text-sm"
+                className="control-primary w-full text-sm"
               >
                 <option value="">不套用範本</option>
                 {templates.map((item) => (
