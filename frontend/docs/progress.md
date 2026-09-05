@@ -6,7 +6,7 @@
 
 - Next.js App Router、TypeScript、Tailwind、共用 App Shell、中文導覽與響應式基礎。
 - Neon Auth 登入／註冊、session cookie、`withCredentials`，以及 `/api/v1/*` 的短效 JWT Bearer 注入。
-- Dashboard、團隊清單／建立、團隊成員角色修改／移除，以及建立團隊後寄送邀請。
+- Dashboard、團隊清單／建立、團隊成員角色修改／移除，以及建立團隊後建立站內邀請（不寄送 Email）。
 - 會議建立、修改、開始／結束／取消、參與者管理與手動議程 CRUD。
 - Audio Setup 的瀏覽器收音與批次 `POST /api/v1/meetings/{id}/transcription`。
 - Review 的逐字稿、Consensus 建立／確認／回饋、Action Items 新增／編輯標題／刪除。
