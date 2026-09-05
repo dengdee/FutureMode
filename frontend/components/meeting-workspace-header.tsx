@@ -1,5 +1,7 @@
+"use client";
+
 import { IconArrowLeft } from "@tabler/icons-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export function MeetingWorkspaceHeader({
   phase,
@@ -9,6 +11,7 @@ export function MeetingWorkspaceHeader({
   phase: "prepare" | "summary" | "review" | "audio" | "live";
   title?: string;
 }) {
+  const router = useRouter();
   const phaseLabel = {
     prepare: "議前討論",
     summary: "議前準備",
@@ -19,13 +22,17 @@ export function MeetingWorkspaceHeader({
 
   return (
     <div className="border-b border-[#e6e6e3] pb-6">
-      <Link
-        href="/dashboard"
+      <button
+        type="button"
+        onClick={() => {
+          if (window.history.length > 1) router.back();
+          else router.push("/dashboard");
+        }}
         className="inline-flex items-center gap-1 text-sm text-[#787774] hover:text-[#1f1f1f]"
       >
         <IconArrowLeft size={17} />
-        返回儀表板
-      </Link>
+        返回上一頁
+      </button>
       <div className="mt-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
           <p className="text-sm font-medium text-[#0f9f8a]">{phaseLabel}</p>
