@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,29 @@ router = APIRouter(prefix="/api/v1", tags=["teams"])
 def principal_name(principal: Principal) -> str | None:
     name = principal.claims.get("name") or principal.claims.get("display_name")
     return name.strip()[:255] if isinstance(name, str) and name.strip() else None
+
+
+async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, str | None] | None:
+    """Look up a registered Neon Auth account without exposing the auth directory to clients."""
+    try:
+        result = await session.execute(text("""
+            SELECT id::text AS external_id, email, name
+            FROM neon_auth.users_sync
+            WHERE lower(email) = :email AND deleted_at IS NULL
+            LIMIT 1
+        """), {"email": email.lower()})
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503, detail="Neon Auth user directory is unavailable"
+        ) from exc
+    row = result.mappings().first()
+    if row is None:
+        return None
+    return {
+        "external_id": str(row["external_id"]),
+        "email": str(row["email"]).lower() if row["email"] else None,
+        "display_name": str(row["name"]) if row["name"] else None,
+    }
 
 
 async def database_session(
@@ -93,7 +116,16 @@ async def create_invitation(
     await session.scalar(select(Team).where(Team.id == team_id).with_for_update())
     recipient = await session.scalar(select(User).where(func.lower(User.email) == payload.email))
     if recipient is None:
-        raise HTTPException(404, "recipient account not found")
+        neon_user = await find_neon_auth_user(session, payload.email)
+        if neon_user is None:
+            raise HTTPException(404, "recipient account not found")
+        recipient = User(
+            external_id=neon_user["external_id"] or "",
+            display_name=neon_user["display_name"],
+            email=neon_user["email"],
+        )
+        session.add(recipient)
+        await session.flush()
     if await session.scalar(select(TeamMember).where(
         TeamMember.team_id == team_id, TeamMember.user_id == recipient.id,
     )):
