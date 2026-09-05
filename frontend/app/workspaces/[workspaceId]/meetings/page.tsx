@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  IconArrowLeft,
-  IconCalendarPlus,
-  IconClock,
-} from "@tabler/icons-react";
+import { IconCalendarPlus, IconClock } from "@tabler/icons-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -74,15 +70,10 @@ export default function WorkspaceMeetingsPage() {
         eyebrow="Team meetings"
         title={team ? `${team.name} 的會議` : "團隊會議"}
         description="每場會議從議前討論開始；期限到後再開放 AI 議前整理與收音設定。"
+        backHref={`/workspaces/${workspaceId}`}
+        backLabel="返回團隊"
         actions={
           <>
-            <Link
-              href={`/workspaces/${workspaceId}`}
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
             <Link
               href={`/meetings/new?teamId=${workspaceId}`}
               className="inline-flex items-center gap-2 rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"

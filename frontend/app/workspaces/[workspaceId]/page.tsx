@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconCalendarPlus,
   IconChevronRight,
   IconUsersGroup,
@@ -104,15 +103,10 @@ export default function TeamOverviewPage() {
         eyebrow="Team"
         title={team?.name ?? "團隊"}
         description="集中管理成員、共用資料與本團隊的會議流程。"
+        backHref="/workspaces"
+        backLabel="返回團隊"
         actions={
           <>
-            <Link
-              href="/workspaces"
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
             <Link
               href={`/meetings/new?teamId=${workspaceId}`}
               className="inline-flex items-center gap-2 rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconDownload,
   IconEye,
   IconFileText,
@@ -214,17 +213,8 @@ export default function MemoryPage() {
         eyebrow="Team memory"
         title="團隊記憶"
         description="依團隊整理共用文件與單次會議資料，讓 AI 使用正確的脈絡。"
-        actions={
-          teamId ? (
-            <Link
-              href={`/workspaces/${teamId}`}
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
-          ) : undefined
-        }
+        backHref={teamId ? `/workspaces/${teamId}` : "/workspaces"}
+        backLabel="返回團隊"
       />
       {teamId && <TeamSubnav teamId={teamId} active="memory" />}
       <div className="mt-8 flex flex-wrap items-center gap-3">

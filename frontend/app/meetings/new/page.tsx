@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconCalendarEvent,
   IconLink,
   IconPlus,
@@ -206,17 +205,8 @@ export default function NewMeetingPage() {
         eyebrow="New meeting"
         title="建立會議"
         description="先設定團隊、時間、參與者與共同議程；建立後再讓每位成員和自己的 Agent 完成議前討論。"
-        actions={
-          teamId ? (
-            <Link
-              href={`/workspaces/${teamId}`}
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
-          ) : undefined
-        }
+        backHref={teamId ? `/workspaces/${teamId}` : "/workspaces"}
+        backLabel="返回團隊"
       />
       <form onSubmit={handleSubmit} className="mt-8 max-w-4xl space-y-6">
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
