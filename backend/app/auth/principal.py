@@ -140,7 +140,7 @@ async def principal_from_authorization(
             algorithms=[algorithm],
             issuer=issuer,
             audience=audience,
-            leeway=120,
+            leeway=300,
             options={"require": ["exp", "sub", "iss", "aud"]},
         )
         subject = claims.get("sub")
