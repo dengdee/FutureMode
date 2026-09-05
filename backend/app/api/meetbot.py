@@ -7,6 +7,12 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+import subprocess
+import os
+import subprocess
+import edge_tts
+
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -21,9 +27,9 @@ from pydantic import BaseModel, Field, HttpUrl
 from app.config import Settings, get_settings
 from app.integrations.meetingbaas import MeetingBaasClient, MeetingBaasError
 
-router = APIRouter(prefix="/meetbot", tags=["meetbot"])
-HELLO_WAV = Path(__file__).resolve().parent.parent / "audio" / "hello.wav"
 
+settings = get_settings()
+router = APIRouter(prefix="/meetbot", tags=["meetbot"])
 
 class JoinMeetingRequest(BaseModel):
     meeting_url: HttpUrl
@@ -184,9 +190,86 @@ async def leave_meeting(
     return LeaveMeetingResponse(bot_id=bot_id)
 
 
+
+
 class SpeakRequest(BaseModel):
-    approved_text_id: str | None = Field(default=None, min_length=1)
-    approved_text_version: int | None = Field(default=None, ge=1)
+    text: str = Field(..., min_length=1, max_length=1000)
+
+async def text_to_speech(text: str, output_file: Path) -> Path:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    temp_file = output_file.with_suffix(".mp3")
+
+    try:
+        # print("[TTS] 開始 Edge TTS...")
+
+        communicate = edge_tts.Communicate(
+            text=text,
+            voice="zh-TW-HsiaoChenNeural",
+        )
+
+        await communicate.save(str(temp_file))
+
+        # print("[TTS] Edge TTS 完成")
+
+        if not temp_file.exists():
+            raise RuntimeError("Edge TTS 沒有產生 MP3")
+
+        # print(
+        #     f"[TTS] MP3 大小: {temp_file.stat().st_size} bytes"
+        # )
+
+        if temp_file.stat().st_size == 0:
+            raise RuntimeError("Edge TTS 回傳空音訊")
+
+        # print("[TTS] 開始 FFmpeg 轉換 WAV...")
+
+        await asyncio.to_thread(
+            subprocess.run,
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(temp_file),
+                "-ar",
+                "24000",
+                "-ac",
+                "1",
+                "-sample_fmt",
+                "s16",
+                str(output_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        if not output_file.exists():
+            raise RuntimeError("FFmpeg 沒有產生 WAV")
+
+        # print(
+        #     f"[TTS] WAV 大小: {output_file.stat().st_size} bytes"
+        # )
+
+        return output_file
+
+    except FileNotFoundError:
+        raise RuntimeError(
+            "找不到 ffmpeg，請確認 ffmpeg 已安裝並加入 PATH"
+        ) from None
+
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"ffmpeg 轉換失敗: {exc.stderr}"
+        ) from None
+
+    except Exception as exc:
+        raise RuntimeError(
+            f"Edge TTS 失敗: {type(exc).__name__}: {exc}"
+        ) from None
+
+    finally:
+        temp_file.unlink(missing_ok=True)
 
 
 @router.websocket("/ws/audio-in")
@@ -194,28 +277,81 @@ async def meeting_audio_input(websocket: WebSocket) -> None:
     """Accept the provider's input-audio connection without logging its headers."""
     await websocket.accept()
     audio_manager.websocket = websocket
+
     try:
         while True:
             await websocket.receive()
+
     except WebSocketDisconnect:
         pass
+
     finally:
         if audio_manager.websocket is websocket:
             audio_manager.websocket = None
 
 
 @router.post("/speak")
-async def speak(_: SpeakRequest | None = None) -> dict[str, str]:
-    """Play the existing fixed, pre-approved greeting through the input socket.
+async def speak(request: SpeakRequest) -> dict[str, str]:
+    # print("\n========== SPEAK DEBUG START ==========")
+    # print(f"[1] 收到文字: {request.text}")
 
-    Dynamic speech remains disabled until approved_text persistence is available.
-    """
-    if not HELLO_WAV.is_file():
-        raise HTTPException(status_code=404, detail="找不到預設語音檔")
+    output_file = (
+        Path(__file__).resolve().parent.parent
+        / "audio"
+        / "tts_output.wav"
+    )
+
     try:
-        await audio_manager.send_wav(HELLO_WAV)
+        # print("[2] 開始 TTS...")
+
+        await text_to_speech(
+            request.text,
+            output_file,
+        )
+
+        # print("[3] TTS 完成")
+
+        # print(
+        #     "[4] Meeting BaaS WebSocket:",
+        #     audio_manager.websocket is not None,
+        # )
+
+        if audio_manager.websocket is None:
+            raise RuntimeError(
+                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in"
+            )
+
+        # print("[5] 開始傳送 WAV 到 Meeting BaaS...")
+
+        await audio_manager.send_wav(output_file)
+
+        # print("[6] WAV 傳送完成")
+        # print("========== SPEAK DEBUG SUCCESS ==========\n")
+
+        return {
+            "status": "sent",
+            "message": "Audio sent to meeting",
+        }
+
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from None
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
-    return {"status": "sent", "message": "Audio sent to meeting"}
+        # print(f"[ERROR] {exc}")
+
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        ) from None
+
+    except Exception as exc:
+        # print(
+        #     f"[ERROR] {type(exc).__name__}: {exc}"
+        # )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {exc}",
+        ) from None
+
+    finally:
+        # output_file.unlink(missing_ok=True)
+
+        print("========== SPEAK DEBUG END ==========\n")
