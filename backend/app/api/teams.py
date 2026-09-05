@@ -23,15 +23,16 @@ def principal_name(principal: Principal) -> str | None:
 
 async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, str | None] | None:
     """Look up a registered Neon Auth account without exposing the auth directory to clients."""
+    normalized_email = email.strip().lower()
     try:
         result = await session.execute(
             text("""
-            SELECT id::text AS external_id, email
-            FROM neon_auth.users_sync
+            SELECT id::text AS external_id, email, name
+            FROM neon_auth."user"
             WHERE lower(email) = :email
             LIMIT 1
         """),
-            {"email": email.lower()},
+            {"email": normalized_email},
         )
     except SQLAlchemyError as exc:
         raise HTTPException(
@@ -43,7 +44,7 @@ async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, st
     return {
         "external_id": str(row["external_id"]),
         "email": str(row["email"]).lower() if row["email"] else None,
-        "display_name": None,
+        "display_name": str(row["name"]) if row["name"] else None,
     }
 
 

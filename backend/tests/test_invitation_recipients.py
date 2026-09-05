@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
-from app.api.teams import create_invitation
+from app.api.teams import create_invitation, find_neon_auth_user
 from app.auth.principal import Principal
 from app.models import Team, TeamInvitation, TeamMember, User
 from app.schemas.team import InvitationCreate
@@ -31,6 +31,28 @@ def test_email_is_required_and_normalized():
     assert InvitationCreate(email=" Person@Example.com ").email == "person@example.com"
     with pytest.raises(ValidationError):
         InvitationCreate()
+
+
+def test_neon_auth_lookup_uses_verified_auth_user_table():
+    session = MagicMock()
+    result = MagicMock()
+    result.mappings.return_value.first.return_value = {
+        "external_id": "neon-user",
+        "email": "person@example.com",
+        "name": "小明",
+    }
+    session.execute = AsyncMock(return_value=result)
+
+    found = asyncio.run(find_neon_auth_user(session, " Person@Example.com "))
+
+    assert found == {
+        "external_id": "neon-user",
+        "email": "person@example.com",
+        "display_name": "小明",
+    }
+    query, params = session.execute.await_args.args
+    assert 'FROM neon_auth."user"' in str(query)
+    assert params == {"email": " person@example.com ".strip().lower()}
 
 
 def test_admin_invites_selected_account_without_email_claims():
