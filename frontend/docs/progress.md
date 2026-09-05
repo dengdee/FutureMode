@@ -34,3 +34,6 @@
 | ESLint | 尚未驗證（目前 shell 的 `npm` 不在 PATH） |
 | `git diff --check` | 通過 |
 | Next production build | 受本機 Windows Turbopack 子程序權限阻擋，需在可 spawn 子程序的環境重試 |
+# 2026-09-05 前端整合進度
+
+目前後端已提供的 REST 均已在 `frontend/lib/api` 封裝，並由對應 Web App／Add-on UI 使用：團隊邀請與成員管理、會議生命週期、參與者／議程、文件生命週期與版本、批次逐字稿轉錄、共識與回饋、行動項目、suggestions／投票、Personal Sidekick、Delegate 及 Meeting BaaS Bot。尚未接入的僅限後端尚未定義的 Realtime WebSocket、Live Snapshot、meeting token handoff、VAD／streaming STT 與 meeting-scoped Voice Bot。

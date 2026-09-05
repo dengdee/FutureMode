@@ -102,3 +102,9 @@ POST /api/v1/meetings/{meeting_id}/brief
 建議 response 包含 `suggested_agenda`、`existing_consensus`、`disagreements`、`open_questions` 與 `recommended_order`。Agent 只提供建議，不得直接覆蓋使用者已輸入的議程；由使用者或本場 Host 確認、修改後，再透過正式 Agenda API 寫入。
 
 請後端確認 Brief 的同步／非同步狀態、輸入是否包含 Team Memory 文件、重新產生是否保留版本，以及產生失敗時的錯誤格式。
+
+## 2026-09-05 前端整合更新
+
+目前後端已存在的 REST 已完成前端接入：團隊邀請／成員角色與移除、會議取消、文件封存／下載／刪除／版本還原、逐字稿批次轉錄、Consensus feedback、Suggestion vote 與明細、Action Items CRUD、Personal Sidekick 訊息／預覽／發布、Delegate profiles，以及 Meeting BaaS bot join／status／leave／speak function。
+
+前端仍不假造下列尚不存在或契約未定的能力：meeting access-token handoff、Live Snapshot、intervention policy、Realtime WebSocket、VAD／streaming STT、meeting-scoped Voice Bot。這些需要後端提供正式路由、事件 envelope、權限與錯誤契約後才能接入。

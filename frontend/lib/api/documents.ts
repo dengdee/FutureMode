@@ -1,5 +1,7 @@
 import { http, request } from "./client";
 import type { DocumentDetail, DocumentDownloadUrl, DocumentSearchResult, DocumentStorageStatus, DocumentSummary, DocumentVersion } from "../../types/api";
+export const listDocumentChunks = (documentId: string) => request<Array<{ id: string; position: number; content: string; metadata: Record<string, unknown> }>>(() => http.get(`/api/v1/documents/${documentId}/chunks`));
+export const createDocumentChunk = (documentId: string, payload: { position: number; content: string; metadata?: Record<string, unknown> }) => request<{ id: string; document_id: string; position: number }>(() => http.post(`/api/v1/documents/${documentId}/chunks`, payload));
 
 export const listDocuments = (teamId: string) => request<DocumentSummary[]>(() => http.get(`/api/v1/teams/${teamId}/documents`));
 export const createDocument = (teamId: string, payload: { name: string; source_type?: string; metadata?: Record<string, unknown> }) => request<DocumentSummary>(() => http.post(`/api/v1/teams/${teamId}/documents`, payload));

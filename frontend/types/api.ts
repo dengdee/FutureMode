@@ -25,6 +25,9 @@ export type JoinMeetingRequest = {
 };
 
 export type MeetingBotResponse = Record<string, unknown>;
+export type JoinMeetingResponse = { bot_id?: string | null; status: string; idempotency_key: string; text_card?: { available: boolean; reason: string } | null };
+export type BotStatusResponse = { bot_id: string; status: string };
+export type TranscriptionResponse = { meeting_id: string; transcript_id: string; sequence: number; text: string; model: string };
 
 export type UserResponse = {
   id: string;
@@ -53,6 +56,7 @@ export type TeamMember = {
 export type TeamMemberResponse = {
   members: TeamMember[];
 };
+export type AuthConfig = { provider: string; configured: boolean; base_url: string; issuer: string | null };
 export type AddonAccessTokenResponse = { token: string; expires_at?: string; expiresIn?: number };
 export type VoteChoice = "support" | "later" | "ignore";
 export type LiveSnapshotResponse = {
@@ -130,3 +134,4 @@ export type DocumentStorageStatus = { document_id: string; storage_key: string; 
 export type DocumentSearchResult = { chunk_id: string; document_id: string; document_name: string; position: number; content: string; score: number };
 export type PersonalMessage = { id: string; meeting_id: string; role: string; content: string; created_at: string };
 export type Invitation = { id: string; team_id: string; email: string; role: string; status: string };
+export type DelegateProfile = { id: string; meeting_id: string; user_id: string; stance: string; constraints: string | null; must_raise: string | null; status: string };

@@ -16,12 +16,14 @@
 | `system.ts` | `getHealth`, `getReady` | `GET /health`, `GET /ready` |
 | `meetbot.ts` | `joinMeetingBot` | `POST /meetbot/join` |
 | `me.ts` | `getCurrentUser`, `updateCurrentUser` | `GET/PATCH /api/v1/me` |
-| `teams.ts` | 團隊與成員 CRUD | `/api/v1/teams...` |
+| `teams.ts` | 團隊、成員、改名、刪除、邀請 CRUD | `/api/v1/teams...` |
 | `meetings.ts` | list／get／create／update／start／end／cancel | `/api/v1/meetings` |
 | `participants.ts` | add／list／update／remove | `/api/v1/meetings/{meeting_id}/participants` |
 | `agenda.ts` | add／list／update／remove | `/api/v1/meetings/{meeting_id}/agenda` |
-| `meeting-features.ts` | 逐字稿、共識、回饋、行動項目、建議、個人訊息 | `/api/v1/meetings/{meeting_id}/...` |
-| `documents.ts` | 文件清單、建立、上傳、索引、刪除、記憶搜尋 | `/api/v1/teams/{team_id}/documents`、`/api/v1/documents/...` |
+| `meeting-features.ts` | 逐字稿轉錄、共識、回饋、行動項目、建議、投票明細、個人訊息與公開預覽／發布 | `/api/v1/meetings/{meeting_id}/...` |
+| `documents.ts` | 文件清單、建立、上傳、索引、封存、刪除、下載、版本、chunk、記憶搜尋 | `/api/v1/teams/{team_id}/documents`、`/api/v1/documents/...` |
+
+目前另有 `meetbot.ts`（join、status、leave、speak）與 `delegates.ts`（Delegate profile 建立／列表）。
 
 建立議程與新增參與者的 response 是精簡建立結果，分別為 `id/meeting_id/position` 與 `meeting_id/user_id/role`；完整欄位需再呼叫列表 API 取得，前端型別已按此區分。
 
@@ -35,12 +37,12 @@
 | meetings | Dashboard 總覽、團隊頁、建立會議、會前準備 | 已接入 |
 | agenda | 建立會議、會前準備的新增／修改／刪除／狀態更新 | 已接入 |
 | participants | 會前準備的讀取／加入／出席狀態更新／移除 | 已接入 |
-| meeting features | Review 結論、逐字稿與行動項目 | Review 已接入；其餘 function 已封裝 |
-| documents | Team Memory 清單、拖曳上傳、搜尋 | 已接入 |
+| meeting features | Review 結論、逐字稿、回饋、行動項目與 suggestions | 已接入 Web App／Live／Add-on |
+| documents | Team Memory 清單、拖曳上傳、搜尋與生命週期操作 | 已接入 |
 | meetbot/join | API function 保留供整合測試；正式 Prepare UI 不直接觸發 | 已封裝，產品操作待 meeting-scoped contract |
 
 ## 目前限制
 
 - 成員 API 已提供 `user_id`，前端可安全加入會議參與者。
-- Live 音訊串流、WebSocket 事件與 meeting-scoped Voice Bot contract 尚待後端提供事件格式及權限流程；meeting token handoff 暫不列入 MVP。
+- Live 音訊串流與 WebSocket 事件尚待後端 realtime gateway；Audio Setup 已接入批次 `/transcription`，Voice Bot 保留 join/status/leave/speak function。
 - 單次會議文件透過 `metadata.meeting_id` 綁定會議；上傳限制 PDF／TXT。

@@ -1,5 +1,7 @@
 # Proximate Frontend 開發計畫
 
+> **2026-09-05 整合狀態**：目前後端已提供的 REST 已由 Web App／Add-on 接入，包含團隊邀請與成員管理、會議生命週期、文件生命週期與版本、逐字稿轉錄、共識／回饋、行動項目、suggestions／投票、Personal Sidekick、Delegate，以及 Meeting BaaS Bot 操作。Audio Setup 使用批次 `/transcription`；Realtime WebSocket、Live Snapshot、meeting token handoff、VAD／streaming STT 與 meeting-scoped Voice Bot 仍等待後端正式契約，前端不以假 endpoint 取代。
+
 本文件只規劃前端工作，不代表功能已實作。每次只執行使用者指定的一個步驟；未經指定不得提前建立頁面、安裝套件、修改後端或串接外部服務。
 
 ## 視覺與字體規範

@@ -1,7 +1,9 @@
 import { http, request } from "./client";
-import type { ActionItem, Consensus, ConsensusFeedback, PersonalMessage, Suggestion, Transcript } from "../../types/api";
+import type { ActionItem, Consensus, ConsensusFeedback, PersonalMessage, Suggestion, Transcript, TranscriptionResponse } from "../../types/api";
 
 export const listTranscripts = (id: string) => request<Transcript[]>(() => http.get(`/api/v1/meetings/${id}/transcripts`));
+export const createTranscript = (id: string, payload: Omit<Transcript, "id" | "meeting_id">) => request<Transcript>(() => http.post(`/api/v1/meetings/${id}/transcripts`, payload));
+export const transcribeAudio = (id: string, file: File, options?: { speaker_label?: string; language?: string }) => { const body = new FormData(); body.append("file", file); body.append("speaker_label", options?.speaker_label ?? "unknown"); body.append("language", options?.language ?? "zh"); return request<TranscriptionResponse>(() => http.post(`/api/v1/meetings/${id}/transcription`, body, { headers: { "Content-Type": "multipart/form-data" } })); };
 export const listConsensus = (id: string) => request<Consensus[]>(() => http.get(`/api/v1/meetings/${id}/consensus`));
 export const createConsensus = (id: string, content: string) => request<Consensus>(() => http.post(`/api/v1/meetings/${id}/consensus`, { content }));
 export const listConsensusFeedback = (id: string, version: string) => request<ConsensusFeedback[]>(() => http.get(`/api/v1/meetings/${id}/consensus/${version}/feedback`));
