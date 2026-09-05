@@ -105,6 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           new: "建立會議",
           prepare: "議前討論",
           "pre-meeting-summary": "議前整理",
+          start: "開始會議",
           "audio-setup": "收音設定",
           addon: "Meet Add-on",
           live: "即時會議",

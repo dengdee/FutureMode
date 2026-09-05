@@ -266,7 +266,7 @@ function TabContent({
       />
     );
   if (tab === "host")
-    return <HostControlsTab meetingId={meetingId} snapshot={snapshot} />;
+    return <HostControlsTab />;
   return <SidekickTab meetingId={meetingId} />;
 }
 
