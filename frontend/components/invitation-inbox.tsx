@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "../lib/auth/client";
 import { http, request } from "../lib/api/client";
 import { toast } from "./ui/toast";
@@ -10,6 +10,7 @@ type Invite = { id: string; team_id: string; team_name: string; role: string };
 
 export function InvitationInbox() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
   const [items, setItems] = useState<Invite[]>([]);
@@ -53,7 +54,7 @@ export function InvitationInbox() {
   }
 
   const visibleItems = recipient === userId ? items : [];
-  if (!userId || !visibleItems.length) return null;
+  if (pathname !== "/dashboard" || !userId || !visibleItems.length) return null;
   return <section aria-label="站內團隊邀請" className="mb-6 rounded-2xl border border-[#cde5df] bg-white p-5">
     <h2 className="text-lg font-semibold">團隊邀請</h2>
     {visibleItems.map((item) => <div key={item.id} className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
