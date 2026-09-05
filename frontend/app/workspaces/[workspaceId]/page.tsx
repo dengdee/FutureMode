@@ -51,12 +51,18 @@ function isPreparationReady(meeting: MeetingSummary) {
   return meeting.status === "draft" && Boolean(deadline) && new Date(deadline!).getTime() <= Date.now();
 }
 
+function effectiveStatus(meeting: MeetingSummary) {
+  if (["completed", "cancelled"].includes(meeting.status)) return meeting.status;
+  if (meeting.scheduled_at && new Date(meeting.scheduled_at).getTime() <= Date.now()) return "in_progress";
+  return meeting.status;
+}
+
 function meetingStatusLabel(meeting: MeetingSummary) {
-  return isPreparationReady(meeting) ? "準備中" : statusLabel(meeting.status);
+  return effectiveStatus(meeting) === "in_progress" ? "進行中" : isPreparationReady(meeting) ? "準備中" : statusLabel(meeting.status);
 }
 
 function meetingStatusClass(meeting: MeetingSummary) {
-  return isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : statusClass(meeting.status);
+  return effectiveStatus(meeting) === "in_progress" ? statusClass("in_progress") : isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : statusClass(meeting.status);
 }
 
 export default function TeamOverviewPage() {

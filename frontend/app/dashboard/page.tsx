@@ -40,11 +40,17 @@ const isPreparationReady = (meeting: MeetingSummary) => {
   return meeting.status === "draft" && Boolean(deadline) && new Date(deadline!).getTime() <= Date.now();
 };
 
+const effectiveStatus = (meeting: MeetingSummary) => {
+  if (["completed", "cancelled"].includes(meeting.status)) return meeting.status;
+  if (meeting.scheduled_at && new Date(meeting.scheduled_at).getTime() <= Date.now()) return "in_progress";
+  return meeting.status;
+};
+
 const meetingStatusLabel = (meeting: MeetingSummary) =>
-  isPreparationReady(meeting) ? "準備中" : (statusLabel[meeting.status] ?? meeting.status);
+  effectiveStatus(meeting) === "in_progress" ? "進行中" : isPreparationReady(meeting) ? "準備中" : (statusLabel[meeting.status] ?? meeting.status);
 
 const meetingStatusClass = (meeting: MeetingSummary) =>
-  isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : (statusClass[meeting.status] ?? "bg-slate-100 text-slate-700");
+  effectiveStatus(meeting) === "in_progress" ? statusClass.in_progress : isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : (statusClass[meeting.status] ?? "bg-slate-100 text-slate-700");
 
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString("zh-TW") : "尚未設定時間";
