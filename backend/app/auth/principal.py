@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from http.cookies import SimpleCookie
 from typing import Any
 
 import httpx
@@ -22,13 +23,36 @@ class Principal:
 async def get_current_principal(
     request: Request, settings: Settings = Depends(get_settings)
 ) -> Principal:
-    return await principal_from_authorization(request.headers.get("Authorization", ""), settings)
+    authorization = request.headers.get("Authorization", "")
+    if not authorization:
+        token = _session_cookie_token(request.headers.get("Cookie", ""))
+        if token:
+            authorization = f"Bearer {token}"
+    return await principal_from_authorization(authorization, settings)
 
 
 async def get_websocket_principal(
     websocket: WebSocket, settings: Settings = Depends(get_settings)
 ) -> Principal:
-    return await principal_from_authorization(websocket.headers.get("Authorization", ""), settings)
+    authorization = websocket.headers.get("Authorization", "")
+    if not authorization:
+        token = _session_cookie_token(websocket.headers.get("Cookie", ""))
+        if token:
+            authorization = f"Bearer {token}"
+    return await principal_from_authorization(authorization, settings)
+
+
+def _session_cookie_token(cookie_header: str) -> str | None:
+    """Read either Neon Auth cookie name without exposing its value in logs."""
+    if not cookie_header:
+        return None
+    cookies = SimpleCookie()
+    cookies.load(cookie_header)
+    for name in ("__Secure-neon-auth.session_token", "neon-auth.session_token"):
+        value = cookies.get(name)
+        if value and value.value.strip():
+            return value.value.strip()
+    return None
 
 
 async def principal_from_authorization(authorization: str, settings: Settings) -> Principal:
@@ -54,7 +78,12 @@ async def principal_from_authorization(authorization: str, settings: Settings) -
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
                     session_url,
-                    headers={"Cookie": f"__Secure-neon-auth.session_token={token}"},
+                    headers={
+                        "Cookie": (
+                            f"__Secure-neon-auth.session_token={token}; "
+                            f"neon-auth.session_token={token}"
+                        )
+                    },
                 )
                 response.raise_for_status()
             logger.info("session_request_status=%s", response.status_code)
