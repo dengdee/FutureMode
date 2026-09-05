@@ -4,6 +4,10 @@
 
 ## 已完成：可由使用者操作的 Web App
 
+- Next.js App Router、TypeScript、Tailwind、共用 App Shell、中文導覽與響應式基礎。
+- Neon Auth 登入／註冊、session cookie 與短效 JWT Bearer 注入；邀請使用已驗證的帳號身分，不需 Email claims 或額外 session 補齊。
+- 站內邀請不寄送 Email；管理員輸入 Email，後端只在找到已註冊帳號時建立 ID 綁定邀請，受邀者登入後可接受／拒絕。系統不顯示帳號搜尋清單。
+- Audio Setup 的瀏覽器收音與批次轉錄。
 - 團隊入口拆為團隊總覽、成員與邀請、團隊會議、團隊記憶四個子頁；成員角色、移除、邀請清單與取消邀請均可操作。
 - 建立會議採「團隊 → 會議資訊 → 議程」流程，提供常用議程範本與手動增修；AI 介入程度改為含說明的低／中／高選項。
 - 會前 Prepare 整合會議生命週期、Brief、議程、參與者、Personal Sidekick 的私訊／預覽／公開，以及 Delegate 的立場、限制與 must-raise 設定。
@@ -25,7 +29,7 @@
 ## 需要後端契約或部署決策
 
 - Add-on 專用短效 meeting-token handoff、Google Meet manifest／正式部署。
-- Realtime 的生產 broker、事件持久化、cursor replay 與跨程序一致性。
+- Realtime 後端已有 Redis broker、事件持久化與 cursor replay；仍需完成前端 replay／重連串接及生產環境跨程序一致性驗收。
 - VAD／streaming STT、meeting-scoped Voice Bot 的權限矩陣與正式事件 schema。
 - Host、會議政策、required participants 的持久化 schema；目前會議建立 API 沒有這些可儲存欄位。
 

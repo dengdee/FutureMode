@@ -20,8 +20,11 @@ Base URL：`http://localhost:8000`
 | GET/POST | `/api/v1/teams` | 取得／建立團隊 |
 | PATCH/DELETE | `/api/v1/teams/{team_id}` | 修改／刪除團隊 |
 | GET/PATCH/DELETE | `/api/v1/teams/{team_id}/members[/{user_id}]` | 成員列表、角色修改、移除 |
-| GET/POST | `/api/v1/teams/{team_id}/invitations` | 邀請列表／寄送邀請 |
+| GET/POST | `/api/v1/teams/{team_id}/invitations` | Admin 查看／建立站內邀請（不寄送 Email） |
 | DELETE | `/api/v1/teams/{team_id}/invitations/{invitation_id}` | 取消邀請 |
+| GET | `/api/v1/me/invitations` | 目前登入者查看自己的待處理站內邀請 |
+| POST | `/api/v1/me/invitations/{invitation_id}/accept` | 接受邀請並加入團隊 |
+| POST | `/api/v1/me/invitations/{invitation_id}/decline` | 拒絕邀請 |
 
 ## 會議、參與者與議程
 
@@ -108,4 +111,8 @@ Base URL：`http://localhost:8000`
 }
 ```
 
-登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`。
+登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`、`GET /api/v1/me/invitations`。
+
+站內邀請以選定帳號的 `recipient_user_id` 配對已驗證身分，不依賴 Email claims 或 Email 驗證旗標，不寄送 Email。建立 body：`{"recipient_user_id":"<users/search 回傳的 id>","role":"member"}`。JWT 簽章、issuer、audience、有效期限仍會先驗證。舊 Email 邀請需由管理員取消後重新選擇帳號；資料庫需更新至 0021。完整流程與遷移方式見 [IN_APP_INVITATIONS.md](IN_APP_INVITATIONS.md)。
+
+session Cookie 必須實際送到後端；缺少 Cookie／Email 回傳 403，session 過期或帳號不符回傳 401，上游失敗回傳 503。session 回應即使為 200，Email 未驗證仍回傳 403。測試使用真實簽章 JWT 與模擬 Neon Auth 回應；實際登入仍需確認瀏覽器請求包含 Cookie。

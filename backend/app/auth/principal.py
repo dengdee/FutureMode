@@ -30,7 +30,12 @@ async def get_current_principal(
         token = _session_cookie_token(cookie_header)
         if token:
             authorization = f"Bearer {token}"
-    return await principal_from_authorization(authorization, settings, cookie_header=cookie_header)
+    principal = await principal_from_authorization(
+        authorization, settings, cookie_header=cookie_header,
+    )
+    return principal
+
+
 
 
 async def get_websocket_principal(

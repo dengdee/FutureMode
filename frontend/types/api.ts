@@ -136,5 +136,5 @@ export type DocumentDownloadUrl = { document_id: string; url: string; expires_in
 export type DocumentStorageStatus = { document_id: string; storage_key: string; exists: boolean };
 export type DocumentSearchResult = { chunk_id: string; document_id: string; document_name: string; position: number; content: string; score: number };
 export type PersonalMessage = { id: string; meeting_id: string; role: string; content: string; created_at: string };
-export type Invitation = { id: string; team_id: string; email: string; role: string; status: string };
+export type Invitation = { id: string; team_id: string; email: string | null; recipient_user_id: string | null; recipient_name: string | null; role: string; status: string };
 export type DelegateProfile = { id: string; meeting_id: string; user_id: string; stance: string; constraints: string | null; must_raise: string | null; status: string };

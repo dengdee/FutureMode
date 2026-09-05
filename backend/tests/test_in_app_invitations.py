@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.dialects import postgresql
 
-from app.api.teams import invitation_email, my_invitations, principal_name, respond_invitation
+from app.api.teams import my_invitations, principal_name, respond_invitation
 from app.auth.principal import Principal
 from app.models import TeamInvitation
 
@@ -14,7 +14,7 @@ from app.models import TeamInvitation
 def principal(**overrides):
     return Principal(
         "recipient",
-        {"email": "Person@Example.com", "email_verified": True, "name": "小明", **overrides},
+        {"name": "小明", **overrides},
     )
 
 
@@ -26,21 +26,7 @@ def db():
     return session
 
 
-@pytest.mark.parametrize(
-    "claims", [{"email_verified": False}, {"email": None}, {"email_verified": "true"}]
-)
-def test_unverified_email_cannot_claim_invitation(claims):
-    with pytest.raises(HTTPException) as error:
-        invitation_email(principal(**claims))
-    assert error.value.status_code == 403
-
-
-def test_verified_email_and_name_normalized():
-    assert invitation_email(principal()) == "person@example.com"
-    assert (
-        invitation_email(principal(email_verified=False, emailVerified=True))
-        == "person@example.com"
-    )
+def test_profile_name_normalized():
     assert principal_name(principal(name=" 小明 ")) == "小明"
     assert principal_name(principal(name=None)) is None
 
@@ -56,8 +42,9 @@ def test_response_uses_locked_recipient_scope_and_atomic_commit(action, status):
     assert result["status"] == invite.status == status
     statement = session.scalar.call_args_list[0].args[0].compile(dialect=postgresql.dialect())
     assert "FOR UPDATE" in str(statement)
-    assert "person@example.com" in statement.params.values()
-    assert "lower(team_invitations.email)" in str(statement)
+    assert "recipient" in statement.params.values()
+    assert "team_invitations.recipient_user_id IN" in str(statement)
+    assert "users.external_id =" in str(statement)
     session.commit.assert_awaited_once()
     if action == "accept":
         membership = session.execute.call_args.args[0].compile(dialect=postgresql.dialect())
@@ -106,5 +93,6 @@ def test_inbox_filters_recipient_and_syncs_verified_name():
         for call in session.execute.call_args_list
     ]
     assert statements[0].params["display_name"] == "小明"
-    assert "person@example.com" in statements[1].params.values()
+    assert "recipient" in statements[1].params.values()
+    assert "team_invitations.recipient_user_id IN" in str(statements[1])
     assert "pending" in statements[1].params.values()

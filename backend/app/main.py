@@ -167,6 +167,18 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     status_code = exc.status_code
     message = status_messages.get(status_code, "服務暫時無法處理請求")
     code = "http_error" if status_code < 500 else "upstream_error"
+    if status_code == 403:
+        invitation_errors = {
+            "invitation_identity_email_missing": (
+                "invitation_email_missing", "登入驗證資料未包含 Email，無法配對站內邀請。"
+            ),
+            "invitation_identity_email_unverified": (
+                "invitation_email_unverified", "登入帳號的 Email 尚未驗證，無法領取站內邀請。"
+            ),
+        }
+        if isinstance(exc.detail, str) and exc.detail in invitation_errors:
+            code, message = invitation_errors[exc.detail]
+            logger.info("invitation_access_denied reason=%s", code)
     if status_code == 503:
         known_failures = {
             "authentication service unavailable": (
