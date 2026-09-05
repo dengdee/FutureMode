@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 
-from app.api.meetings import authorized_meeting
+from app.api.meetings import authorized_meeting, find_user_id
 from app.auth.principal import Principal, get_websocket_principal
 from app.config import get_settings
 from app.db.session import get_session
@@ -22,14 +22,16 @@ async def meeting_events(
         principal: Principal = await get_websocket_principal(websocket, get_settings())
         async for session in get_session(websocket.app.state.settings):
             await authorized_meeting(meeting_id, principal, session)
+            user_id = await find_user_id(session, principal.subject)
             break
     except HTTPException:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     await websocket.accept()
+    connection = await websocket.app.state.room_registry.connect(meeting_id, user_id)
     try:
         while True:
             await websocket.receive()
     except WebSocketDisconnect:
-        return
+        await websocket.app.state.room_registry.disconnect(connection)
