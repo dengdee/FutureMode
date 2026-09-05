@@ -4,20 +4,17 @@ import {
   IconArrowUpRight,
   IconCheck,
   IconClock,
-  IconPlayerPlay,
   IconSparkles,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import { listAgendaItems } from "../../../../lib/api/agenda";
 import {
-  cancelMeeting,
   endMeeting,
   getMeeting,
-  startMeeting,
 } from "../../../../lib/api/meetings";
 import type { AgendaItem, MeetingSummary } from "../../../../types/api";
 
@@ -31,7 +28,6 @@ const statusLabels: Record<string, string> = {
 
 export default function PreMeetingSummaryPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [meeting, setMeeting] = useState<MeetingSummary | null>(null);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [deadline, setDeadline] = useState("");
@@ -72,17 +68,6 @@ export default function PreMeetingSummaryPage() {
       setBusy(false);
     }
   }
-  async function startAndEnterLive() {
-    setBusy(true);
-    setError("");
-    try {
-      await startMeeting(id);
-      router.push(`/meetings/${id}/live`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "無法開始會議。",);
-      setBusy(false);
-    }
-  }
   if (loading)
     return (
       <AppShell>
@@ -101,7 +86,6 @@ export default function PreMeetingSummaryPage() {
       </AppShell>
     );
   const ready = Boolean(deadline) && new Date(deadline).getTime() <= Date.now();
-  const canStart = meeting.status === "draft" || meeting.status === "scheduled";
   const isPreparing = meeting.status === "draft" && ready;
   return (
     <AppShell>
@@ -115,17 +99,6 @@ export default function PreMeetingSummaryPage() {
             AI 已彙整本場會議的討論脈絡
           </span>
           <div className="ml-auto flex flex-wrap gap-2">
-            {canStart && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void startAndEnterLive()}
-                className="inline-flex items-center gap-1 rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                <IconPlayerPlay size={16} />
-                開始會議
-              </button>
-            )}
             {meeting.status === "in_progress" && (
               <Link
                 href={`/meetings/${id}/live`}
@@ -143,18 +116,6 @@ export default function PreMeetingSummaryPage() {
               >
                 <IconCheck size={16} />
                 結束會議
-              </button>
-            )}
-            {canStart && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void run(() => cancelMeeting(id), "會議已取消。")
-                }
-                className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700"
-              >
-                取消未開始的會議
               </button>
             )}
           </div>
