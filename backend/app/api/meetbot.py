@@ -1,390 +1,221 @@
-import httpx
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel, HttpUrl
+"""Compatibility routes for the Meeting BaaS voice-bot integration."""
+
 import asyncio
+import hashlib
 import wave
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
-
-from app.config import get_settings
-
-router = APIRouter(
-    prefix="/meetbot",
-    tags=["meetbot"],
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
 )
+from pydantic import BaseModel, Field, HttpUrl
 
-settings = get_settings()
+from app.config import Settings, get_settings
+from app.integrations.meetingbaas import MeetingBaasClient, MeetingBaasError
+
+router = APIRouter(prefix="/meetbot", tags=["meetbot"])
+HELLO_WAV = Path(__file__).resolve().parent.parent / "audio" / "hello.wav"
+
 
 class JoinMeetingRequest(BaseModel):
     meeting_url: HttpUrl
 
-class LeaveMeetingRequest(BaseModel):
+
+class TextCardFallback(BaseModel):
+    available: bool = True
+    reason: str
+
+
+class JoinMeetingResponse(BaseModel):
+    bot_id: str | None = None
+    status: str = Field(description="pending or text_card")
+    idempotency_key: str
+    text_card: TextCardFallback | None = None
+
+
+class BotStatusResponse(BaseModel):
     bot_id: str
+    status: str
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-HELLO_WAV = BASE_DIR /"audio" / "hello.wav"
+class LeaveMeetingResponse(BaseModel):
+    bot_id: str
+    status: str = "leaving"
 
-print("HELLO_WAV =", HELLO_WAV)
-print("EXISTS =", HELLO_WAV.exists())
-
-
-# =========================
-# Audio Input Manager
-# =========================
 
 class AudioInputManager:
-    def __init__(self):
+    """Holds the active Meeting BaaS input socket for the existing WAV playback flow."""
+
+    def __init__(self) -> None:
         self.websocket: WebSocket | None = None
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.websocket = websocket
-
-        print("================================")
-        print("Meeting BaaS Audio Input Connected")
-        print("================================")
-
-    async def disconnect(self):
-        self.websocket = None
-
-        print("================================")
-        print("Meeting BaaS Audio Input Disconnected")
-        print("================================")
-
-    async def send_pcm(self, pcm_data: bytes):
+    async def send_wav(self, wav_path: Path) -> None:
         if self.websocket is None:
-            raise RuntimeError(
-                "Meeting BaaS 尚未連接 /ws/audio-in"
-            )
-
-        await self.websocket.send_bytes(pcm_data)
-
-    async def send_wav(self, wav_path: str):
-        if self.websocket is None:
-            raise RuntimeError(
-                "Meeting BaaS 尚未連接 /ws/audio-in"
-            )
-
-        print(f"開始播放：{wav_path}")
-
-        with wave.open(wav_path, "rb") as wav:
-
-            channels = wav.getnchannels()
-            sample_width = wav.getsampwidth()
-            sample_rate = wav.getframerate()
-
-            print(f"channels    = {channels}")
-            print(f"sample_width = {sample_width * 8} bit")
-            print(f"sample_rate = {sample_rate} Hz")
-
-            if channels != 1:
-                raise ValueError("WAV 必須是 Mono")
-
-            if sample_width != 2:
-                raise ValueError("WAV 必須是 16-bit PCM")
-
-            if sample_rate != 24000:
-                raise ValueError(
-                    f"WAV 必須是 24000 Hz，目前是 {sample_rate} Hz"
-                )
-
-            # 2400 samples = 100 ms @ 24 kHz
-            chunk_size = 2400
-
-            while True:
-
-                pcm_data = wav.readframes(chunk_size)
-
-                if not pcm_data:
-                    break
-
-                # 只傳 raw PCM
+            raise RuntimeError("Meeting BaaS 尚未連接 /meetbot/ws/audio-in")
+        with wave.open(str(wav_path), "rb") as wav:
+            if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or wav.getframerate() != 24000:
+                raise ValueError("語音檔必須為 24 kHz、mono、16-bit PCM WAV")
+            while pcm_data := wav.readframes(2400):
                 await self.websocket.send_bytes(pcm_data)
-
-                # 讓播放速度接近即時
                 await asyncio.sleep(0.1)
-
-        print("音訊播放完成")
 
 
 audio_manager = AudioInputManager()
 
 
+class _JoinRegistry:
+    """Process-local duplicate protection until bot_sessions persistence is wired in."""
 
-# =========================
-# Helper
-# =========================
+    def __init__(self) -> None:
+        self._responses: dict[str, JoinMeetingResponse] = {}
+        self._lock = asyncio.Lock()
 
-def get_headers() -> dict[str, str]:
-    if not settings.meeting_baas_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Meeting BaaS 尚未設定",
-        )
+    async def get_or_create(
+        self,
+        key: str,
+        create: Callable[[], Awaitable[JoinMeetingResponse]],
+    ) -> JoinMeetingResponse:
+        async with self._lock:
+            if existing := self._responses.get(key):
+                return existing
+            response = await create()
+            if response.bot_id:
+                self._responses[key] = response
+            return response
 
-    return {
-        "Content-Type": "application/json",
-        "x-meeting-baas-api-key": settings.meeting_baas_api_key,
-    }
 
-# =========================
-# Join Meeting
-# =========================
-@router.post("/join")
-async def join_meeting(request: JoinMeetingRequest):
-    if not settings.meeting_baas_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Meeting BaaS 尚未設定",
-        )
+join_registry = _JoinRegistry()
 
-    headers = {
-        "Content-Type": "application/json",
-        "x-meeting-baas-api-key": settings.meeting_baas_api_key,
-    }
 
-    payload = {
+def get_meeting_baas_client(
+    settings: Settings = Depends(get_settings),
+) -> AsyncIterator[MeetingBaasClient]:
+    yield MeetingBaasClient(settings)
+
+
+def _idempotency_key(meeting_url: HttpUrl, supplied_key: str | None) -> str:
+    if supplied_key and supplied_key.strip():
+        return supplied_key.strip()
+    # Legacy clients do not send a key. The stable URL-derived key protects them too.
+    return hashlib.sha256(str(meeting_url).encode()).hexdigest()
+
+
+def _provider_data(response: dict[str, Any]) -> dict[str, Any]:
+    """Meeting BaaS v2 returns successful payloads in a ``data`` envelope."""
+    data = response.get("data")
+    return data if isinstance(data, dict) else response
+
+
+@router.post("/join", response_model=JoinMeetingResponse, status_code=status.HTTP_201_CREATED)
+async def join_meeting(
+    request: JoinMeetingRequest,
+    idempotency_key_header: str | None = Header(None, alias="Idempotency-Key"),
+    client: MeetingBaasClient = Depends(get_meeting_baas_client),
+) -> JoinMeetingResponse:
+    """Join once, returning a stable result rather than raw provider JSON."""
+    key = _idempotency_key(request.meeting_url, idempotency_key_header)
+    payload: dict[str, Any] = {
         "meeting_url": str(request.meeting_url),
         "bot_name": "Proximate AI",
-
         "streaming_enabled": True,
         "streaming_config": {
             "output_url": None,
-            "input_url": settings.meeting_baas_input_url,
-            "audio_frequency": 24000
-        }
+            "input_url": client.settings.meeting_baas_input_url,
+            "audio_frequency": 24000,
+        },
     }
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                settings.meeting_baas_url,
-                headers=headers,
-                json=payload,
+    async def create() -> JoinMeetingResponse:
+        try:
+            provider_bot = await client.create_bot(payload, idempotency_key=key)
+        except MeetingBaasError:
+            # Provider details are intentionally neither returned nor logged here.
+            return JoinMeetingResponse(
+                status="text_card",
+                idempotency_key=key,
+                text_card=TextCardFallback(reason="voice_bot_unavailable"),
             )
-
-    except httpx.RequestError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Meeting BaaS connection failed: {exc}",
-        ) from exc
-
-    if response.is_error:
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=response.text,
-        )
-
-    return response.json()
-
-# =========================
-# Get Bot
-# =========================
-
-@router.get("/{bot_id}")
-async def get_bot(bot_id: str):
-    """
-    查詢 Bot 狀態。
-    """
-
-    headers = get_headers()
-
-    url = f"{settings.meeting_baas_url}/{bot_id}"
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                url,
-                headers=headers,
+        bot = _provider_data(provider_bot)
+        bot_id = bot.get("bot_id") or bot.get("id")
+        if not isinstance(bot_id, str) or not bot_id:
+            return JoinMeetingResponse(
+                status="text_card",
+                idempotency_key=key,
+                text_card=TextCardFallback(reason="voice_bot_unavailable"),
             )
+        return JoinMeetingResponse(bot_id=bot_id, status="pending", idempotency_key=key)
 
-    except httpx.RequestError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Meeting BaaS connection failed: {exc}",
-        ) from exc
+    return await join_registry.get_or_create(key, create)
 
-    if response.is_error:
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=response.text,
-        )
 
+@router.get("/{bot_id}", response_model=BotStatusResponse)
+async def get_bot_status(
+    bot_id: str,
+    client: MeetingBaasClient = Depends(get_meeting_baas_client),
+) -> BotStatusResponse:
     try:
-        return response.json()
-    except ValueError:
-        raise HTTPException(
-            status_code=502,
-            detail="Meeting BaaS returned invalid JSON",
-        ) from None
+        provider_bot = await client.get_bot(bot_id)
+    except MeetingBaasError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+    bot = _provider_data(provider_bot)
+    provider_status = bot.get("status")
+    return BotStatusResponse(
+        bot_id=str(bot.get("bot_id") or bot.get("id") or bot_id),
+        status=provider_status if isinstance(provider_status, str) else "unknown",
+    )
 
-@router.post("/{bot_id}/leave")
-async def leave_meeting(bot_id: str):
-    """
-    讓 Meeting BaaS Bot 離開目前的會議。
-    """
 
-    headers = get_headers()
-
-    url = f"{settings.meeting_baas_url}/{bot_id}/leave"
-
+@router.post("/{bot_id}/leave", response_model=LeaveMeetingResponse)
+async def leave_meeting(
+    bot_id: str,
+    client: MeetingBaasClient = Depends(get_meeting_baas_client),
+) -> LeaveMeetingResponse:
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                url,
-                headers=headers,
-                json={},
-            )
-
-    except httpx.RequestError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Meeting BaaS connection failed: {exc}",
-        ) from exc
-
-    if response.is_error:
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=response.text,
-        )
-
-    try:
-        return response.json()
-    except ValueError:
-        return {
-            "success": True,
-            "bot_id": bot_id,
-            "response": response.text,
-        }
+        await client.leave_bot(bot_id)
+    except MeetingBaasError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+    return LeaveMeetingResponse(bot_id=bot_id)
 
 
-@router.websocket("/ws/meeting")
-async def meeting_transcription(websocket: WebSocket):
-    await websocket.accept()
+class SpeakRequest(BaseModel):
+    approved_text_id: str | None = Field(default=None, min_length=1)
+    approved_text_version: int | None = Field(default=None, ge=1)
 
-    print("Meeting BaaS WebSocket connected")
 
-    try:
-        while True:
-
-            event = await websocket.receive_json()
-
-            print("\n===== STT =====")
-            print(event)
-
-            if event.get("event") != "transcript.segment":
-                continue
-
-            data = event.get("data", {})
-
-            text = data.get("text")
-            is_final = data.get("isFinal")
-
-            speaker = data.get("speaker", {})
-
-            speaker_name = speaker.get("name")
-            speaker_id = speaker.get("id")
-
-            start = data.get("utteranceStart")
-            end = data.get("utteranceEnd")
-
-            if text:
-                print(
-                    f"[{start:.2f}s - {end:.2f}s] "
-                    f"{speaker_name}: {text}"
-                )
-
-    except WebSocketDisconnect:
-        print("Meeting BaaS WebSocket disconnected")
-
-# =========================
-# Meeting BaaS Audio Input
-# =========================
 @router.websocket("/ws/audio-in")
-async def meeting_audio_input(websocket: WebSocket):
-    print("================================")
-    print("WebSocket request received")
-    print("client =", websocket.client)
-    print("headers =", dict(websocket.headers))
-    print("================================")
-
+async def meeting_audio_input(websocket: WebSocket) -> None:
+    """Accept the provider's input-audio connection without logging its headers."""
     await websocket.accept()
-
     audio_manager.websocket = websocket
-
-    print("================================")
-    print("Meeting BaaS Audio Input Connected")
-    print("audio_manager.websocket =", audio_manager.websocket)
-    print("================================")
-
     try:
         while True:
-            message = await websocket.receive()
-
-            print(
-                "WebSocket message:",
-                message.get("type"),
-                "bytes=",
-                len(message.get("bytes") or b""),
-            )
-
-    except WebSocketDisconnect as exc:
-        print("================================")
-        print("Meeting BaaS Audio Input Disconnected")
-        print("code =", exc.code)
-        print("================================")
-
+            await websocket.receive()
+    except WebSocketDisconnect:
+        pass
+    finally:
         if audio_manager.websocket is websocket:
             audio_manager.websocket = None
 
-    except Exception as exc:
-        print("================================")
-        print("WebSocket error:", repr(exc))
-        print("================================")
-
-        if audio_manager.websocket is websocket:
-            audio_manager.websocket = None
 
 @router.post("/speak")
-async def speak():
-    print("================================")
-    print("SPEAK REQUEST")
-    print("audio_manager.websocket =", audio_manager.websocket)
-    print("================================")
+async def speak(_: SpeakRequest | None = None) -> dict[str, str]:
+    """Play the existing fixed, pre-approved greeting through the input socket.
 
+    Dynamic speech remains disabled until approved_text persistence is available.
+    """
+    if not HELLO_WAV.is_file():
+        raise HTTPException(status_code=404, detail="找不到預設語音檔")
     try:
-        await audio_manager.send_wav(str(HELLO_WAV))
-
-        return {
-            "success": True,
-            "message": "Audio sent to meeting",
-        }
-
+        await audio_manager.send_wav(HELLO_WAV)
     except RuntimeError as exc:
-        print("SPEAK RuntimeError:", repr(exc))
-        raise HTTPException(
-            status_code=503,
-            detail=str(exc),
-        )
-
+        raise HTTPException(status_code=503, detail=str(exc)) from None
     except ValueError as exc:
-        print("SPEAK ValueError:", repr(exc))
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        )
-
-    except FileNotFoundError:
-        print("SPEAK FileNotFoundError")
-        raise HTTPException(
-            status_code=404,
-            detail="找不到 audio/hello.wav",
-        )
-
-    except Exception as exc:
-        print("SPEAK ERROR:", repr(exc))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Audio sending failed: {exc}",
-        )
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    return {"status": "sent", "message": "Audio sent to meeting"}

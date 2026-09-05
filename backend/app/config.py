@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     r2_presigned_expiry_seconds: int = 600
     groq_api_key: str | None = None
     groq_stt_model: str = "whisper-large-v3-turbo"
+    meeting_baas_timeout_seconds: float = 10.0
+    meeting_baas_max_retries: int = 2
     neon_auth_issuer: str | None = None
     neon_auth_base_url: str | None = None
     neon_auth_audience: str | None = None
