@@ -121,6 +121,24 @@ class SuggestionVoteCreate(BaseModel):
     vote: str = Field(pattern="^(support|reject|abstain)$")
 
 
+class VoiceRequestCreate(BaseModel):
+    suggestion_id: UUID | None = None
+    approved_text: str | None = Field(default=None, max_length=20_000)
+
+
+class VoiceBotStatusResponse(BaseModel):
+    meeting_id: UUID
+    status: str
+    request_id: UUID | None = None
+    suggestion_id: UUID | None = None
+    approved_text_version: int | None = None
+    message: str | None = None
+
+
+class VoiceHostAction(BaseModel):
+    action: str = Field(pattern="^(approve|reject|retry|pause|resume)$")
+
+
 class PersonalMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20_000)
 
