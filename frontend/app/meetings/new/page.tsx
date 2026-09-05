@@ -150,8 +150,8 @@ export default function NewMeetingPage() {
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!title.trim() || !teamId) {
-      setError("請選擇團隊並填寫會議名稱。");
+    if (!title.trim() || !teamId || !prepDeadline) {
+      setError("請選擇團隊、填寫會議名稱與參與者填寫期限。");
       return;
     }
     setSubmitting(true);
@@ -168,11 +168,10 @@ export default function NewMeetingPage() {
           `proximate:meeting-url:${meeting.id}`,
           meetUrl.trim(),
         );
-      if (prepDeadline)
-        localStorage.setItem(
-          `proximate:prep-deadline:${meeting.id}`,
-          prepDeadline,
-        );
+      localStorage.setItem(
+        `proximate:prep-deadline:${meeting.id}`,
+        prepDeadline,
+      );
       for (const member of members.filter(
         (member) => selectedMembers[member.user_id],
       )) {
@@ -252,8 +251,8 @@ export default function NewMeetingPage() {
             </label>
             <label className="block text-sm font-medium">
               參與者填寫期限
-              <span className="ml-1 font-normal text-[#787774]">（選填）</span>
               <input
+                required
                 type="datetime-local"
                 value={prepDeadline}
                 onChange={(event) => setPrepDeadline(event.target.value)}
