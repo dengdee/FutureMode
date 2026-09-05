@@ -51,6 +51,20 @@ class MeetingSummary(BaseModel):
     ai_intervention_level: str
 
 
+class BriefItem(BaseModel):
+    position: int
+    title: str
+    description: str | None = None
+
+
+class MeetingBrief(BaseModel):
+    meeting_id: UUID
+    generated_at: datetime
+    generated_by: str
+    summary: str
+    agenda: list[BriefItem]
+
+
 class TranscriptCreate(BaseModel):
     speaker_user_id: UUID | None = None
     speaker_label: str = Field(min_length=1, max_length=255)
