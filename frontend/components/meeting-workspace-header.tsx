@@ -14,7 +14,7 @@ export function MeetingWorkspaceHeader({
   const router = useRouter();
   const phaseLabel = {
     prepare: "議前討論",
-    summary: "議前準備",
+    summary: "議前整理",
     review: "會後回顧",
     audio: "收音設定",
     live: "即時會議",
@@ -40,7 +40,7 @@ export function MeetingWorkspaceHeader({
             {title ?? "會議工作區"}
           </h1>
           <p className="mt-2 text-sm text-[#787774]">
-            依序完成議前討論、議前準備、會中協作與會後確認。
+            依序完成議前討論、議前整理、會中協作與會後確認。
           </p>
         </div>
       </div>

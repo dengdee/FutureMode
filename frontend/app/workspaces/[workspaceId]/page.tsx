@@ -154,7 +154,7 @@ export default function TeamOverviewPage() {
               <div>
                 <h2 className="text-lg font-semibold">團隊會議</h2>
                 <p className="mt-1 text-sm text-[#787774]">
-                  查看最近會議並繼續議前準備，或建立新的會議。
+                  查看最近會議並繼續議前整理，或建立新的會議。
                 </p>
               </div>
             </div>
@@ -192,14 +192,14 @@ export default function TeamOverviewPage() {
                           href={`/meetings/${meeting.id}/pre-meeting-summary`}
                           className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
                         >
-                          議前準備
+                          議前整理
                         </Link>
                       ) : (
                         <span
                           title="參與者填寫期限到後開放"
                           className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]"
                         >
-                          議前準備
+                          議前整理
                         </span>
                       )}
                     </div>

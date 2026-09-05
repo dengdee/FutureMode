@@ -51,7 +51,7 @@ export default function PreMeetingSummaryPage() {
   useEffect(() => {
     refresh()
       .catch((cause) =>
-        setError(cause instanceof Error ? cause.message : "無法讀取議前準備。"),
+        setError(cause instanceof Error ? cause.message : "無法讀取議前整理。"),
       )
       .finally(() => setLoading(false));
   }, [id]);
@@ -151,7 +151,7 @@ export default function PreMeetingSummaryPage() {
             <IconSparkles size={20} />
           </span>
           <div>
-            <h2 className="text-lg font-semibold">AI 議前準備</h2>
+            <h2 className="text-lg font-semibold">AI 議前整理</h2>
             <p className="mt-1 text-sm leading-6 text-[#787774]">
               在所有參與者完成議前討論後，這裡會彙整共同議程、已確認共識與待解決衝突。
             </p>
@@ -170,8 +170,8 @@ export default function PreMeetingSummaryPage() {
             {ready
               ? "期限已到；可檢視本場共通議程並設定收音。"
               : deadline
-                ? "期限尚未到，為保護每位成員的準備時間，議前準備與收音設定目前保持停用。"
-                : "請在建立下一場會議時設定期限，AI 才能在正確時間開放議前準備。"}
+                ? "期限尚未到，為保護每位成員的準備時間，議前整理與收音設定目前保持停用。"
+                : "請在建立下一場會議時設定期限，AI 才能在正確時間開放議前整理。"}
           </p>
         </div>
       </section>
@@ -206,7 +206,7 @@ export default function PreMeetingSummaryPage() {
       <section className="mt-6 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
         <h2 className="text-lg font-semibold">進入會議前</h2>
         <p className="mt-1 text-sm leading-6 text-[#787774]">
-          收音設定只在議前準備完成後開放，讓每位成員先了解本場脈絡與授權範圍。
+          收音設定只在議前整理完成後開放，讓每位成員先了解本場脈絡與授權範圍。
         </p>
         {ready ? (
           <Link
