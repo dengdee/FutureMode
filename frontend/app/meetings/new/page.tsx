@@ -260,7 +260,7 @@ export default function NewMeetingPage() {
                 className={fieldClass}
               />
               <span className="mt-1 block text-xs font-normal text-[#787774]">
-                期限到後才開放 AI 的議前整理。
+                期限到後才開放 AI 的議前準備。
               </span>
             </label>
           </div>
@@ -370,31 +370,33 @@ export default function NewMeetingPage() {
           </div>
         </section>
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
-          <div className="flex items-start gap-3">
-            <IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} />
-            <div>
-              <h2 className="text-lg font-semibold">議程範本</h2>
-              <p className="mt-1 text-sm leading-6 text-[#787774]">
-                範本是共同起點；建立後每位參與者針對同一組議程和自己的 Agent
-                討論。
-              </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} />
+              <div>
+                <h2 className="text-lg font-semibold">議程範本</h2>
+                <p className="mt-1 text-sm leading-6 text-[#787774]">
+                  範本是共同起點；建立後每位參與者針對同一組議程和自己的 Agent
+                  討論。
+                </p>
+              </div>
             </div>
+            <label className="block sm:w-72 sm:shrink-0">
+              <select
+                aria-label="套用議程範本"
+                value={template}
+                onChange={(event) => chooseTemplate(event.target.value)}
+                className="control-primary w-full text-sm"
+              >
+                <option value="">不套用範本</option>
+                {templates.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <label className="mt-5 block text-sm font-medium">
-            快速套用
-            <select
-              value={template}
-              onChange={(event) => chooseTemplate(event.target.value)}
-              className="control-primary mt-2 text-sm"
-            >
-              <option value="">不套用範本</option>
-              {templates.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
           <div className="mt-5 space-y-3">
             {agenda.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
