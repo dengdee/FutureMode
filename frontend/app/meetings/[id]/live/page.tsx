@@ -15,6 +15,10 @@ import {
   getMeetingState,
   RealtimeEventAdapter,
 } from "../../../../lib/api/realtime";
+import {
+  getVoiceBotStatus,
+  type VoiceBotStatusResponse,
+} from "../../../../lib/api/voice";
 import type {
   MeetingStateSnapshot,
   MeetingSummary,
@@ -39,6 +43,9 @@ export default function LivePage() {
   const [meeting, setMeeting] = useState<MeetingSummary | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [snapshot, setSnapshot] = useState<MeetingStateSnapshot | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceBotStatusResponse | null>(
+    null,
+  );
   const [connection, setConnection] = useState<
     "connecting" | "connected" | "reconnecting" | "stale" | "offline"
   >("connecting");
@@ -61,14 +68,17 @@ export default function LivePage() {
   );
 
   async function load() {
-    const [meetingData, suggestionData, stateData] = await Promise.all([
-      getMeeting(id),
-      listSuggestions(id),
-      getMeetingState(id),
-    ]);
+    const [meetingData, suggestionData, stateData, voiceData] =
+      await Promise.all([
+        getMeeting(id),
+        listSuggestions(id),
+        getMeetingState(id),
+        getVoiceBotStatus(id),
+      ]);
     setMeeting(meetingData);
     setSuggestions(suggestionData);
     setSnapshot(stateData);
+    setVoiceStatus(voiceData);
   }
   useEffect(() => {
     let active = true;
@@ -88,6 +98,22 @@ export default function LivePage() {
         if (!event || event.meeting_id !== id) return;
         const payload = event.payload as Record<string, unknown>;
         setLastUpdated(event.timestamp);
+        if (
+          event.event_type === "voice_bot:status" ||
+          payload.type === "voice_bot:status"
+        ) {
+          setVoiceStatus((current) => ({
+            meeting_id: id,
+            status:
+              typeof payload.status === "string"
+                ? payload.status
+                : (current?.status ?? "not_requested"),
+            request_id: current?.request_id ?? null,
+            approved_text_version: current?.approved_text_version ?? null,
+            message:
+              typeof payload.message === "string" ? payload.message : null,
+          }));
+        }
         if (
           event.event_type === "meeting_state:update" ||
           event.event_type === "meeting_state:snapshot" ||
@@ -281,7 +307,9 @@ export default function LivePage() {
               狀態版本 {snapshot?.state_version ?? 0}
             </p>
           </section>
-          <VoiceBotStatus value={state.voice_bot ?? state.voiceBot} />
+          <VoiceBotStatus
+            value={voiceStatus?.status ?? state.voice_bot ?? state.voiceBot}
+          />
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
             <h2 className="font-semibold">收音與 Meet</h2>
             <p className="mt-2 text-sm leading-6 text-[#787774]">
