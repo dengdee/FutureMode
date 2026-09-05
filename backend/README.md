@@ -10,7 +10,7 @@
 - 設定：`backend/app/config.py`，目前讀取 `backend/.env`。
 - 已完成基礎 API：`GET /health`、`GET /ready`、`POST /meetbot/join`。
 - 已完成團隊、會議、逐字稿、Team Memory/RAG、Cloudflare R2 與 Groq STT 的 REST API（詳見 `/docs`）。
-- Meeting BaaS 已提供 Bot join、狀態查詢、離開、音訊 WebSocket 與固定核准語音播放；實作位於 `app/api/meetbot.py`，共用 client 位於 `app/integrations/meetingbaas/client.py`。
+- `app/meetbot.py` 保持既有 Meeting BaaS 相容入口；本階段不修改其語音輸出流程。
 - 尚未完成：WebSocket realtime gateway、VAD、Groq streaming STT、AI/LLM provider、正式 observability 與部署設定。
 
 ### 目前可用的 Web API
@@ -20,7 +20,6 @@
 - 逐字稿：查詢、新增、Groq Whisper 音訊轉錄（含 speaker、時間區間、idempotency）、Meeting BaaS transcript backup webhook。
 - Team Memory/RAG：文件與版本、文字／PDF ingestion、embedding、全文／hybrid search、metadata／版本過濾、封存、刪除、版本回復。
 - R2 檔案：上傳、預簽名下載、存在性檢查與清理。
-- Meeting BaaS Bot：`POST /meetbot/join`、`GET /meetbot/{bot_id}`、`POST /meetbot/{bot_id}/leave`、`WS /meetbot/ws/audio-in`、`POST /meetbot/speak`。
 
 ### 已完成步驟
 
@@ -31,14 +30,14 @@
 - **步驟 4**：已完成 Neon Auth JWT 驗證、`/me`、使用者設定、團隊列表／成員查詢、團隊建立與角色授權基礎。
 - **登入設定**：已提供 `GET /api/v1/auth/config` 與 Neon Auth 人工設定文件；登入／註冊仍由 Neon Auth SDK 負責。
 - **步驟 5**：已完成會議建立、列表、單筆查詢、修改、參與者、議程、開始／結束與取消生命週期 API。
-- **步驟 6**：已完成 Meeting BaaS client adapter、join／status／leave API、重試、錯誤映射、Idempotency-Key、固定 24 kHz mono PCM 語音 WebSocket 與文字卡降級；尚未完成 meeting scope 權限與動態核准文字。
+- **步驟 6（資料庫部分）**：已建立 `bot_sessions`、`voice_requests` 與非敏感 audit metadata 模型與 Migration；provider adapter 尚未完成。
 - **步驟 7（資料庫部分）**：已建立 `meeting_states` 與 `meeting_event_cursors` 模型與 Migration；WebSocket gateway 尚未完成。
 
 ## 目前發現的缺口與衝突
 
 1. `MEETING_BAAS_API_KEY` 在本機可為空；呼叫 Meeting BaaS 時會回傳未設定錯誤，正式環境仍必須使用 Secret 管理。
 2. 認證方案已確認採 Neon Auth；正式實作仍需取得 issuer、audience、JWKS 與測試帳號設定。
-3. Meeting BaaS 已抽出 `backend/app/integrations/meetingbaas/client.py` 與 `backend/app/api/meetbot.py`；目前仍是相容入口，尚未接入完整 meeting scope 權限與持久化 Bot session。
+3. 規劃文件建議 `backend/integrations/meetingbaas/`、`voice_bot/`，目前實際程式位於 `backend/app/meetbot.py`；後續應以現有程式為基礎重構，不直接覆蓋。
 4. 音訊主要來源已確認採逐人麥克風；分頁音訊僅作備援，仍需在步驟 8 驗證瀏覽器權限與斷線行為。
 5. API hosting 已選定 Vercel；WebSocket 長連線能力仍需在步驟 7 實測，不預先宣稱已支援。
 
