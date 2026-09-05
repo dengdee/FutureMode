@@ -192,14 +192,14 @@ export default function TeamOverviewPage() {
                           href={`/meetings/${meeting.id}/pre-meeting-summary`}
                           className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
                         >
-                          議前整理
+                          議前準備
                         </Link>
                       ) : (
                         <span
                           title="參與者填寫期限到後開放"
                           className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]"
                         >
-                          議前整理
+                          議前準備
                         </span>
                       )}
                     </div>
