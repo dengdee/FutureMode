@@ -24,22 +24,24 @@ async def get_current_principal(
     request: Request, settings: Settings = Depends(get_settings)
 ) -> Principal:
     authorization = request.headers.get("Authorization", "")
+    cookie_header = request.headers.get("Cookie", "")
     if not authorization:
-        token = _session_cookie_token(request.headers.get("Cookie", ""))
+        token = _session_cookie_token(cookie_header)
         if token:
             authorization = f"Bearer {token}"
-    return await principal_from_authorization(authorization, settings)
+    return await principal_from_authorization(authorization, settings, cookie_header=cookie_header)
 
 
 async def get_websocket_principal(
     websocket: WebSocket, settings: Settings = Depends(get_settings)
 ) -> Principal:
     authorization = websocket.headers.get("Authorization", "")
+    cookie_header = websocket.headers.get("Cookie", "")
     if not authorization:
-        token = _session_cookie_token(websocket.headers.get("Cookie", ""))
+        token = _session_cookie_token(cookie_header)
         if token:
             authorization = f"Bearer {token}"
-    return await principal_from_authorization(authorization, settings)
+    return await principal_from_authorization(authorization, settings, cookie_header=cookie_header)
 
 
 def _session_cookie_token(cookie_header: str) -> str | None:
@@ -55,7 +57,9 @@ def _session_cookie_token(cookie_header: str) -> str | None:
     return None
 
 
-async def principal_from_authorization(authorization: str, settings: Settings) -> Principal:
+async def principal_from_authorization(
+    authorization: str, settings: Settings, cookie_header: str = ""
+) -> Principal:
     """Verify a bearer token shared by HTTP and WebSocket authentication."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
@@ -76,15 +80,11 @@ async def principal_from_authorization(authorization: str, settings: Settings) -
             if not session_url:
                 raise ValueError("session endpoint is not configured")
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(
-                    session_url,
-                    headers={
-                        "Cookie": (
-                            f"__Secure-neon-auth.session_token={token}; "
-                            f"neon-auth.session_token={token}"
-                        )
-                    },
+                session_cookie = cookie_header or (
+                    f"__Secure-neon-auth.session_token={token}; "
+                    f"neon-auth.session_token={token}"
                 )
+                response = await client.get(session_url, headers={"Cookie": session_cookie})
                 response.raise_for_status()
             logger.info("session_request_status=%s", response.status_code)
             body = response.json()
