@@ -370,7 +370,7 @@ export default function NewMeetingPage() {
           </div>
         </section>
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} />
               <div>
