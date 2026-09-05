@@ -30,8 +30,10 @@
 - **步驟 4**：已完成 Neon Auth JWT 驗證、`/me`、使用者設定、團隊列表／成員查詢、團隊建立與角色授權基礎。
 - **登入設定**：已提供 `GET /api/v1/auth/config` 與 Neon Auth 人工設定文件；登入／註冊仍由 Neon Auth SDK 負責。
 - **步驟 5**：已完成會議建立、列表、單筆查詢、修改、參與者、議程、開始／結束與取消生命週期 API。
-- **步驟 6（資料庫部分）**：已建立 `bot_sessions`、`voice_requests` 與非敏感 audit metadata 模型與 Migration；provider adapter 尚未完成。
-- **步驟 7（資料庫部分）**：已建立 `meeting_states` 與 `meeting_event_cursors` 模型與 Migration；WebSocket gateway 尚未完成。
+- **步驟 6**：已完成 Meeting BaaS client adapter、join／status／leave API、重試、錯誤映射、Idempotency-Key、固定 24 kHz mono PCM 語音 WebSocket 與文字卡降級；尚未完成 meeting scope 權限與動態核准文字。
+- **步驟 7**：Meeting State snapshot/CAS、WebSocket event gateway、cursor replay 與 durable
+  `meeting_events` 已實作。Vercel 多 instance 部署需設定 Upstash Redis broker，詳見
+  [Upstash Redis](docs/external-services/upstash-redis.md)。
 
 ## 目前發現的缺口與衝突
 

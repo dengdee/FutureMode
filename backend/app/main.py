@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -21,6 +22,8 @@ from app.config import get_settings
 from app.db.session import database_check
 from app.realtime.rooms import RoomRegistry
 from app.realtime.events import EventJournal
+from app.realtime.persistence import PostgresEventJournal
+from app.realtime.broker import RedisRealtimeBroker
 from app.api.meetbot import router as meetbot_router
 from app.websocket.events import router as realtime_events_router
 
@@ -35,7 +38,43 @@ app = FastAPI(
 )
 app.state.settings = settings
 app.state.room_registry = RoomRegistry()
-app.state.event_journal = EventJournal()
+app.state.event_journal = (
+    PostgresEventJournal(settings) if settings.database_configured else EventJournal()
+)
+app.state.realtime_broker = (
+    RedisRealtimeBroker(settings.upstash_redis_url) if settings.realtime_broker_configured else None
+)
+app.state.realtime_broker_task = None
+
+
+async def _relay_broker_events() -> None:
+    """Forward other Vercel instances' events to this instance's local sockets."""
+    broker = app.state.realtime_broker
+    if broker is None:
+        return
+    async for broker_event in broker.subscribe():
+        await app.state.room_registry.publish(
+            broker_event.event, recipient_user_id=broker_event.recipient_user_id
+        )
+
+
+@app.on_event("startup")
+async def start_realtime_broker() -> None:
+    if app.state.realtime_broker is not None:
+        app.state.realtime_broker_task = asyncio.create_task(_relay_broker_events())
+
+
+@app.on_event("shutdown")
+async def stop_realtime_broker() -> None:
+    task = app.state.realtime_broker_task
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    if app.state.realtime_broker is not None:
+        await app.state.realtime_broker.close()
 
 
 def custom_openapi() -> dict[str, object]:
@@ -139,13 +178,17 @@ async def health() -> dict[str, str]:
 @app.get("/ready", tags=["system"])
 async def ready() -> dict[str, object]:
     db_status = await database_check(settings)
+    broker_ready = not settings.realtime_require_broker or settings.realtime_broker_configured
     return {
-        "status": "ok" if db_status in {"ok", "not_configured"} else "degraded",
+        "status": "ok" if db_status in {"ok", "not_configured"} and broker_ready else "degraded",
         "environment": settings.app_env,
         "checks": {
             "api": "ok",
             "database": db_status,
             "meeting_baas": "configured" if settings.meeting_baas_api_key else "not_configured",
+            "realtime_broker": "configured"
+            if settings.realtime_broker_configured
+            else "not_configured",
         },
     }
 

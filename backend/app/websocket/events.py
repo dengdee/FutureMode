@@ -17,8 +17,9 @@ from app.config import get_settings
 from app.db.session import get_session
 from app.models import MeetingEventCursor, MeetingState
 from app.realtime.gateway import publish_realtime_event
+from app.realtime.events import EventJournal
 from app.realtime.rooms import RoomConnection
-from app.schemas.events import MeetingEvent, MeetingEventAck, MeetingStateSnapshot
+from app.schemas.events import MeetingEvent, MeetingEventAck, MeetingEventEnvelope, MeetingStateSnapshot
 
 router = APIRouter(tags=["realtime"])
 
@@ -66,6 +67,11 @@ async def meeting_events(
     after_cursor: int | None = Query(default=None, ge=0),
 ) -> None:
     """Accept only authenticated users authorized for the requested meeting."""
+    if websocket.app.state.settings.realtime_require_broker and (
+        websocket.app.state.realtime_broker is None
+    ):
+        await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
+        return
     if context is None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -73,6 +79,12 @@ async def meeting_events(
     await websocket.accept()
     was_present = context.user_id in await websocket.app.state.room_registry.participants(meeting_id)
     connection = await websocket.app.state.room_registry.connect(meeting_id, context.user_id)
+    broker = websocket.app.state.realtime_broker
+    joined_globally = (
+        await broker.join_presence(meeting_id, context.user_id, connection.connection_id)
+        if broker is not None
+        else not was_present
+    )
     snapshot = (
         MeetingStateSnapshot.model_validate(context.state)
         if context.state is not None
@@ -84,7 +96,8 @@ async def meeting_events(
         )
     )
     await websocket.send_json(
-        MeetingEvent(
+        MeetingEventEnvelope(
+            cursor=0,
             event_id=uuid4(),
             meeting_id=meeting_id,
             timestamp=datetime.now(UTC),
@@ -101,9 +114,11 @@ async def meeting_events(
     for stored_event in await websocket.app.state.event_journal.replay(
         meeting_id, after_cursor=replay_cursor, recipient_user_id=context.user_id
     ):
-        await websocket.send_json(stored_event.event.model_dump(mode="json"))
-    sender = asyncio.create_task(_send_queued_events(websocket, connection))
-    if not was_present:
+        await websocket.send_json(stored_event.to_envelope().model_dump(mode="json"))
+    sender = asyncio.create_task(
+        _send_queued_events(websocket, connection, websocket.app.state.event_journal)
+    )
+    if joined_globally:
         await _publish_presence_event(websocket, meeting_id, context.user_id, status="joined")
     try:
         while True:
@@ -118,18 +133,24 @@ async def meeting_events(
         with suppress(asyncio.CancelledError):
             await sender
         await websocket.app.state.room_registry.disconnect(connection)
-        still_present = context.user_id in await websocket.app.state.room_registry.participants(
-            meeting_id
+        left_globally = (
+            await broker.leave_presence(meeting_id, context.user_id, connection.connection_id)
+            if broker is not None
+            else context.user_id not in await websocket.app.state.room_registry.participants(meeting_id)
         )
-        if not still_present:
+        if left_globally:
             await _publish_presence_event(websocket, meeting_id, context.user_id, status="left")
 
 
-async def _send_queued_events(websocket: WebSocket, connection: RoomConnection) -> None:
+async def _send_queued_events(
+    websocket: WebSocket, connection: RoomConnection, journal: EventJournal
+) -> None:
     """Forward local room events to one accepted WebSocket connection."""
     while True:
         event = await connection.next_event()
-        await websocket.send_json(event.model_dump(mode="json"))
+        stored_event = await journal.get(event.event_id)
+        if stored_event is not None:
+            await websocket.send_json(stored_event.to_envelope().model_dump(mode="json"))
 
 
 async def _publish_presence_event(
@@ -151,6 +172,7 @@ async def _publish_presence_event(
         websocket.app.state.event_journal,
         websocket.app.state.room_registry,
         event,
+        broker=getattr(websocket.app.state, "realtime_broker", None),
     )
 
 
@@ -201,7 +223,8 @@ async def _persist_event_cursor(
 async def _send_protocol_error(websocket: WebSocket, meeting_id: UUID, code: str) -> None:
     """Send a safe, connection-local protocol error without journaling it."""
     await websocket.send_json(
-        MeetingEvent(
+        MeetingEventEnvelope(
+            cursor=0,
             event_id=uuid4(),
             meeting_id=meeting_id,
             timestamp=datetime.now(UTC),

@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     database_url: str | None = None
     db_pool_size: int = 5
     db_max_overflow: int = 10
+    upstash_redis_url: str | None = None
+    realtime_require_broker: bool = False
 
     meeting_baas_api_key: str | None = None
     meeting_baas_url: str = "https://api.meetingbaas.com/v2/bots"
@@ -37,6 +39,10 @@ class Settings(BaseSettings):
     @property
     def database_configured(self) -> bool:
         return bool(self.database_url)
+
+    @property
+    def realtime_broker_configured(self) -> bool:
+        return bool(self.upstash_redis_url)
 
     @property
     def neon_auth_configured(self) -> bool:
