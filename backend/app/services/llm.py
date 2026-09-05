@@ -52,6 +52,20 @@ async def complete_preparation(messages: list[dict[str, str]], settings: Setting
         raise LLMProviderError("LLM provider unavailable") from exc
 
 
+async def generate_preparation_document(
+    messages: list[dict[str, str]], settings: Settings
+) -> str:
+    """Turn a private preparation chat into a meeting-ready Markdown brief."""
+    instruction = {
+        "role": "user",
+        "content": (
+            "請將以上議前對話整理成可供會議中檢索的繁體中文 Markdown 文件。"
+            "請包含：背景與目標、已確認的事實、待決問題、不同觀點、風險與限制、"
+            "建議的會議討論順序，以及明確的待辦事項。只整理對話中出現的資訊；"
+            "不確定的內容請標記為待確認，不要捏造。"
+        ),
+    }
+    return await complete_preparation([*messages, instruction], settings)
 async def _complete_gemini(messages: list[dict[str, str]], settings: Settings) -> str:
     api_key = settings.gemini_api_key or settings.llm_api_key
     if not api_key:

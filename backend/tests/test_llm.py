@@ -9,7 +9,7 @@ from app.services.llm import LLMConfigurationError, complete_preparation
 
 
 def test_gemini_completion_uses_free_provider():
-    request = httpx.Request("POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent")
+    request = httpx.Request("POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent")
     response = httpx.Response(
         200,
         json={"candidates": [{"content": {"parts": [{"text": "整理後的重點"}]}}]},

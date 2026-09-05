@@ -152,6 +152,27 @@ class PreparationMessageSummary(BaseModel):
     created_at: datetime
 
 
+class PreparationDocumentGenerateResponse(BaseModel):
+    meeting_id: UUID
+    document_id: UUID
+    name: str
+    content: str
+    status: str
+    generated_at: datetime
+
+
+class PreparationPublishRequest(BaseModel):
+    document_id: UUID
+
+
+class PreparationPublishResponse(BaseModel):
+    meeting_id: UUID
+    document_id: UUID
+    status: str
+    chunk_count: int
+    published_at: datetime
+
+
 class DelegateProfileCreate(BaseModel):
     stance: str = Field(min_length=1, max_length=20_000)
     constraints: str | None = Field(default=None, max_length=20_000)

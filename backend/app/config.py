@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"
     llm_api_key: str | None = None
     gemini_api_key: str | None = None
-    llm_model: str = "gemini-2.0-flash"
+    llm_model: str = "gemini-3.5-flash-lite"
     llm_timeout_seconds: float = 30.0
     r2_endpoint_url: str | None = None
     r2_access_key_id: str | None = None

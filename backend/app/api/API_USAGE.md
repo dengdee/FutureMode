@@ -65,6 +65,8 @@ Base URL：`http://localhost:8000`
 | GET | `/api/v1/meetings/{meeting_id}/suggestions/{suggestion_id}/votes` | 查詢投票 |
 | GET/POST | `/api/v1/meetings/{meeting_id}/personal/messages` | 查詢／建立個人訊息 |
 | GET/POST | `/api/v1/meetings/{meeting_id}/preparation/messages` | 查詢／建立議前 AI 對話；建立時由 Gemini 免費額度模型回覆 |
+| POST | `/api/v1/meetings/{meeting_id}/preparation/generate-document` | 將目前使用者的私人議前對話整理成可編輯的文件草稿 |
+| POST | `/api/v1/meetings/{meeting_id}/preparation/publish-to-rag` | 將議前文件草稿發布到 Team Memory，供會議中搜尋 |
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/preview` | 預覽個人貢獻 |
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/publish` | 發布個人貢獻 |
 | GET/POST | `/api/v1/teams/{team_id}/documents` | 文件列表／建立文件紀錄 |
@@ -77,6 +79,11 @@ Base URL：`http://localhost:8000`
 | GET | `/api/v1/documents/{document_id}/download-url` | 取得下載 URL |
 | GET | `/api/v1/documents/{document_id}/storage-status` | 檢查 R2 檔案狀態 |
 | POST | `/api/v1/documents/{document_id}/embed` | 建立／重建 embedding |
+
+議前文件流程：先建立數筆 `preparation/messages`，再呼叫 `generate-document`。
+回應中的 `document_id` 傳給 `publish-to-rag`；發布後可透過
+`/api/v1/teams/{team_id}/memory/search` 查詢。若要使用向量／混合搜尋，另呼叫
+`POST /api/v1/documents/{document_id}/embed`（需設定 embedding provider）。
 
 ## Meeting Bot 與即時事件
 
