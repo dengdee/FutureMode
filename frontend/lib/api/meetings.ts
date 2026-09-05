@@ -7,3 +7,4 @@ export function createMeeting(payload: MeetingCreateRequest) { return request<Me
 export function updateMeeting(meetingId: string, payload: MeetingUpdateRequest) { return request<MeetingSummary>(() => http.patch(`/api/v1/meetings/${meetingId}`, payload)); }
 export function startMeeting(meetingId: string) { return request<MeetingSummary>(() => http.post(`/api/v1/meetings/${meetingId}/start`)); }
 export function endMeeting(meetingId: string) { return request<MeetingSummary>(() => http.post(`/api/v1/meetings/${meetingId}/end`)); }
+export function cancelMeeting(meetingId: string) { return request<MeetingSummary>(() => http.post(`/api/v1/meetings/${meetingId}/cancel`)); }

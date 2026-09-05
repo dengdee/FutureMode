@@ -4,7 +4,17 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,7 +22,7 @@ from app.db.base import Base
 
 
 class MembershipRole(StrEnum):
-    OWNER = "owner"
+    ADMIN = "admin"
     MEMBER = "member"
 
 
@@ -83,6 +93,28 @@ class TeamMember(Base):
 
     team: Mapped[Team] = relationship(back_populates="members")
     user: Mapped[User] = relationship(back_populates="team_memberships")
+
+
+class TeamInvitation(Base):
+    __tablename__ = "team_invitations"
+    __table_args__ = (
+        Index("uq_team_invite_pending", "team_id", "email", unique=True,
+              postgresql_where=text("status = 'pending'")),
+    )
+
+    id: Mapped[UUID] = mapped_column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)
+    team_id: Mapped[UUID] = mapped_column(
+        PostgresUUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(32), default=MembershipRole.MEMBER.value, nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    invited_by: Mapped[UUID] = mapped_column(
+        PostgresUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Meeting(Base):

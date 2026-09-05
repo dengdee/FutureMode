@@ -1,0 +1,23 @@
+import { http, request } from "./client";
+import type { ActionItem, Consensus, ConsensusFeedback, PersonalMessage, Suggestion, Transcript, TranscriptionResponse } from "../../types/api";
+
+export const listTranscripts = (id: string) => request<Transcript[]>(() => http.get(`/api/v1/meetings/${id}/transcripts`));
+export const createTranscript = (id: string, payload: Omit<Transcript, "id" | "meeting_id">) => request<Transcript>(() => http.post(`/api/v1/meetings/${id}/transcripts`, payload));
+export const transcribeAudio = (id: string, file: File, options?: { speaker_label?: string; language?: string }) => { const body = new FormData(); body.append("file", file); body.append("speaker_label", options?.speaker_label ?? "unknown"); body.append("language", options?.language ?? "zh"); return request<TranscriptionResponse>(() => http.post(`/api/v1/meetings/${id}/transcription`, body, { headers: { "Content-Type": "multipart/form-data" } })); };
+export const listConsensus = (id: string) => request<Consensus[]>(() => http.get(`/api/v1/meetings/${id}/consensus`));
+export const createConsensus = (id: string, content: string) => request<Consensus>(() => http.post(`/api/v1/meetings/${id}/consensus`, { content }));
+export const listConsensusFeedback = (id: string, version: string) => request<ConsensusFeedback[]>(() => http.get(`/api/v1/meetings/${id}/consensus/${version}/feedback`));
+export const confirmConsensus = (id: string, version: string) => request<Consensus>(() => http.post(`/api/v1/meetings/${id}/consensus/${version}/confirm`));
+export const createConsensusFeedback = (id: string, version: string, payload: { decision: string; comment?: string }) => request<ConsensusFeedback>(() => http.post(`/api/v1/meetings/${id}/consensus/${version}/feedback`, payload));
+export const listActionItems = (id: string) => request<ActionItem[]>(() => http.get(`/api/v1/meetings/${id}/action-items`));
+export const createActionItem = (id: string, payload: { title: string; assignee_user_id?: string; due_date?: string; status?: string }) => request<ActionItem>(() => http.post(`/api/v1/meetings/${id}/action-items`, payload));
+export const updateActionItem = (id: string, itemId: string, payload: Partial<{ title: string; assignee_user_id: string; due_date: string; status: string }>) => request<ActionItem>(() => http.patch(`/api/v1/meetings/${id}/action-items/${itemId}`, payload));
+export const deleteActionItem = (id: string, itemId: string) => request<void>(() => http.delete(`/api/v1/meetings/${id}/action-items/${itemId}`));
+export const listSuggestions = (id: string) => request<Suggestion[]>(() => http.get(`/api/v1/meetings/${id}/suggestions`));
+export const voteSuggestion = (id: string, suggestionId: string, vote: "support" | "reject" | "abstain") => request<Record<string, string>>(() => http.post(`/api/v1/meetings/${id}/suggestions/${suggestionId}/vote`, { vote }));
+export const updateSuggestion = (id: string, suggestionId: string, status: string) => request<Suggestion>(() => http.patch(`/api/v1/meetings/${id}/suggestions/${suggestionId}`, { status }));
+export const listSuggestionVotes = (id: string, suggestionId: string) => request<{ votes: Array<{ user_id: string; vote: string }> }>(() => http.get(`/api/v1/meetings/${id}/suggestions/${suggestionId}/votes`));
+export const listPersonalMessages = (id: string) => request<PersonalMessage[]>(() => http.get(`/api/v1/meetings/${id}/personal/messages`));
+export const createPersonalMessage = (id: string, content: string) => request<PersonalMessage>(() => http.post(`/api/v1/meetings/${id}/personal/messages`, { content }));
+export const previewContribution = (id: string, content: string) => request<Record<string, unknown>>(() => http.post(`/api/v1/meetings/${id}/personal/contributions/preview`, { content }));
+export const publishContribution = (id: string, content: string, source_message_id?: string) => request<Record<string, unknown>>(() => http.post(`/api/v1/meetings/${id}/personal/contributions/publish`, { content, source_message_id }));

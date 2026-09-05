@@ -10,7 +10,9 @@
 2. 在 `frontend/.env` 與 Vercel 設定 `NEON_AUTH_BASE_URL`、`NEON_AUTH_COOKIE_SECRET`（至少 32 字元）。
 3. 本機啟動後測試 `/sign-up`、`/sign-in`、登出與受保護路由。
 4. 登入後以後端 `GET /api/v1/me` 驗證 active team 與角色。
-5. FastAPI 需補上 Bearer token 驗證；目前前端 auth cookie 與 API server 的跨服務 token transport 尚待後端確認。
+5. 後端已支援 Neon Auth session cookie／JWT 驗證；前端 Axios 使用 `withCredentials: true`，並從同源 `/api/auth/token` 取得短效 token 後附加 `Authorization: Bearer ...`。
+
+驗證時應在瀏覽器 Network 確認 `/api/v1/me`、`/api/v1/teams` 同時帶有 Authorization 與 Neon Auth cookie。若仍回 401，先檢查登入 session、`NEON_AUTH_ISSUER`／`NEON_AUTH_AUDIENCE`／`NEON_AUTH_JWKS_URL` 是否屬於同一 Neon Auth 專案，再檢查後端日誌；不要把 token 或 cookie 貼到文件或聊天紀錄。
 
 目前未設定 Neon Auth 環境變數時，`proxy.ts` 會暫時放行頁面以支援本機 UI 開發；正式環境必須設定環境變數並啟用驗證。
 

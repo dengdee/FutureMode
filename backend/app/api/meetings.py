@@ -36,6 +36,7 @@ from app.schemas.events import MeetingEvent, MeetingStateSnapshot, MeetingStateU
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
+    MeetingBrief,
     MeetingCreate,
     MeetingSummary,
     MeetingUpdate,
@@ -128,7 +129,7 @@ async def authorized_meeting(
     if row is None:
         raise HTTPException(status_code=404, detail="meeting not found")
     meeting, role = row
-    if write and role not in {"owner", "admin"} and meeting.host_user_id != await find_user_id(
+    if write and role != "admin" and meeting.host_user_id != await find_user_id(
         session, principal.subject
     ):
         raise HTTPException(status_code=403, detail="insufficient permissions")
@@ -445,6 +446,30 @@ async def list_agenda(
     ).order_by(AgendaItem.position))).all()
     return {"items": [{"id": str(i.id), "position": i.position, "title": i.title,
                         "description": i.description, "status": i.status} for i in items]}
+
+
+@router.post("/meetings/{meeting_id}/brief", response_model=MeetingBrief)
+async def create_meeting_brief(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> MeetingBrief:
+    meeting = await authorized_meeting(meeting_id, principal, session)
+    items = (await session.scalars(select(AgendaItem).where(
+        AgendaItem.meeting_id == meeting_id
+    ).order_by(AgendaItem.position))).all()
+    agenda = [
+        {"position": item.position, "title": item.title, "description": item.description}
+        for item in items
+    ]
+    summary = f"會議「{meeting.title}」共 {len(agenda)} 項議程。"
+    return MeetingBrief(
+        meeting_id=meeting_id,
+        generated_at=datetime.now(UTC),
+        generated_by="agenda",
+        summary=summary,
+        agenda=agenda,
+    )
 
 
 @router.patch("/meetings/{meeting_id}/agenda/{item_id}")

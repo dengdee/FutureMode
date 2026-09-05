@@ -21,6 +21,8 @@ def test_me_rejects_malformed_token(monkeypatch) -> None:
     monkeypatch.setattr(settings, "neon_auth_issuer", "https://issuer.example")
     monkeypatch.setattr(settings, "neon_auth_audience", "audience")
     monkeypatch.setattr(settings, "neon_auth_jwks_url", "https://issuer.example/jwks")
+    monkeypatch.setattr(settings, "neon_auth_base_url", None)
+    monkeypatch.setattr(settings, "neon_auth_session_url", None)
 
     async def request():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

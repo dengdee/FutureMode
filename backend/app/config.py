@@ -19,16 +19,24 @@ class Settings(BaseSettings):
     meeting_baas_url: str = "https://api.meetingbaas.com/v2/bots"
     meeting_baas_input_url: str | None = None
     meeting_baas_webhook_secret: str | None = None
+    embedding_provider: str = "openai"
+    embedding_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
+    embedding_batch_size: int = 64
+    embedding_max_chunks: int = 500
+    r2_endpoint_url: str | None = None
+    r2_access_key_id: str | None = None
+    r2_secret_access_key: str | None = None
+    r2_bucket_name: str | None = None
+    r2_presigned_expiry_seconds: int = 600
+    groq_api_key: str | None = None
+    groq_stt_model: str = "whisper-large-v3-turbo"
     meeting_baas_timeout_seconds: float = 10.0
     meeting_baas_max_retries: int = 2
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-    
     neon_auth_issuer: str | None = None
     neon_auth_base_url: str | None = None
+    neon_auth_session_url: str | None = None
     neon_auth_audience: str | None = None
     neon_auth_jwks_url: str | None = None
 
@@ -47,7 +55,9 @@ class Settings(BaseSettings):
     @property
     def neon_auth_configured(self) -> bool:
         return bool(
-            self.neon_auth_issuer and self.neon_auth_audience and self.neon_auth_jwks_url
+            (self.neon_auth_issuer and self.neon_auth_audience and self.neon_auth_jwks_url)
+            or self.neon_auth_session_url
+            or self.neon_auth_base_url
         )
 
     model_config = SettingsConfigDict(
