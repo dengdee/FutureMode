@@ -21,7 +21,7 @@ const items = [
   },
   {
     id: "memory",
-    label: "團隊記憶",
+    label: "團隊歷史文件",
     icon: IconFileText,
     href: (id: string) => `/workspaces/${id}/memory/shared`,
   },

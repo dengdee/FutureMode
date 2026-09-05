@@ -2,7 +2,10 @@
 
 import {
   IconCalendarPlus,
+  IconCircleCheck,
   IconChevronRight,
+  IconClock,
+  IconPlayerPlay,
   IconUsersGroup,
 } from "@tabler/icons-react";
 import Link from "next/link";
@@ -48,8 +51,10 @@ export default function TeamOverviewPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [summaryReady, setSummaryReady] = useState<Record<string, boolean>>({});
+  const [prepDeadlines, setPrepDeadlines] = useState<Record<string, string>>({});
   const [meetingPage, setMeetingPage] = useState(1);
   const [error, setError] = useState("");
+  const [nowMs] = useState(() => Date.now());
 
   useEffect(() => {
     let active = true;
@@ -64,6 +69,16 @@ export default function TeamOverviewPage() {
           (item) => item.team_id === workspaceId,
         );
         setMeetings(teamMeetings);
+        setPrepDeadlines(
+          Object.fromEntries(
+            teamMeetings.flatMap((meeting) => {
+              const deadline = window.localStorage.getItem(
+                `proximate:prep-deadline:${meeting.id}`,
+              );
+              return deadline ? [[meeting.id, deadline]] : [];
+            }),
+          ),
+        );
         setSummaryReady(
           Object.fromEntries(
             teamMeetings.map((meeting) => {
@@ -101,6 +116,17 @@ export default function TeamOverviewPage() {
     (meetingPage - 1) * meetingPageSize,
     meetingPage * meetingPageSize,
   );
+  const pendingMeetings = upcoming.filter(
+    (meeting) => meeting.status === "draft" || meeting.status === "scheduled",
+  );
+  const activeMeetings = upcoming.filter(
+    (meeting) => meeting.status === "in_progress",
+  );
+  const recentlyCompletedMeetings = meetings.filter((meeting) => {
+    if (meeting.status !== "completed" || !meeting.scheduled_at) return false;
+    const completedAt = new Date(meeting.scheduled_at).getTime();
+    return completedAt <= nowMs && completedAt >= nowMs - 3 * 24 * 60 * 60 * 1000;
+  });
 
   return (
     <AppShell>
@@ -134,20 +160,50 @@ export default function TeamOverviewPage() {
         </p>
       ) : (
         <>
-          <section className="mt-6">
-            <Link
-              href={`/workspaces/${workspaceId}/members`}
-              className="block rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
-            >
-              <div className="flex flex-col items-center text-center">
-                <IconUsersGroup className="text-[#0f9f8a]" size={22} />
-                <p className="mt-5 text-sm text-[#787774]">團隊成員</p>
-                <p className="mt-1 text-3xl font-semibold">{members.length}</p>
+          <section className="mt-6 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0f9f8a]">Overview</p>
+                <h2 className="mt-2 text-lg font-semibold">團隊大綱</h2>
+                <p className="mt-1 text-sm text-[#787774]">快速掌握成員規模與目前的會議排程。</p>
               </div>
-              <p className="mt-2 flex justify-end items-center text-sm text-[#087e6d]">
-                管理角色與邀請 <IconChevronRight className="inline" size={15} />
-              </p>
-            </Link>
+              <IconCalendarPlus className="text-[#0f9f8a]" size={22} />
+            </div>
+            <div className="mt-5 rounded-xl bg-[#f7f7f5] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <IconUsersGroup className="text-[#0f9f8a]" size={21} />
+                  <div>
+                    <p className="text-sm text-[#787774]">團隊成員</p>
+                    <p className="mt-1 text-3xl font-semibold">{members.length}</p>
+                    <p className="mt-1 text-xs text-[#787774]">位成員</p>
+                  </div>
+                </div>
+                <Link href={`/workspaces/${workspaceId}/members`} className="inline-flex items-center gap-1 rounded-lg border border-[#cde5df] bg-white px-3 py-2 text-xs font-semibold text-[#087e6d] hover:bg-[#effbf4]">
+                  成員管理 <IconChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-[#fff8e8] p-4">
+                <IconClock className="text-[#b57a23]" size={21} />
+                <p className="mt-3 text-sm text-[#715b1e]">待開始</p>
+                <p className="mt-1 text-3xl font-semibold text-[#5f4a16]">{pendingMeetings.length}</p>
+                <p className="mt-1 text-xs text-[#8b6d2b]">含準備期限</p>
+              </div>
+              <div className="rounded-xl bg-[#effbf4] p-4">
+                <IconPlayerPlay className="text-[#0f9f8a]" size={21} />
+                <p className="mt-3 text-sm text-[#087e6d]">進行中</p>
+                <p className="mt-1 text-3xl font-semibold text-[#155443]">{activeMeetings.length}</p>
+                <p className="mt-1 text-xs text-[#5d806f]">場會議</p>
+              </div>
+              <div className="rounded-xl bg-[#eef6ff] p-4">
+                <IconCircleCheck className="text-[#3277b7]" size={21} />
+                <p className="mt-3 text-sm text-[#2f638f]">已完成</p>
+                <p className="mt-1 text-3xl font-semibold text-[#244f73]">{recentlyCompletedMeetings.length}</p>
+                <p className="mt-1 text-xs text-[#527ea3]">最近三天</p>
+              </div>
+            </div>
           </section>
           <section className="mt-8 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
@@ -161,49 +217,38 @@ export default function TeamOverviewPage() {
             {visibleUpcoming.length ? (
               <div className="mt-5 space-y-3">
                 {visibleUpcoming.map((meeting) => (
-                  <article
+                  <details
                     key={meeting.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ededeb] p-4"
+                    className="group rounded-xl border border-[#ededeb] bg-white"
                   >
-                    <div className="min-w-0">
-                      <h3 className="font-medium">{meeting.title}</h3>
-                      <p className="mt-1 text-sm text-[#787774]">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e7f7ef] text-xs font-semibold text-[#087e6d]">{(meetingPage - 1) * meetingPageSize + visibleUpcoming.indexOf(meeting) + 1}</span>
+                        <div className="min-w-0">
+                          <h3 className="truncate font-medium">{meeting.title}</h3>
+                          <p className="mt-1 text-sm text-[#787774]">
                         {meeting.scheduled_at
                           ? new Date(meeting.scheduled_at).toLocaleString(
                               "zh-TW",
                             )
                           : "尚未設定時間"}
-                      </p>
+                        {prepDeadlines[meeting.id]
+                          ? ` · 準備期限 ${new Date(prepDeadlines[meeting.id]).toLocaleDateString("zh-TW")}`
+                          : (meeting.status === "draft" || meeting.status === "scheduled")
+                            ? " · 準備期限尚未設定"
+                            : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(meeting.status)}`}>{statusLabel(meeting.status)}</span>
+                    </summary>
+                    <div className="border-t border-[#ededeb] px-4 pb-4 pt-3 pl-14">
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/meetings/${meeting.id}/prepare`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d] hover:bg-[#f0fbf8]">議前討論</Link>
+                        {summaryReady[meeting.id] ? <Link href={`/meetings/${meeting.id}/pre-meeting-summary`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">議前整理</Link> : <span title="參與者填寫期限到後開放" className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]">議前整理</span>}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(meeting.status)}`}
-                      >
-                        {statusLabel(meeting.status)}
-                      </span>
-                      <Link
-                        href={`/meetings/${meeting.id}/prepare`}
-                        className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d] hover:bg-[#f0fbf8]"
-                      >
-                        議前討論
-                      </Link>
-                      {summaryReady[meeting.id] ? (
-                        <Link
-                          href={`/meetings/${meeting.id}/pre-meeting-summary`}
-                          className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
-                        >
-                          議前整理
-                        </Link>
-                      ) : (
-                        <span
-                          title="參與者填寫期限到後開放"
-                          className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]"
-                        >
-                          議前整理
-                        </span>
-                      )}
-                    </div>
-                  </article>
+                  </details>
                 ))}
                 {upcoming.length > 0 && (
                   <nav
