@@ -5,7 +5,6 @@ import type {
   JoinMeetingRequest,
   MeetingBotResponse,
 } from "../../types/api";
-import { authClient } from "../auth/client";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
@@ -37,23 +36,42 @@ let tokenRequest: Promise<string> | null = null;
 async function getToken(): Promise<string> {
   if (tokenRequest) return tokenRequest;
   tokenRequest = (async () => {
+    let response: Response;
     try {
-      const tokenClient = authClient as typeof authClient & {
-        getToken: () => Promise<{ data?: { token?: unknown } }>;
-      };
-      const result = await tokenClient.getToken();
-      const token = result.data?.token;
-      if (typeof token === "string" && token) return token;
+      response = await fetch("/api/auth/token", {
+        credentials: "include",
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
     } catch {
       throw new ApiClientError({
         status: 503,
         message: "登入驗證服務暫時無法連線，請稍後重試。",
       });
     }
-    throw new ApiClientError({
-      status: 401,
-      message: "無法取得登入憑證，請重新登入。",
-    });
+    if (!response.ok) {
+      throw new ApiClientError({
+        status: response.status,
+        message:
+          response.status === 401
+            ? "登入已失效，請重新登入。"
+            : "登入驗證服務暫時無法使用，請稍後重試。",
+      });
+    }
+    const payload: unknown = await response.json();
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      !("token" in payload) ||
+      typeof payload.token !== "string" ||
+      !payload.token
+    ) {
+      throw new ApiClientError({
+        status: 401,
+        message: "無法取得登入憑證，請重新登入。",
+      });
+    }
+    return payload.token;
   })();
   try {
     return await tokenRequest;
