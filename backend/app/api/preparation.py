@@ -28,6 +28,7 @@ from app.services.llm import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["preparation"])
+PREPARATION_CHUNK_SIZE = 4_000
 
 
 @router.get(
@@ -163,14 +164,22 @@ async def generate_preparation_document_endpoint(
     )
     session.add(document)
     await session.flush()
-    session.add(
+    document_chunks = [
         DocumentChunk(
             document_id=document.id,
-            position=1,
-            content=content,
-            metadata_json={"source": "preparation", "meeting_id": str(meeting_id)},
+            position=position,
+            content=content[start : start + PREPARATION_CHUNK_SIZE],
+            metadata_json={
+                "source": "preparation",
+                "meeting_id": str(meeting_id),
+                "chunk_index": position,
+            },
         )
-    )
+        for position, start in enumerate(
+            range(0, len(content), PREPARATION_CHUNK_SIZE), start=1
+        )
+    ]
+    session.add_all(document_chunks)
     try:
         await session.commit()
     except SQLAlchemyError:
