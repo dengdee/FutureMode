@@ -66,6 +66,30 @@ async def generate_preparation_document(
         ),
     }
     return await complete_preparation([*messages, instruction], settings)
+
+
+async def generate_meeting_speech(
+    prompt: str,
+    context: str | None,
+    settings: Settings,
+) -> str:
+    """Generate a short, speakable meeting contribution with the configured LLM."""
+    context_text = context.strip() if context else "（沒有額外會議脈絡）"
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                "你是會議中的 AI 代理。請根據以下發言目的與會議脈絡，寫一段可以直接朗讀的"
+                "繁體中文發言稿。先講結論，再給最多三個理由或下一步；不要使用 Markdown、"
+                "標題、項目符號或免責聲明，不要捏造脈絡中沒有的事實。控制在 120 字內。\n\n"
+                f"發言目的：{prompt.strip()}\n"
+                f"會議脈絡：{context_text}"
+            ),
+        }
+    ]
+    return await complete_preparation(messages, settings)
+
+
 async def _complete_gemini(messages: list[dict[str, str]], settings: Settings) -> str:
     api_key = settings.gemini_api_key or settings.llm_api_key
     if not api_key:
