@@ -8,6 +8,7 @@
 - JSON body 才設定 `Content-Type`；GET 只使用 `Accept`，避免不必要的 CORS preflight。
 - API key 與第三方 token 只由後端持有；MVP 前端沿用 Neon Auth session，不自行保存長效 token。
 - `/api/v1/*` 請求會由 Axios interceptor 讀取 Neon Auth session 的短效 JWT，加入 `Authorization: Bearer <token>`；FastAPI 以 Neon JWKS 驗證，前端不會轉送 httpOnly cookie。
+- Next.js adapter 不把 JWT 放在 `getSession()` 回傳的 session object；interceptor 會透過同源 `/api/auth/token` 取得短效 token，再附加 Bearer header。
 
 ## 目前已封裝
 

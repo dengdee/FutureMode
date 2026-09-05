@@ -28,8 +28,18 @@ http.interceptors.request.use(async (config) => {
   // Neon Auth keeps its session cookie httpOnly. Its client exchanges that
   // session for a short-lived JWT that FastAPI can validate via Neon JWKS.
   if (config.url?.startsWith("/api/v1/")) {
-    const session = await authClient.getSession();
-    const token = session.data?.session?.token;
+    // The Next.js adapter exposes Better Auth's JWT endpoint through the local
+    // auth proxy. The React session object itself does not contain a bearer JWT.
+    let token: string | null = null;
+    try {
+      const tokenResponse = await fetch("/api/auth/token", { credentials: "include" });
+      if (tokenResponse.ok) {
+        const payload: unknown = await tokenResponse.json();
+        if (typeof payload === "object" && payload && "token" in payload && typeof payload.token === "string") token = payload.token;
+      }
+    } catch {
+      token = null;
+    }
     if (token) {
       config.headers.set("Authorization", `Bearer ${token}`);
     }
