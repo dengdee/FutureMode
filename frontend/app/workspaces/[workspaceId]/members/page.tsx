@@ -141,10 +141,10 @@ export default function WorkspaceMembersPage() {
         actions={
           <>
             <Link
-              href={`/workspaces/${workspaceId}/meetings`}
+              href={`/workspaces/${workspaceId}`}
               className="rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
             >
-              查看團隊會議
+              返回團隊總覽
             </Link>
           </>
         }

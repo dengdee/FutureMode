@@ -2,7 +2,7 @@
 
 import { IconCalendarPlus, IconClock } from "@tabler/icons-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { redirect, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { PageHeader } from "../../../../components/page-header";
@@ -28,6 +28,7 @@ const statusClass: Record<string, string> = {
 
 export default function WorkspaceMeetingsPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
+  redirect(`/workspaces/${workspaceId}`);
   const [team, setTeam] = useState<Team | null>(null);
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
   const [summaryReady, setSummaryReady] = useState<Record<string, boolean>>({});

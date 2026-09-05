@@ -1,9 +1,4 @@
-import {
-  IconCalendarEvent,
-  IconFileText,
-  IconHome2,
-  IconUsersGroup,
-} from "@tabler/icons-react";
+import { IconFileText, IconHome2, IconUsersGroup } from "@tabler/icons-react";
 import Link from "next/link";
 
 type TeamSubnavProps = {
@@ -24,12 +19,6 @@ const items = [
     label: "成員與邀請",
     icon: IconUsersGroup,
     href: (id: string) => `/workspaces/${id}/members`,
-  },
-  {
-    id: "meetings",
-    label: "團隊會議",
-    icon: IconCalendarEvent,
-    href: (id: string) => `/workspaces/${id}/meetings`,
   },
   {
     id: "memory",

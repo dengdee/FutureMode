@@ -147,7 +147,7 @@ export default function TeamOverviewPage() {
               </p>
             </Link>
             <Link
-              href={`/workspaces/${workspaceId}/meetings`}
+              href={`/workspaces/${workspaceId}`}
               className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
             >
               <IconCalendarPlus className="text-[#0f9f8a]" size={22} />
