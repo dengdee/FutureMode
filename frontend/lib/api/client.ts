@@ -1,6 +1,5 @@
 import axios, { type AxiosResponse } from "axios";
 import type { ApiError, HealthResponse, JoinMeetingRequest, MeetingBotResponse } from "../../types/api";
-import { authClient } from "../auth/client";
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -36,7 +35,14 @@ http.interceptors.request.use(async (config) => {
       const tokenResponse = await fetch("/api/auth/token", { credentials: "include" });
       if (tokenResponse.ok) {
         const payload: unknown = await tokenResponse.json();
-        if (typeof payload === "object" && payload && "token" in payload && typeof payload.token === "string") token = payload.token;
+        if (
+          typeof payload === "object" &&
+          payload &&
+          "token" in payload &&
+          typeof payload.token === "string"
+        ) {
+          token = payload.token;
+        }
       }
     } catch {
       token = null;
