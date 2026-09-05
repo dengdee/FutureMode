@@ -24,12 +24,15 @@ def principal_name(principal: Principal) -> str | None:
 async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, str | None] | None:
     """Look up a registered Neon Auth account without exposing the auth directory to clients."""
     try:
-        result = await session.execute(text("""
-            SELECT id::text AS external_id, email, name
+        result = await session.execute(
+            text("""
+            SELECT id::text AS external_id, email
             FROM neon_auth.users_sync
-            WHERE lower(email) = :email AND deleted_at IS NULL
+            WHERE lower(email) = :email
             LIMIT 1
-        """), {"email": email.lower()})
+        """),
+            {"email": email.lower()},
+        )
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=503, detail="Neon Auth user directory is unavailable"
@@ -40,7 +43,7 @@ async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, st
     return {
         "external_id": str(row["external_id"]),
         "email": str(row["email"]).lower() if row["email"] else None,
-        "display_name": str(row["name"]) if row["name"] else None,
+        "display_name": None,
     }
 
 
@@ -126,9 +129,12 @@ async def create_invitation(
         )
         session.add(recipient)
         await session.flush()
-    if await session.scalar(select(TeamMember).where(
-        TeamMember.team_id == team_id, TeamMember.user_id == recipient.id,
-    )):
+    if await session.scalar(
+        select(TeamMember).where(
+            TeamMember.team_id == team_id,
+            TeamMember.user_id == recipient.id,
+        )
+    ):
         raise HTTPException(409, "recipient is already a team member")
     existing = await session.scalar(
         select(TeamInvitation).where(
@@ -141,9 +147,11 @@ async def create_invitation(
         await session.commit()
         return existing
     invitation = TeamInvitation(
-        team_id=team_id, recipient_user_id=recipient.id,
+        team_id=team_id,
+        recipient_user_id=recipient.id,
         recipient_name=recipient.display_name or "未設定名稱的帳號",
-        role=payload.role, invited_by=actor.id,
+        role=payload.role,
+        invited_by=actor.id,
     )
     session.add(invitation)
     await session.commit()
@@ -187,9 +195,14 @@ async def cancel_invitation(
     invitation = next((item for item in invitations if item.id == invitation_id), None)
     if invitation is None:
         raise HTTPException(status_code=404, detail="invitation not found")
-    invitation = await session.scalar(select(TeamInvitation).where(
-        TeamInvitation.id == invitation_id,
-    ).with_for_update().execution_options(populate_existing=True))
+    invitation = await session.scalar(
+        select(TeamInvitation)
+        .where(
+            TeamInvitation.id == invitation_id,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if invitation is None:
         raise HTTPException(status_code=404, detail="invitation not found")
     if invitation.status == "cancelled":
@@ -211,23 +224,40 @@ async def my_invitations(
     if name:
         statement = statement.on_conflict_do_update(
             index_elements=[User.external_id],
-            set_={"display_name": func.coalesce(
-                func.nullif(User.display_name, ""), statement.excluded.display_name,
-            )},
+            set_={
+                "display_name": func.coalesce(
+                    func.nullif(User.display_name, ""),
+                    statement.excluded.display_name,
+                )
+            },
         )
     else:
         statement = statement.on_conflict_do_nothing(index_elements=[User.external_id])
     await session.execute(statement)
     await session.commit()
-    rows = (await session.execute(
-        select(TeamInvitation, Team.name).join(Team, Team.id == TeamInvitation.team_id)
-        .where(TeamInvitation.recipient_user_id.in_(
-            select(User.id).where(User.external_id == principal.subject)
-        ), TeamInvitation.status == "pending")
-        .order_by(TeamInvitation.created_at.desc())
-    )).all()
-    return [dict(id=str(invite.id), team_id=str(invite.team_id), team_name=name,
-                 role=invite.role, status=invite.status) for invite, name in rows]
+    rows = (
+        await session.execute(
+            select(TeamInvitation, Team.name)
+            .join(Team, Team.id == TeamInvitation.team_id)
+            .where(
+                TeamInvitation.recipient_user_id.in_(
+                    select(User.id).where(User.external_id == principal.subject)
+                ),
+                TeamInvitation.status == "pending",
+            )
+            .order_by(TeamInvitation.created_at.desc())
+        )
+    ).all()
+    return [
+        dict(
+            id=str(invite.id),
+            team_id=str(invite.team_id),
+            team_name=name,
+            role=invite.role,
+            status=invite.status,
+        )
+        for invite, name in rows
+    ]
 
 
 @router.post("/me/invitations/{invitation_id}/{action}")
@@ -239,12 +269,16 @@ async def respond_invitation(
 ) -> dict[str, str]:
     if action not in {"accept", "decline"}:
         raise HTTPException(status_code=422, detail="action must be accept or decline")
-    invite = await session.scalar(select(TeamInvitation).where(
-        TeamInvitation.id == invitation_id,
-        TeamInvitation.recipient_user_id.in_(
-            select(User.id).where(User.external_id == principal.subject)
-        ),
-    ).with_for_update())
+    invite = await session.scalar(
+        select(TeamInvitation)
+        .where(
+            TeamInvitation.id == invitation_id,
+            TeamInvitation.recipient_user_id.in_(
+                select(User.id).where(User.external_id == principal.subject)
+            ),
+        )
+        .with_for_update()
+    )
     if invite is None:
         raise HTTPException(status_code=404, detail="invitation not found")
     status = "accepted" if action == "accept" else "declined"
@@ -255,13 +289,24 @@ async def respond_invitation(
     if invite.role not in {"admin", "member"}:
         raise HTTPException(status_code=409, detail="invitation role is invalid")
     if action == "accept":
-        await session.execute(insert(User).values(
-            external_id=principal.subject, display_name=principal_name(principal),
-        ).on_conflict_do_nothing(index_elements=[User.external_id]))
+        await session.execute(
+            insert(User)
+            .values(
+                external_id=principal.subject,
+                display_name=principal_name(principal),
+            )
+            .on_conflict_do_nothing(index_elements=[User.external_id])
+        )
         user_id = await session.scalar(select(User.id).where(User.external_id == principal.subject))
-        await session.execute(insert(TeamMember).values(
-            team_id=invite.team_id, user_id=user_id, role=invite.role,
-        ).on_conflict_do_nothing(index_elements=[TeamMember.team_id, TeamMember.user_id]))
+        await session.execute(
+            insert(TeamMember)
+            .values(
+                team_id=invite.team_id,
+                user_id=user_id,
+                role=invite.role,
+            )
+            .on_conflict_do_nothing(index_elements=[TeamMember.team_id, TeamMember.user_id])
+        )
     invite.status = status
     await session.commit()
     return {"status": status, "team_id": str(invite.team_id)}
@@ -298,8 +343,10 @@ async def create_team(
         # Only provision the verified subject. Never identify accounts by client-provided email.
         # Concurrent first requests share the unique external_id; existing profiles stay intact.
         await session.execute(
-            insert(User).values(
-                external_id=principal.subject, display_name=principal_name(principal),
+            insert(User)
+            .values(
+                external_id=principal.subject,
+                display_name=principal_name(principal),
             )
             .on_conflict_do_nothing(index_elements=[User.external_id])
         )
