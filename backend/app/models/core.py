@@ -4,7 +4,17 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -88,7 +98,8 @@ class TeamMember(Base):
 class TeamInvitation(Base):
     __tablename__ = "team_invitations"
     __table_args__ = (
-        UniqueConstraint("team_id", "email", "status", name="uq_team_invite_email_status"),
+        Index("uq_team_invite_pending", "team_id", "email", unique=True,
+              postgresql_where=text("status = 'pending'")),
     )
 
     id: Mapped[UUID] = mapped_column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)

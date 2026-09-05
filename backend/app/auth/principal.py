@@ -104,6 +104,9 @@ async def principal_from_authorization(
                 raise ValueError("session user is missing")
             logger.info("user_id_exists=true principal_created=true")
             claims = {"sub": subject, "session": True}
+            for key in ("name", "email", "emailVerified", "email_verified"):
+                if key in user:
+                    claims[key] = user[key]
             return Principal(subject=subject, claims=claims)
         header = jwt.get_unverified_header(token)
         logger.info("authorization_present=true token_type=jwt")

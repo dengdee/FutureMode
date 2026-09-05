@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,20 @@ from app.models import Team, TeamInvitation, TeamMember, User
 from app.schemas.team import InvitationCreate, InvitationSummary, RoleUpdate, TeamCreate, TeamUpdate
 
 router = APIRouter(prefix="/api/v1", tags=["teams"])
+
+
+def principal_name(principal: Principal) -> str | None:
+    name = principal.claims.get("name") or principal.claims.get("display_name")
+    return name.strip()[:255] if isinstance(name, str) and name.strip() else None
+
+
+def invitation_email(principal: Principal) -> str:
+    claims = principal.claims
+    email = claims.get("email")
+    verified = claims.get("email_verified") is True or claims.get("emailVerified") is True
+    if not verified or not isinstance(email, str) or not email.strip():
+        raise HTTPException(status_code=403, detail="請先驗證登入帳號的 Email，再查看站內邀請。")
+    return email.strip().lower()
 
 
 async def database_session(
@@ -84,8 +98,20 @@ async def create_invitation(
     )
     if membership is None or membership.role != "admin":
         raise HTTPException(status_code=403, detail="insufficient permissions")
+    # Serialize invitations for a team so retries cannot create duplicate pending rows.
+    await session.scalar(select(Team).where(Team.id == team_id).with_for_update())
+    existing = await session.scalar(
+        select(TeamInvitation).where(
+            TeamInvitation.team_id == team_id,
+            func.lower(TeamInvitation.email) == payload.email.strip().lower(),
+            TeamInvitation.status == "pending",
+        )
+    )
+    if existing is not None:
+        await session.commit()
+        return existing
     invitation = TeamInvitation(
-        team_id=team_id, email=payload.email.lower(), role=payload.role, invited_by=actor.id
+        team_id=team_id, email=payload.email.strip().lower(), role=payload.role, invited_by=actor.id
     )
     session.add(invitation)
     await session.commit()
@@ -129,8 +155,81 @@ async def cancel_invitation(
     invitation = next((item for item in invitations if item.id == invitation_id), None)
     if invitation is None:
         raise HTTPException(status_code=404, detail="invitation not found")
+    invitation = await session.scalar(select(TeamInvitation).where(
+        TeamInvitation.id == invitation_id,
+    ).with_for_update().execution_options(populate_existing=True))
+    if invitation is None:
+        raise HTTPException(status_code=404, detail="invitation not found")
+    if invitation.status == "cancelled":
+        return
+    if invitation.status != "pending":
+        raise HTTPException(status_code=409, detail="invitation is no longer pending")
     invitation.status = "cancelled"
     await session.commit()
+
+
+@router.get("/me/invitations")
+async def my_invitations(
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[dict[str, str]]:
+    name = principal_name(principal)
+    values = {"external_id": principal.subject, "display_name": name}
+    statement = insert(User).values(**values)
+    if name:
+        statement = statement.on_conflict_do_update(
+            index_elements=[User.external_id],
+            set_={"display_name": func.coalesce(
+                func.nullif(User.display_name, ""), statement.excluded.display_name,
+            )},
+        )
+    else:
+        statement = statement.on_conflict_do_nothing(index_elements=[User.external_id])
+    await session.execute(statement)
+    await session.commit()
+    email = invitation_email(principal)
+    rows = (await session.execute(
+        select(TeamInvitation, Team.name).join(Team, Team.id == TeamInvitation.team_id)
+        .where(func.lower(TeamInvitation.email) == email, TeamInvitation.status == "pending")
+        .order_by(TeamInvitation.created_at.desc())
+    )).all()
+    return [dict(id=str(invite.id), team_id=str(invite.team_id), team_name=name,
+                 role=invite.role, status=invite.status) for invite, name in rows]
+
+
+@router.post("/me/invitations/{invitation_id}/{action}")
+async def respond_invitation(
+    invitation_id: UUID,
+    action: str,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> dict[str, str]:
+    if action not in {"accept", "decline"}:
+        raise HTTPException(status_code=422, detail="action must be accept or decline")
+    email = invitation_email(principal)
+    invite = await session.scalar(select(TeamInvitation).where(
+        TeamInvitation.id == invitation_id, func.lower(TeamInvitation.email) == email,
+    ).with_for_update())
+    if invite is None:
+        raise HTTPException(status_code=404, detail="invitation not found")
+    status = "accepted" if action == "accept" else "declined"
+    if invite.status == status:
+        return {"status": status, "team_id": str(invite.team_id)}
+    if invite.status != "pending":
+        raise HTTPException(status_code=409, detail="invitation is no longer pending")
+    if invite.role not in {"admin", "member"}:
+        raise HTTPException(status_code=409, detail="invitation role is invalid")
+    if action == "accept":
+        await session.execute(insert(User).values(
+            external_id=principal.subject, display_name=principal_name(principal),
+        ).on_conflict_do_nothing(index_elements=[User.external_id]))
+        user_id = await session.scalar(select(User.id).where(User.external_id == principal.subject))
+        await session.execute(insert(TeamMember).values(
+            team_id=invite.team_id, user_id=user_id, role=invite.role,
+        ).on_conflict_do_nothing(index_elements=[TeamMember.team_id, TeamMember.user_id]))
+    invite.status = status
+    await session.commit()
+    return {"status": status, "team_id": str(invite.team_id)}
 
 
 @router.get("/teams")
@@ -164,7 +263,9 @@ async def create_team(
         # Only provision the verified subject. Never identify accounts by client-provided email.
         # Concurrent first requests share the unique external_id; existing profiles stay intact.
         await session.execute(
-            insert(User).values(external_id=principal.subject)
+            insert(User).values(
+                external_id=principal.subject, display_name=principal_name(principal),
+            )
             .on_conflict_do_nothing(index_elements=[User.external_id])
         )
         user_id = await session.scalar(select(User.id).where(User.external_id == principal.subject))
@@ -258,7 +359,7 @@ async def list_team_members(
             {
                 "user_id": str(user_id),
                 "external_id": external_id,
-                "display_name": display_name or "",
+                "display_name": display_name or "未設定名稱的成員",
                 "role": role,
             }
             for user_id, external_id, display_name, role in rows

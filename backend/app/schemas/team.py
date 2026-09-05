@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ProfileUpdate(BaseModel):
@@ -15,8 +15,13 @@ class TeamUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
 
 class InvitationCreate(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
+    email: str = Field(min_length=3, max_length=320, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     role: str = Field(default="member", pattern="^(admin|member)$")
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
 
 class InvitationSummary(BaseModel):
     id: UUID
