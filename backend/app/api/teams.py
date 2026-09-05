@@ -159,6 +159,7 @@ async def create_invitation(
         return existing
     invitation = TeamInvitation(
         team_id=team_id,
+        email=recipient.email,
         recipient_user_id=recipient.id,
         recipient_name=recipient.display_name or "未設定名稱的帳號",
         role=payload.role,

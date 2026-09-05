@@ -97,7 +97,6 @@ const levels = [
     description: "更常提出替代方案、歷史提醒與風險。",
   },
 ] as const;
-type Attendance = "invited" | "joined" | "left";
 
 export default function NewMeetingPage() {
   const router = useRouter();
@@ -139,7 +138,6 @@ export default function NewMeetingPage() {
         .then(({ members: result }) => {
           setMembers(result);
           setSelectedMembers({});
-          setAttendance({});
         })
         .catch(() => setMembers([]));
   }, [teamId]);
@@ -150,8 +148,8 @@ export default function NewMeetingPage() {
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!title.trim() || !teamId) {
-      setError("請選擇團隊並填寫會議名稱。");
+    if (!title.trim() || !teamId || !prepDeadline) {
+      setError("請選擇團隊、填寫會議名稱與參與者填寫期限。");
       return;
     }
     setSubmitting(true);
@@ -168,20 +166,17 @@ export default function NewMeetingPage() {
           `proximate:meeting-url:${meeting.id}`,
           meetUrl.trim(),
         );
-      if (prepDeadline)
-        localStorage.setItem(
-          `proximate:prep-deadline:${meeting.id}`,
-          prepDeadline,
-        );
+      localStorage.setItem(
+        `proximate:prep-deadline:${meeting.id}`,
+        prepDeadline,
+      );
       for (const member of members.filter(
         (member) => selectedMembers[member.user_id],
       )) {
         await addParticipant(meeting.id, { user_id: member.user_id });
-        const status = attendance[member.user_id];
-        if (status && status !== "invited")
-          await updateParticipant(meeting.id, member.user_id, {
-            attendance_status: status,
-          });
+        await updateParticipant(meeting.id, member.user_id, {
+          attendance_status: attendance[member.user_id] ?? "joined",
+        });
       }
       for (const [position, item] of agenda
         .map((item) => item.trim())
@@ -252,8 +247,8 @@ export default function NewMeetingPage() {
             </label>
             <label className="block text-sm font-medium">
               參與者填寫期限
-              <span className="ml-1 font-normal text-[#787774]">（選填）</span>
               <input
+                required
                 type="datetime-local"
                 value={prepDeadline}
                 onChange={(event) => setPrepDeadline(event.target.value)}
@@ -354,10 +349,10 @@ export default function NewMeetingPage() {
                       }))
                     }
                     className="control-primary w-auto text-xs"
+                    aria-label={`${member.display_name || "成員"} 的參與方式`}
                   >
-                    <option value="joined">將出席</option>
-                    <option value="left">無法出席</option>
-                    <option value="invited">待確認</option>
+                    <option value="joined">會出席</option>
+                    <option value="left">不出席，由 Agent 代為討論</option>
                   </select>
                 )}
               </label>
@@ -370,31 +365,33 @@ export default function NewMeetingPage() {
           </div>
         </section>
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
-          <div className="flex items-start gap-3">
-            <IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} />
-            <div>
-              <h2 className="text-lg font-semibold">議程範本</h2>
-              <p className="mt-1 text-sm leading-6 text-[#787774]">
-                範本是共同起點；建立後每位參與者針對同一組議程和自己的 Agent
-                討論。
-              </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <IconCalendarEvent className="mt-0.5 text-[#0f9f8a]" size={21} />
+              <div>
+                <h2 className="text-lg font-semibold">議程範本</h2>
+                <p className="mt-1 text-sm leading-6 text-[#787774]">
+                  範本是共同起點；建立後每位參與者針對同一組議程和自己的 Agent
+                  討論。
+                </p>
+              </div>
             </div>
+            <label className="block sm:w-72 sm:shrink-0">
+              <select
+                aria-label="套用議程範本"
+                value={template}
+                onChange={(event) => chooseTemplate(event.target.value)}
+                className="control-primary w-full text-sm"
+              >
+                <option value="">不套用範本</option>
+                {templates.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <label className="mt-5 block text-sm font-medium">
-            快速套用
-            <select
-              value={template}
-              onChange={(event) => chooseTemplate(event.target.value)}
-              className="control-primary mt-2 text-sm"
-            >
-              <option value="">不套用範本</option>
-              {templates.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
           <div className="mt-5 space-y-3">
             {agenda.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -465,3 +462,4 @@ export default function NewMeetingPage() {
     </AppShell>
   );
 }
+type Attendance = "joined" | "left";

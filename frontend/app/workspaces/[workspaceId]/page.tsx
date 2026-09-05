@@ -210,7 +210,7 @@ export default function TeamOverviewPage() {
               <div>
                 <h2 className="text-lg font-semibold">團隊會議</h2>
                 <p className="mt-1 text-sm text-[#787774]">
-                  查看最近會議並繼續議前準備，或建立新的會議。
+                  查看最近會議並繼續議前整理，或建立新的會議。
                 </p>
               </div>
             </div>

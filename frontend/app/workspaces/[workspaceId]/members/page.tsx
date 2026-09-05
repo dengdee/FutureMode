@@ -253,7 +253,14 @@ export default function WorkspaceMembersPage() {
                 .filter((item) => item.status === "pending")
                 .map((item) => (
                   <div key={item.id} className="rounded-xl bg-[#f7f7f5] p-3">
-                    <p className="truncate text-sm font-medium">{item.email}</p>
+                    <p className="truncate text-sm font-medium">
+                      {item.recipient_name || item.email || "未設定名稱的帳號"}
+                    </p>
+                    {item.recipient_name && item.email && (
+                      <p className="mt-1 truncate text-xs text-[#787774]">
+                        {item.email}
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-[#787774]">
                       {roleLabel(item.role)} · 等待接受
                     </p>

@@ -119,7 +119,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const meetingPath = pathname.split("/");
   const isWorkspaceMeeting =
     pathname.startsWith("/workspaces/") && meetingPath[3] === "meetings";
-  const isMeetingRoute = pathname.startsWith("/meetings/") || isWorkspaceMeeting;
+  const isMeetingRoute =
+    pathname.startsWith("/meetings/") || isWorkspaceMeeting;
   const meetingId = isWorkspaceMeeting ? meetingPath[4] : meetingPath[2];
   const workspacePath = pathname.startsWith("/workspaces/")
     ? pathname.split("/")
@@ -166,8 +167,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     listTeams()
       .then((result) => {
         if (active) {
-            setWorkspaceName(
-            result.teams.find((team) => team.id === contextTeamId)?.name ?? null,
+          setWorkspaceName(
+            result.teams.find((team) => team.id === contextTeamId)?.name ??
+              null,
           );
         }
       })
