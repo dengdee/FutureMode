@@ -31,7 +31,9 @@ async function getToken(): Promise<string> {
   tokenRequest = (async () => {
     let response: Response;
     try {
-      response = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
+      response = await fetch("/api/auth/token", {
+        credentials: "include", cache: "no-store", signal: AbortSignal.timeout(10_000),
+      });
     } catch {
       throw new ApiClientError({ status: 503, message: "登入驗證服務暫時無法連線，請稍後重試。" });
     }

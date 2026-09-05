@@ -2,7 +2,7 @@
 
 import { IconBriefcase, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AppShell } from "../../components/app-shell";
 import { PageHeader } from "../../components/page-header";
 import { listMeetings } from "../../lib/api/meetings";
@@ -21,6 +21,10 @@ export default function WorkspacesPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createdTeam, setCreatedTeam] = useState<Team | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
   const [inviteRows, setInviteRows] = useState<InviteRow[]>([{ id: 1, email: "", role: "member" }]);
 
@@ -57,22 +61,52 @@ export default function WorkspacesPage() {
 
   async function submitWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLock.current) return;
     const invalid = inviteRows.some((row) => row.email.trim() && !/^\S+@\S+\.\S+$/.test(row.email.trim()));
-    if (invalid) { setNotice("請確認每個 Email 格式正確。"); return; }
-    if (!workspaceName.trim()) { setNotice("請填寫工作區名稱。"); return; }
+    if (invalid) { setCreateError("請確認每個 Email 格式正確。"); return; }
+    if (!workspaceName.trim()) { setCreateError("請填寫工作區名稱。"); return; }
+    submitLock.current = true;
+    setSubmitting(true);
+    setCreateError(null);
     try {
-      const team = await createTeam({ name: workspaceName.trim() });
+      const team = createdTeam ?? await createTeam({ name: workspaceName.trim() });
+      if (!createdTeam) {
+        setCreatedTeam(team);
+        setTeams((current) => [...current.filter((item) => item.id !== team.id), team]);
+        setSelectedTeamId(team.id);
+        setError(null);
+      }
       const invitations = inviteRows.filter((row) => row.email.trim());
-      await Promise.all(invitations.map((row) => createInvitation(team.id, { email: row.email.trim(), role: row.role === "admin" ? "admin" : "member" })));
+      const results = await Promise.allSettled(invitations.map((row) => createInvitation(team.id, { email: row.email.trim(), role: row.role })));
+      const failed = invitations.filter((_, index) => results[index].status === "rejected");
+      if (failed.length) {
+        setInviteRows(failed);
+        const failure = results.find((result) => result.status === "rejected");
+        const reason = failure?.status === "rejected" && failure.reason instanceof Error ? failure.reason.message : "請稍後重試。";
+        setCreateError(`團隊已建立，但 ${failed.length} 筆邀請未完成。${reason} 重試只會處理剩餘邀請，不會重建團隊。`);
+        return;
+      }
       setCreateOpen(false);
-      setTeams((current) => [...current, team]);
-      setSelectedTeamId(team.id);
+      setCreatedTeam(null);
       setWorkspaceName("");
       setInviteRows([{ id: 1, email: "", role: "member" }]);
-      setNotice(invitations.length ? `團隊已建立，已送出 ${invitations.length} 封邀請。` : "團隊已建立。");
-      } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "建立工作區失敗，請稍後再試。");
+      setNotice(invitations.length ? "團隊已建立，邀請紀錄已儲存。" : "團隊已建立。");
+    } catch (cause) {
+      setCreateError(cause instanceof Error ? cause.message : "建立工作區失敗，請稍後再試。");
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
     }
+  }
+
+  function closeCreate() {
+    if (submitLock.current) return;
+    if (createdTeam) setNotice("團隊已建立，尚有未完成的邀請。");
+    setCreateOpen(false);
+    setCreatedTeam(null);
+    setCreateError(null);
+    setWorkspaceName("");
+    setInviteRows([{ id: 1, email: "", role: "member" }]);
   }
 
   async function changeMemberRole(member: TeamMember, role: string) {
@@ -96,6 +130,6 @@ export default function WorkspacesPage() {
       <section className="mt-8"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">工作區內的會議</h2><span className="text-sm text-[#787774]">{teamMeetings.length} 場</span></div>{teamMeetings.length ? <div className="grid gap-3">{teamMeetings.map((meeting) => <Link key={meeting.id} href={`/meetings/${meeting.id}/prepare`} className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:-translate-y-0.5 hover:ring-1 hover:ring-[var(--accent)]"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{meeting.title}</h3><span className="text-xs text-[#787774]">{meeting.status}</span></div><p className="mt-2 text-sm text-[#787774]">{meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString("zh-TW") : "尚未排程"}</p></Link>)}</div> : <div className="rounded-2xl border border-dashed border-[#d8d8d5] bg-white p-10 text-center text-sm text-[#787774]">此工作區尚未建立會議。</div>}</section></div>
     </div>}
     {selectedTeamId && <div className="mt-4"><Link href={`/memory?teamId=${selectedTeamId}&scope=shared`} className="rounded-primary border border-[#d7e8e5] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]">查看團隊共用文件</Link></div>}
-    {createOpen && <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-8" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setCreateOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="create-workspace-title" className="w-full max-w-2xl rounded-2xl border border-[#dededb] bg-white shadow-xl"><header className="flex items-center justify-between border-b border-[#e6e6e3] px-6 py-5"><div><h2 id="create-workspace-title" className="text-xl font-semibold">建立團隊工作區</h2><p className="mt-1 text-sm text-[#787774]">建立後即可在工作區內管理多場會議。</p></div><button type="button" onClick={() => setCreateOpen(false)} className="cursor-pointer rounded-lg p-2 text-[#787774] hover:bg-[#f4f4f2]" aria-label="關閉"><IconX size={22} /></button></header><form onSubmit={submitWorkspace} className="p-6"><label className="block text-sm font-medium">工作區名稱<input required value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} className="control-primary mt-2" placeholder="例如：FutureMode Hackathon" /></label><div className="mt-6"><div className="flex items-end justify-between gap-3"><div><h3 className="text-sm font-semibold">邀請成員</h3><p className="mt-1 text-xs text-[#787774]">每列填入 Email 並選擇團隊角色。</p></div><button type="button" onClick={addInviteRow} className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-[#0f9f8a]"><IconPlus size={16} />新增一列</button></div><div className="mt-3 overflow-hidden rounded-xl border border-[#e6e6e3]"><div className="grid grid-cols-[minmax(0,1fr)_150px_42px] gap-2 bg-[#f7f7f5] px-3 py-2 text-xs font-semibold text-[#787774]"><span>Email address</span><span>Role</span><span /></div>{inviteRows.map((row) => <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_150px_42px] items-center gap-2 border-t border-[#ededeb] px-3 py-2"><input type="email" value={row.email} onChange={(event) => updateInviteRow(row.id, { email: event.target.value })} className="control-primary" placeholder="name@example.com" aria-label="成員 Email" /><select value={row.role} onChange={(event) => updateInviteRow(row.id, { role: event.target.value as InviteRow["role"] })} className="control-primary cursor-pointer" aria-label="成員角色"><option value="member">Member</option><option value="owner">Owner</option></select><button type="button" disabled={inviteRows.length === 1} onClick={() => setInviteRows((rows) => rows.filter((item) => item.id !== row.id))} className="cursor-pointer rounded-lg p-2 text-[#787774] hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="移除成員列"><IconTrash size={17} /></button></div>)}</div></div><div className="mt-7 flex justify-end gap-3 border-t border-[#ededeb] pt-5"><button type="button" onClick={() => setCreateOpen(false)} className="cursor-pointer rounded-primary border border-[#dededb] px-4 py-2.5 text-sm font-medium">取消</button><button type="submit" className="cursor-pointer rounded-primary bg-[#1f1f1f] px-4 py-2.5 text-sm font-semibold text-white">建立工作區</button></div></form></section></div>}
+    {createOpen && <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-8" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeCreate()}><section role="dialog" aria-modal="true" aria-labelledby="create-workspace-title" className="w-full max-w-2xl rounded-2xl border border-[#dededb] bg-white shadow-xl"><header className="flex items-center justify-between border-b border-[#e6e6e3] px-6 py-5"><div><h2 id="create-workspace-title" className="text-xl font-semibold">建立團隊工作區</h2><p className="mt-1 text-sm text-[#787774]">建立後即可在工作區內管理多場會議。</p></div><button type="button" disabled={submitting} onClick={closeCreate} className="cursor-pointer rounded-lg p-2 text-[#787774] hover:bg-[#f4f4f2]" aria-label="關閉"><IconX size={22} /></button></header><form onSubmit={submitWorkspace} className="p-6" aria-busy={submitting}>{createError && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{createError}</p>}{submitting && <p role="status" className="mb-4 text-sm text-[#787774]">{createdTeam ? "正在儲存邀請…" : "正在建立工作區…"}</p>}<fieldset disabled={submitting} className="min-w-0"><label className="block text-sm font-medium">工作區名稱<input required disabled={!!createdTeam} value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} className="control-primary mt-2" placeholder="例如：FutureMode Hackathon" /></label><div className="mt-6"><div className="flex items-end justify-between gap-3"><div><h3 className="text-sm font-semibold">邀請成員</h3><p className="mt-1 text-xs text-[#787774]">每列填入 Email 並選擇團隊角色。</p></div><button type="button" onClick={addInviteRow} className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-[#0f9f8a]"><IconPlus size={16} />新增一列</button></div><div className="mt-3 overflow-hidden rounded-xl border border-[#e6e6e3]"><div className="grid grid-cols-[minmax(0,1fr)_150px_42px] gap-2 bg-[#f7f7f5] px-3 py-2 text-xs font-semibold text-[#787774]"><span>Email address</span><span>Role</span><span /></div>{inviteRows.map((row) => <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_150px_42px] items-center gap-2 border-t border-[#ededeb] px-3 py-2"><input type="email" value={row.email} onChange={(event) => updateInviteRow(row.id, { email: event.target.value })} className="control-primary" placeholder="name@example.com" aria-label="成員 Email" /><select value={row.role} onChange={(event) => updateInviteRow(row.id, { role: event.target.value as InviteRow["role"] })} className="control-primary cursor-pointer" aria-label="成員角色"><option value="member">Member</option><option value="admin">Admin</option></select><button type="button" disabled={inviteRows.length === 1} onClick={() => setInviteRows((rows) => rows.filter((item) => item.id !== row.id))} className="cursor-pointer rounded-lg p-2 text-[#787774] hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="移除成員列"><IconTrash size={17} /></button></div>)}</div></div><div className="mt-7 flex justify-end gap-3 border-t border-[#ededeb] pt-5"><button type="button" disabled={submitting} onClick={closeCreate} className="cursor-pointer rounded-primary border border-[#dededb] px-4 py-2.5 text-sm font-medium">取消</button><button type="submit" disabled={submitting} className="cursor-pointer rounded-primary bg-[#1f1f1f] px-4 py-2.5 text-sm font-semibold text-white">{submitting ? "處理中…" : createdTeam ? "重試剩餘邀請" : "建立工作區"}</button></div></fieldset></form></section></div>}
   </AppShell>;
 }
