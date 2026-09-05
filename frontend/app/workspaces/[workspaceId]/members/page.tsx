@@ -8,10 +8,23 @@ import { AppShell } from "../../../../components/app-shell";
 import { PageHeader } from "../../../../components/page-header";
 import { TeamSubnav } from "../../../../components/team-subnav";
 import { toast } from "../../../../components/ui/toast";
+import { ApiClientError } from "../../../../lib/api/client";
 import { cancelInvitation, createInvitation, listInvitations, listTeamMembers, listTeams, removeTeamMember, updateTeamMember } from "../../../../lib/api/teams";
 import type { Invitation, Team, TeamMember } from "../../../../types/api";
 
 const roleLabel = (role: string) => role === "admin" ? "管理員" : "成員";
+
+function showInvitationError(cause: unknown) {
+  if (cause instanceof ApiClientError && cause.status === 401) {
+    toast.error("目前登入憑證無法被 API 驗證，請重新登入後再建立邀請。", { action: { label: "重新登入", onClick: () => window.location.assign("/sign-in") } });
+    return;
+  }
+  if (cause instanceof ApiClientError && cause.status === 404) {
+    toast.error("找不到此帳號；受邀者需要先註冊並登入 Proximate 一次。");
+    return;
+  }
+  toast.error(cause instanceof Error ? cause.message : "建立邀請失敗。");
+}
 
 export default function WorkspaceMembersPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -34,7 +47,7 @@ export default function WorkspaceMembersPage() {
     if (!email.trim()) return;
     setBusy(true);
     try { await createInvitation(workspaceId, { email: email.trim(), role }); setEmail(""); setRole("member"); toast.success("邀請已建立；對方登入後會在站內看到邀請。"); load(); }
-    catch (cause) { toast.error(cause instanceof Error ? cause.message : "建立邀請失敗。 "); }
+    catch (cause) { showInvitationError(cause); }
     finally { setBusy(false); }
   }
   async function updateRole(member: TeamMember, nextRole: string) {
