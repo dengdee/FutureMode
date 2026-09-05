@@ -134,7 +134,7 @@ export default function TeamOverviewPage() {
         </p>
       ) : (
         <>
-          <section className="mt-6 grid gap-4 sm:grid-cols-2">
+          <section className="mt-6 max-w-xl">
             <Link
               href={`/workspaces/${workspaceId}/members`}
               className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
@@ -144,18 +144,6 @@ export default function TeamOverviewPage() {
               <p className="mt-1 text-3xl font-semibold">{members.length}</p>
               <p className="mt-2 text-sm text-[#087e6d]">
                 管理角色與邀請 <IconChevronRight className="inline" size={15} />
-              </p>
-            </Link>
-            <Link
-              href={`/workspaces/${workspaceId}`}
-              className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
-            >
-              <IconCalendarPlus className="text-[#0f9f8a]" size={22} />
-              <p className="mt-5 text-sm text-[#787774]">全部會議</p>
-              <p className="mt-1 text-3xl font-semibold">{meetings.length}</p>
-              <p className="mt-2 text-sm text-[#087e6d]">
-                查看排程與會前準備{" "}
-                <IconChevronRight className="inline" size={15} />
               </p>
             </Link>
           </section>
