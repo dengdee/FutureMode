@@ -134,15 +134,17 @@ export default function TeamOverviewPage() {
         </p>
       ) : (
         <>
-          <section className="mt-6 max-w-xl">
+          <section className="mt-6">
             <Link
               href={`/workspaces/${workspaceId}/members`}
               className="block rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
             >
-              <IconUsersGroup className="text-[#0f9f8a]" size={22} />
-              <p className="mt-5 text-sm text-[#787774]">團隊成員</p>
-              <p className="mt-1 text-3xl font-semibold">{members.length}</p>
-              <p className="mt-2 text-sm text-[#087e6d]">
+              <div className="flex flex-col items-center text-center">
+                <IconUsersGroup className="text-[#0f9f8a]" size={22} />
+                <p className="mt-5 text-sm text-[#787774]">團隊成員</p>
+                <p className="mt-1 text-3xl font-semibold">{members.length}</p>
+              </div>
+              <p className="mt-2 flex justify-end items-center text-sm text-[#087e6d]">
                 管理角色與邀請 <IconChevronRight className="inline" size={15} />
               </p>
             </Link>
