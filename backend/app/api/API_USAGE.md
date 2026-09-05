@@ -123,6 +123,6 @@ Base URL：`http://localhost:8000`
 
 登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`、`GET /api/v1/me/invitations`。
 
-站內邀請以選定帳號的 `recipient_user_id` 配對已驗證身分，不依賴 Email claims 或 Email 驗證旗標，不寄送 Email。建立 body：`{"recipient_user_id":"<users/search 回傳的 id>","role":"member"}`。JWT 簽章、issuer、audience、有效期限仍會先驗證。舊 Email 邀請需由管理員取消後重新選擇帳號；資料庫需更新至 0021。完整流程與遷移方式見 [IN_APP_INVITATIONS.md](IN_APP_INVITATIONS.md)。
+站內邀請以已註冊的 Email 配對帳號，不會把帳號目錄或搜尋結果提供給前端，也不寄送 Email。建立 body：`{"email":"member@example.com","role":"member"}`。後端會在 Neon Auth 的 `neon_auth."user"` 目錄中驗證 Email，並以 `recipient_user_id` 綁定邀請；查無帳號時回傳 404，目錄服務無法使用時回傳 503。JWT 簽章、issuer、audience、有效期限仍會先驗證。資料庫需更新至 0021。完整流程與遷移方式見 [IN_APP_INVITATIONS.md](IN_APP_INVITATIONS.md)。
 
 session Cookie 必須實際送到後端；缺少 Cookie／Email 回傳 403，session 過期或帳號不符回傳 401，上游失敗回傳 503。session 回應即使為 200，Email 未驗證仍回傳 403。測試使用真實簽章 JWT 與模擬 Neon Auth 回應；實際登入仍需確認瀏覽器請求包含 Cookie。
