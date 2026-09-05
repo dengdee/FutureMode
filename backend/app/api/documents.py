@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pypdf import PdfReader
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.meetings import authorized_meeting, database_session
 from app.auth.principal import Principal, get_current_principal
 from app.config import get_settings
-from app.models import Document, DocumentChunk, DocumentVersion, TeamMember, User
+from app.models import Document, DocumentChunk, DocumentVersion, Meeting, TeamMember, User
 from app.schemas.documents import (
     DocumentChunkCreateResponse,
     DocumentChunkSummary,
@@ -82,11 +82,21 @@ async def create_document(
 @router.get("/teams/{team_id}/documents", response_model=list[DocumentSummary])
 async def list_documents(
     team_id: UUID,
+    scope: str | None = Query(default=None, pattern="^(team|meeting)$"),
+    meeting_id: UUID | None = Query(default=None),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> list[DocumentSummary]:
     await team_access(team_id, principal, session)
-    docs = (await session.scalars(select(Document).where(Document.team_id == team_id))).all()
+    filters = [Document.team_id == team_id]
+    if scope == "team":
+        filters.append(Document.source_type == "team")
+    elif scope == "meeting":
+        if meeting_id is None:
+            return []
+        filters.append(Document.source_type == "meeting")
+        filters.append(Document.metadata_json["meeting_id"].astext == str(meeting_id))
+    docs = (await session.scalars(select(Document).where(*filters))).all()
     return [
         {
             "id": str(d.id),
@@ -97,6 +107,51 @@ async def list_documents(
         }
         for d in docs
     ]
+
+
+@router.post(
+    "/teams/{team_id}/documents/upload",
+    response_model=list[DocumentIngestResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_documents(
+    team_id: UUID,
+    files: list[UploadFile] = File(...),
+    source_type: str = Form(default="team", pattern="^(team|meeting)$"),
+    meeting_id: UUID | None = Form(default=None),
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> list[DocumentIngestResponse]:
+    """Create and ingest a confirmed group of files in one multipart request."""
+    if not files:
+        raise HTTPException(status_code=400, detail="at least one file is required")
+    if source_type == "meeting" and meeting_id is None:
+        raise HTTPException(status_code=422, detail="meeting_id is required for meeting documents")
+    user = await team_access(team_id, principal, session)
+    if meeting_id is not None:
+        meeting = await session.scalar(
+            select(Meeting).where(Meeting.id == meeting_id, Meeting.team_id == team_id)
+        )
+        if meeting is None:
+            raise HTTPException(status_code=404, detail="meeting not found in this team")
+    results: list[DocumentIngestResponse] = []
+    for file in files:
+        document = Document(
+            team_id=team_id,
+            uploaded_by=user.id,
+            name=file.filename or "upload",
+            source_type=source_type,
+            metadata_json={"meeting_id": str(meeting_id)} if meeting_id else {},
+        )
+        session.add(document)
+        await session.commit()
+        try:
+            results.append(await upload_text_document(document.id, file, principal, session))
+        except HTTPException:
+            await session.delete(document)
+            await session.commit()
+            raise
+    return results
 
 
 @router.post(
@@ -170,9 +225,9 @@ async def get_document(
         raise HTTPException(status_code=404, detail="document not found")
     await team_access(document.team_id, principal, session)
     chunk_count = await session.scalar(
-        select(func.count()).select_from(DocumentChunk).where(
-            DocumentChunk.document_id == document_id
-        )
+        select(func.count())
+        .select_from(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
     )
     return {
         "id": str(document.id),
@@ -203,9 +258,9 @@ async def archive_document(
     document.status = "archived"
     await session.commit()
     chunk_count = await session.scalar(
-        select(func.count()).select_from(DocumentChunk).where(
-            DocumentChunk.document_id == document_id
-        )
+        select(func.count())
+        .select_from(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
     )
     return DocumentDetail(
         id=document.id,
@@ -226,6 +281,7 @@ async def archive_document(
 @router.get("/documents/{document_id}/download-url", response_model=DocumentDownloadUrl)
 async def document_download_url(
     document_id: UUID,
+    download: bool = Query(default=False),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> DocumentDownloadUrl:
@@ -237,7 +293,7 @@ async def document_download_url(
     if not isinstance(storage_key, str) or not storage_key:
         raise HTTPException(status_code=404, detail="document file not found")
     try:
-        url = await create_download_url(storage_key, settings)
+        url = await create_download_url(storage_key, settings, download=download)
     except StorageConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except (BotoCoreError, ClientError):
@@ -362,12 +418,15 @@ async def upload_text_document(
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> DocumentIngestResponse:
-    if file.content_type not in {"text/plain", "text/markdown", "application/pdf"}:
+    filename = (file.filename or "").lower()
+    is_pdf = file.content_type == "application/pdf" or filename.endswith(".pdf")
+    is_text = file.content_type in {"text/plain", "text/markdown"} or filename.endswith(".txt")
+    if not is_pdf and not is_text:
         raise HTTPException(status_code=415, detail="only text and PDF files are supported")
     raw_content = await file.read(5_000_001)
     if len(raw_content) > 5_000_000:
         raise HTTPException(status_code=413, detail="file is too large")
-    if file.content_type == "application/pdf":
+    if is_pdf:
         try:
             reader = PdfReader(BytesIO(raw_content))
             content = "\n".join(page.extract_text() or "" for page in reader.pages)
@@ -404,7 +463,6 @@ async def upload_text_document(
         "original_filename": file.filename or "upload",
         "content_type": file.content_type,
     }
-    document.source_type = "pdf_upload" if file.content_type == "application/pdf" else "text_upload"
     result = await ingest_document(
         document_id,
         DocumentIngestRequest(content=content),
@@ -412,8 +470,7 @@ async def upload_text_document(
         session,
     )
     latest_version = await session.scalar(
-        select(DocumentVersion)
-        .where(
+        select(DocumentVersion).where(
             DocumentVersion.document_id == document_id,
             DocumentVersion.version == result.version,
         )
@@ -422,9 +479,9 @@ async def upload_text_document(
         latest_version.storage_key = storage_key
         await session.commit()
     return result
-@router.get(
-    "/documents/{document_id}/versions", response_model=list[DocumentVersionSummary]
-)
+
+
+@router.get("/documents/{document_id}/versions", response_model=list[DocumentVersionSummary])
 async def list_document_versions(
     document_id: UUID,
     principal: Principal = Depends(get_current_principal),
@@ -472,7 +529,7 @@ async def restore_document_version(
     except (BotoCoreError, ClientError):
         raise HTTPException(status_code=502, detail="file storage is unavailable") from None
     try:
-        if document.source_type == "pdf_upload":
+        if document.metadata_json.get("content_type") == "application/pdf":
             reader = PdfReader(BytesIO(raw_content))
             content = "\n".join(page.extract_text() or "" for page in reader.pages)
         else:
@@ -541,9 +598,7 @@ async def embed_document(
     }
 
 
-@router.get(
-    "/teams/{team_id}/memory/search", response_model=list[DocumentSearchResult]
-)
+@router.get("/teams/{team_id}/memory/search", response_model=list[DocumentSearchResult])
 async def search_memory(
     team_id: UUID,
     q: str = Query(min_length=1, max_length=500),
@@ -593,9 +648,7 @@ async def search_memory(
     ]
 
 
-@router.get(
-    "/teams/{team_id}/memory/hybrid-search", response_model=list[DocumentSearchResult]
-)
+@router.get("/teams/{team_id}/memory/hybrid-search", response_model=list[DocumentSearchResult])
 async def hybrid_search_memory(
     team_id: UUID,
     q: str = Query(min_length=1, max_length=500),

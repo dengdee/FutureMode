@@ -15,7 +15,9 @@ from app.schemas.team import InvitationCreate
 
 def setup_creation(role="admin", existing=None, already_member=False):
     actor = User(id=uuid4(), external_id="actor")
-    recipient = User(id=uuid4(), external_id="recipient", display_name="小明", email="person@example.com")
+    recipient = User(
+        id=uuid4(), external_id="recipient", display_name="小明", email="person@example.com"
+    )
     team = Team(id=uuid4(), name="測試")
     db = MagicMock()
     db.scalar = AsyncMock(side_effect=[actor, TeamMember(role=role), team, recipient,
@@ -53,15 +55,42 @@ def test_non_admin_cannot_invite():
 
 
 @pytest.mark.parametrize("missing,expected", [(True, 404), (False, 409)])
-def test_recipient_must_exist_and_not_already_be_member(missing, expected):
+def test_recipient_must_exist_and_not_already_be_member(missing, expected, monkeypatch):
     db, recipient, team = setup_creation(already_member=True)
     if missing:
-        db.scalar.side_effect = [User(id=uuid4(), external_id="actor"), TeamMember(role="admin"), team, None]
+        db.scalar.side_effect = [
+            User(id=uuid4(), external_id="actor"), TeamMember(role="admin"), team, None
+        ]
+        async def no_neon_user(*_args):
+            return None
+        monkeypatch.setattr("app.api.teams.find_neon_auth_user", no_neon_user)
     with pytest.raises(HTTPException) as error:
         asyncio.run(create_invitation(team.id, InvitationCreate(
             email="person@example.com"), Principal("actor", {}), db))
     assert error.value.status_code == expected
     db.add.assert_not_called()
+
+
+def test_registered_neon_auth_user_is_synced_before_invitation(monkeypatch):
+    db, _recipient, team = setup_creation()
+    db.scalar.side_effect = [
+        User(id=uuid4(), external_id="actor"), TeamMember(role="admin"), team, None, None, None
+    ]
+    db.flush = AsyncMock()
+
+    async def neon_user(*_args):
+        return {"external_id": "neon-user", "email": "person@example.com", "display_name": "小明"}
+
+    monkeypatch.setattr("app.api.teams.find_neon_auth_user", neon_user)
+    result = asyncio.run(create_invitation(team.id, InvitationCreate(
+        email="person@example.com"), Principal("actor", {}), db))
+
+    synced_user = db.add.call_args_list[0].args[0]
+    assert isinstance(synced_user, User)
+    assert synced_user.external_id == "neon-user"
+    assert synced_user.email == "person@example.com"
+    assert result.recipient_user_id == synced_user.id
+    db.flush.assert_awaited_once()
 
 
 def test_duplicate_pending_recipient_returns_existing_invitation():

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { Toaster } from "../components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Proximate",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="zh-Hant">
-      <body>{children}</body>
+      <body>{children}<Toaster /></body>
     </html>
   );
 }

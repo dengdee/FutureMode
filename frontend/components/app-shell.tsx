@@ -19,7 +19,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
-import { InvitationInbox } from "./invitation-inbox";
+import { getCurrentUser } from "../lib/api/me";
+import { listTeamMembers, listTeams } from "../lib/api/teams";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -33,7 +34,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { data: authSession } = authClient.useSession();
-  const profileName = authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
+  const [apiProfileName, setApiProfileName] = useState<string | null>(null);
+  useEffect(() => {
+    const refreshProfile = async (event?: Event) => {
+      const updatedName = event instanceof CustomEvent && typeof event.detail === "string" ? event.detail : window.localStorage.getItem("proximate:profile-name");
+      if (updatedName) setApiProfileName(updatedName);
+      try {
+        const currentUser = await getCurrentUser();
+        const teams = await listTeams();
+        const memberLists = await Promise.all(teams.teams.map((team) => listTeamMembers(team.id)));
+        const currentMember = memberLists.flatMap((result) => result.members).find((member) => member.external_id === currentUser.id);
+        const currentName = currentMember?.display_name ?? currentUser.display_name ?? updatedName;
+        if (currentName) { window.localStorage.setItem("proximate:profile-name", currentName); setApiProfileName(currentName); }
+      } catch { /* Keep the authenticated or cached label if the profile lookup is unavailable. */ }
+    };
+    refreshProfile();
+    window.addEventListener("proximate:profile-updated", refreshProfile);
+    return () => window.removeEventListener("proximate:profile-updated", refreshProfile);
+  }, [authSession?.user?.id]);
+  const profileName = apiProfileName ?? authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
   const profileInitial = Array.from(profileName.trim())[0]?.toUpperCase() ?? "P";
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -45,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const meetingPhase = pathname.startsWith("/meetings/")
-    ? ({ new: "建立會議", prepare: "會前準備", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
+    ? ({ new: "建立會議", prepare: "議前討論", "pre-meeting-summary": "議前整理", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
     : undefined;
   const memoryScope = searchParams.get("scope");
   const breadcrumbGroup = meetingPhase
@@ -290,7 +309,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           ref={contentRef}
           className="min-w-0 flex-1 px-5 py-8 sm:px-8 md:overflow-y-auto md:px-10 md:py-10"
         >
-          <InvitationInbox />
           {children}
         </main>
       </div>
