@@ -4,7 +4,6 @@ import {
   IconAlertTriangle,
   IconCircleCheck,
   IconLoader2,
-  IconLock,
   IconRefresh,
 } from "@tabler/icons-react";
 import {
@@ -22,9 +21,9 @@ import {
   publishContribution,
 } from "../../lib/api/meeting-features";
 import type { LiveSnapshotResponse, MeetingSummary } from "../../types/api";
-import { HostControlsTab, LiveStateTab } from "./live-state";
+import { LiveStateTab } from "./live-state";
 
-type Tab = "brief" | "live" | "sidekick" | "host";
+type Tab = "brief" | "live" | "sidekick";
 type Status = "loading" | "connected" | "unauthorized" | "error";
 
 export function AddonShell({
@@ -50,11 +49,6 @@ export function AddonShell({
     preview ? previewSnapshot : null,
   );
   const [errorMessage, setErrorMessage] = useState("");
-  const isHost =
-    preview ||
-    snapshot?.policy?.is_host === true ||
-    snapshot?.policy?.isHost === true;
-
   const loadContext = useCallback(async () => {
     if (preview) return;
     setStatus("loading");
@@ -78,13 +72,14 @@ export function AddonShell({
   useEffect(() => {
     if (preview) return;
     void Promise.resolve().then(loadContext);
+    const timer = window.setInterval(() => void loadContext(), 5000);
+    return () => window.clearInterval(timer);
   }, [loadContext, preview]);
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "brief", label: "Brief" },
     { id: "live", label: "Live State" },
     { id: "sidekick", label: "Sidekick" },
-    ...(isHost ? [{ id: "host" as const, label: "Host" }] : []),
   ];
 
   return (
@@ -265,23 +260,16 @@ function TabContent({
         snapshot={snapshot}
       />
     );
-  if (tab === "host")
-    return <HostControlsTab />;
   return <SidekickTab meetingId={meetingId} />;
 }
 
 function SidekickTab({ meetingId }: { meetingId: string }) {
-  const [messages, setMessages] = useState<
-    Array<{ id: string; content: string; role: string }>
-  >([]);
+  const [messages, setMessages] = useState<Array<{ id: string; content: string; role: string }>>([]);
   const [draft, setDraft] = useState("");
   const [preview, setPreview] = useState("");
   const [notice, setNotice] = useState("");
   useEffect(() => {
-    if (meetingId)
-      listPersonalMessages(meetingId)
-        .then((items) => setMessages(items))
-        .catch(() => undefined);
+    listPersonalMessages(meetingId).then(setMessages).catch(() => undefined);
   }, [meetingId]);
   async function send() {
     if (!draft.trim()) return;
@@ -304,71 +292,7 @@ function SidekickTab({ meetingId }: { meetingId: string }) {
       setNotice(error instanceof Error ? error.message : "預覽失敗");
     }
   }
-  return (
-    <section>
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold">Personal Sidekick</h2>
-        <IconLock size={14} className="text-[#8b8b87]" />
-      </div>
-      <p className="mt-2 text-xs text-[#787774]">
-        僅你可見，可將內容預覽後發布到會議。
-      </p>
-      <div className="mt-4 space-y-2">
-        {messages.map((message) => (
-          <div key={message.id} className="rounded-lg bg-[#f7f7f5] p-3 text-sm">
-            {message.content}
-          </div>
-        ))}
-      </div>
-      <textarea
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        className="control-primary mt-4 min-h-24 w-full"
-        placeholder="輸入你的觀點或問題"
-      />
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => void send()}
-          className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white"
-        >
-          儲存訊息
-        </button>
-        <button
-          type="button"
-          onClick={() => void previewAndPublish()}
-          className="rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold"
-        >
-          預覽發布
-        </button>
-      </div>
-      {preview && (
-        <div className="mt-4 rounded-xl border border-[#b9e9cc] bg-[#effbf4] p-3 text-sm">
-          <p className="text-xs font-semibold text-[#087f5b]">公開內容預覽</p>
-          <p className="mt-2">{preview}</p>
-          <button
-            type="button"
-            onClick={() =>
-              publishContribution(meetingId, preview)
-                .then(() => {
-                  setNotice("內容已發布");
-                  setPreview("");
-                })
-                .catch(() => setNotice("發布失敗"))
-            }
-            className="mt-3 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white"
-          >
-            確認發布
-          </button>
-        </div>
-      )}
-      {notice && (
-        <p role="status" className="mt-3 text-xs text-[#787774]">
-          {notice}
-        </p>
-      )}
-    </section>
-  );
+  return <section><h2 className="text-lg font-semibold">Personal Sidekick</h2><p className="mt-2 text-xs text-[#787774]">只有你看得到，可在會中整理想法，不會自動公開。</p><div className="mt-4 space-y-2">{messages.map((message) => <div key={message.id} className="rounded-lg bg-[#f7f7f5] p-3 text-sm">{message.content}</div>)}</div><textarea value={draft} onChange={(event) => setDraft(event.target.value)} className="control-primary mt-4 min-h-24 w-full" placeholder="輸入你的觀點或問題" /><div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={!draft.trim()} onClick={() => void send()} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">儲存訊息</button><button type="button" disabled={!draft.trim()} onClick={() => void previewAndPublish()} className="rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold disabled:opacity-40">預覽發布</button></div>{preview && <div className="mt-4 rounded-xl border border-[#b9e9cc] bg-[#effbf4] p-3 text-sm"><p className="text-xs font-semibold text-[#087f5b]">公開內容預覽</p><p className="mt-2">{preview}</p><button type="button" onClick={() => publishContribution(meetingId, preview).then(() => { setNotice("內容已發布"); setPreview(""); }).catch(() => setNotice("發布失敗"))} className="mt-3 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white">確認發布</button></div>}{notice && <p role="status" className="mt-3 text-xs text-[#787774]">{notice}</p>}</section>;
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {
