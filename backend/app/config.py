@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     meeting_baas_api_key: str | None = None
     meeting_baas_url: str = "https://api.meetingbaas.com/v2/bots"
     meeting_baas_input_url: str | None = None
+    meeting_baas_webhook_secret: str | None = None
+    meeting_baas_timeout_seconds: float = 10.0
+    meeting_baas_max_retries: int = 2
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
