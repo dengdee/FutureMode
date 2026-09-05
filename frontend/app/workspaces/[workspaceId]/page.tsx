@@ -137,7 +137,7 @@ export default function TeamOverviewPage() {
           <section className="mt-6 max-w-xl">
             <Link
               href={`/workspaces/${workspaceId}/members`}
-              className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
+              className="block rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:border-[#9ddbc8] hover:shadow-sm"
             >
               <IconUsersGroup className="text-[#0f9f8a]" size={22} />
               <p className="mt-5 text-sm text-[#787774]">團隊成員</p>
@@ -203,7 +203,7 @@ export default function TeamOverviewPage() {
                     </div>
                   </article>
                 ))}
-                {upcoming.length > meetingPageSize && (
+                {upcoming.length > 0 && (
                   <nav
                     aria-label="團隊會議分頁"
                     className="flex items-center justify-center gap-2 pt-3"
