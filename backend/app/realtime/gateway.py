@@ -2,20 +2,23 @@
 
 from uuid import UUID
 
-from app.realtime.events import EventJournal, StoredMeetingEvent
+from app.realtime.events import StoredMeetingEvent
 from app.realtime.rooms import RoomRegistry
 from app.schemas.events import MeetingEvent
 
 
 async def publish_realtime_event(
-    journal: EventJournal,
+    journal,
     rooms: RoomRegistry,
     event: MeetingEvent,
     *,
     recipient_user_id: UUID | None = None,
+    broker=None,
 ) -> StoredMeetingEvent:
     """Journal an event once and deliver it only to its authorized audience."""
     stored, was_added = await journal.append_once(event, recipient_user_id=recipient_user_id)
     if was_added:
         await rooms.publish(event, recipient_user_id=recipient_user_id)
+        if broker is not None:
+            await broker.publish(event, recipient_user_id=recipient_user_id)
     return stored

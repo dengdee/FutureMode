@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.schemas.events import MeetingEvent
+from app.schemas.events import MeetingEvent, MeetingEventEnvelope
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,9 @@ class StoredMeetingEvent:
     sequence: int
     event: MeetingEvent
     recipient_user_id: UUID | None = None
+
+    def to_envelope(self) -> MeetingEventEnvelope:
+        return MeetingEventEnvelope(cursor=self.sequence, **self.event.model_dump())
 
 
 class EventJournal:
@@ -70,3 +73,8 @@ class EventJournal:
     async def latest_cursor(self, meeting_id: UUID) -> int:
         async with self._lock:
             return len(self._events[meeting_id])
+
+    async def get(self, event_id: UUID) -> StoredMeetingEvent | None:
+        """Look up a queued event's cursor before it is delivered to a client."""
+        async with self._lock:
+            return self._events_by_id.get(event_id)

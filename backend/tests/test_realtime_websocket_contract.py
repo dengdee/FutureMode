@@ -43,14 +43,18 @@ def test_event_websocket_sends_the_current_state_snapshot_after_connecting() -> 
     async def context_override() -> MeetingWebSocketContext:
         return MeetingWebSocketContext(user_id=user_id, state=snapshot)
 
+    original_journal = app.state.event_journal
+    app.state.event_journal = EventJournal()
     app.dependency_overrides[get_meeting_websocket_context] = context_override
     try:
         with TestClient(app) as client:
             with client.websocket_connect(f"/api/v1/meetings/{meeting_id}/events") as socket:
                 event = socket.receive_json()
     finally:
+        app.state.event_journal = original_journal
         app.dependency_overrides.pop(get_meeting_websocket_context, None)
 
+    assert event["cursor"] == 0
     assert event["meeting_id"] == str(meeting_id)
     assert event["schema_version"] == 1
     assert event["payload"] == {
@@ -91,7 +95,7 @@ def test_event_websocket_replays_events_strictly_after_the_requested_cursor() ->
         app.dependency_overrides.pop(get_meeting_websocket_context, None)
 
     assert snapshot["payload"]["type"] == "meeting_state:snapshot"
-    assert replayed == replay_event.model_dump(mode="json")
+    assert replayed == {"cursor": 1, **replay_event.model_dump(mode="json")}
 
 
 def test_event_websocket_forwards_room_events_to_the_connected_client() -> None:
@@ -117,7 +121,9 @@ def test_event_websocket_forwards_room_events_to_the_connected_client() -> None:
                 self.sent.set()
 
         socket = Socket()
-        sender = asyncio.create_task(_send_queued_events(socket, connection))
+        journal = EventJournal()
+        await journal.append(delivered_event)
+        sender = asyncio.create_task(_send_queued_events(socket, connection, journal))
         try:
             await rooms.publish(delivered_event)
             await asyncio.wait_for(socket.sent.wait(), timeout=1)
@@ -126,7 +132,7 @@ def test_event_websocket_forwards_room_events_to_the_connected_client() -> None:
             with pytest.raises(asyncio.CancelledError):
                 await sender
 
-        assert socket.events == [delivered_event.model_dump(mode="json")]
+        assert socket.events == [{"cursor": 1, **delivered_event.model_dump(mode="json")}]
 
     asyncio.run(scenario())
 
