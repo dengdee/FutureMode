@@ -5,8 +5,8 @@
 ## 已完成：可由使用者操作的 Web App
 
 - Next.js App Router、TypeScript、Tailwind、共用 App Shell、中文導覽與響應式基礎。
-- Neon Auth 登入／註冊、session cookie 與短效 JWT Bearer 注入；邀請 JWT 缺少 Email 資料時由後端查詢同帳號 session。
-- 站內邀請不寄送 Email；受邀者登入後可接受／拒絕，領取時仍需驗證信箱所有權。
+- Neon Auth 登入／註冊、session cookie 與短效 JWT Bearer 注入；邀請使用已驗證的帳號身分，不需 Email claims 或額外 session 補齊。
+- 站內邀請不寄送 Email；管理員輸入 Email，後端只在找到已註冊帳號時建立 ID 綁定邀請，受邀者登入後可接受／拒絕。系統不顯示帳號搜尋清單。
 - Audio Setup 的瀏覽器收音與批次轉錄。
 - 團隊入口拆為團隊總覽、成員與邀請、團隊會議、團隊記憶四個子頁；成員角色、移除、邀請清單與取消邀請均可操作。
 - 建立會議採「團隊 → 會議資訊 → 議程」流程，提供常用議程範本與手動增修；AI 介入程度改為含說明的低／中／高選項。
