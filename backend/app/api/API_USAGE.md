@@ -64,7 +64,7 @@ Base URL：`http://localhost:8000`
 | PATCH | `/api/v1/meetings/{meeting_id}/suggestions/{suggestion_id}` | 修改建議狀態 |
 | GET | `/api/v1/meetings/{meeting_id}/suggestions/{suggestion_id}/votes` | 查詢投票 |
 | GET/POST | `/api/v1/meetings/{meeting_id}/personal/messages` | 查詢／建立個人訊息 |
-| GET/POST | `/api/v1/meetings/{meeting_id}/preparation/messages` | 查詢／建立議前 AI 對話；建立時由 Groq 免費額度模型回覆 |
+| GET/POST | `/api/v1/meetings/{meeting_id}/preparation/messages` | 查詢／建立議前 AI 對話；建立時由 Gemini 免費額度模型回覆 |
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/preview` | 預覽個人貢獻 |
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/publish` | 發布個人貢獻 |
 | GET/POST | `/api/v1/teams/{team_id}/documents` | 文件列表／建立文件紀錄 |

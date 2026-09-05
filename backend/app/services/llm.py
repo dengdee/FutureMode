@@ -14,6 +14,8 @@ class LLMProviderError(RuntimeError):
 
 
 async def complete_preparation(messages: list[dict[str, str]], settings: Settings) -> str:
+    if settings.llm_provider == "gemini":
+        return await _complete_gemini(messages, settings)
     api_key = settings.llm_api_key or settings.groq_api_key
     if settings.llm_provider not in {"groq", "openai"} or not api_key:
         raise LLMConfigurationError("LLM provider is not configured")
@@ -48,3 +50,40 @@ async def complete_preparation(messages: list[dict[str, str]], settings: Setting
             return content.strip()
     except (httpx.HTTPError, KeyError, IndexError, TypeError) as exc:
         raise LLMProviderError("LLM provider unavailable") from exc
+
+
+async def _complete_gemini(messages: list[dict[str, str]], settings: Settings) -> str:
+    api_key = settings.gemini_api_key or settings.llm_api_key
+    if not api_key:
+        raise LLMConfigurationError("Gemini provider is not configured")
+    contents = [
+        {"role": "model" if item["role"] == "assistant" else "user",
+         "parts": [{"text": item["content"]}]}
+        for item in messages
+    ]
+    try:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{settings.llm_model}:generateContent"
+        )
+        async with httpx.AsyncClient(timeout=settings.llm_timeout_seconds) as client:
+            response = await client.post(
+                url,
+                params={"key": api_key},
+                json={
+                    "systemInstruction": {"parts": [{"text": (
+                        "你是會議前準備助理。請用繁體中文協助使用者釐清問題、風險與需要在會議"
+                        "決定的事項；不要假造外部事實。"
+                    )}]},
+                    "contents": contents,
+                    "generationConfig": {"temperature": 0.3},
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["candidates"][0]["content"]["parts"][0]["text"]
+            if not isinstance(content, str) or not content.strip():
+                raise LLMProviderError("LLM returned empty content")
+            return content.strip()
+    except (httpx.HTTPError, KeyError, IndexError, TypeError) as exc:
+        raise LLMProviderError("Gemini provider unavailable") from exc

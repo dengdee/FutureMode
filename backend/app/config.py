@@ -25,9 +25,10 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1536
     embedding_batch_size: int = 64
     embedding_max_chunks: int = 500
-    llm_provider: str = "groq"
+    llm_provider: str = "gemini"
     llm_api_key: str | None = None
-    llm_model: str = "llama-3.1-8b-instant"
+    gemini_api_key: str | None = None
+    llm_model: str = "gemini-2.0-flash"
     llm_timeout_seconds: float = 30.0
     r2_endpoint_url: str | None = None
     r2_access_key_id: str | None = None
