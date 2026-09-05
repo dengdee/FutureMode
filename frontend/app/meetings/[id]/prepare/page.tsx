@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
+import { RestActionsPanel } from "../../../../components/rest-actions-panel";
+import { ActionItemsPanel } from "../../../../components/action-items-panel";
 import { addAgendaItem, listAgendaItems, removeAgendaItem, updateAgendaItem } from "../../../../lib/api/agenda";
 import { endMeeting, getMeeting, startMeeting, updateMeeting } from "../../../../lib/api/meetings";
 import { addParticipant, listParticipants, removeParticipant, updateParticipant } from "../../../../lib/api/participants";
@@ -64,7 +66,7 @@ export default function PreparePage() {
   if (loading) return <AppShell><div className="text-sm text-[#787774]">正在載入會議資料…</div></AppShell>;
   if (!meeting) return <AppShell><div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error ?? "找不到此會議。"}</div></AppShell>;
 
-  return <AppShell><MeetingWorkspaceHeader meetingId={id} phase="prepare" />
+  return <AppShell><MeetingWorkspaceHeader meetingId={id} phase="prepare" /><div className="mt-5"><RestActionsPanel meetingId={id} canCancel={meeting.status === "draft" || meeting.status === "scheduled"} /></div><div className="mt-5"><ActionItemsPanel meetingId={id} /></div>
     <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-[#e6e6e3] bg-white px-4 py-3 text-sm"><span className="font-semibold">{meeting.title}</span><span className="rounded-full bg-[#eef8f6] px-2.5 py-1 text-xs text-[#087e6d]">{meeting.status}</span><span className="text-[#787774]">{meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString("zh-TW") : "尚未排程"}</span><div className="ml-auto flex gap-2">{meeting.status === "draft" || meeting.status === "scheduled" ? <button type="button" disabled={busy} onClick={() => run(async () => { await startMeeting(id); }, "會議已開始。")} className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><IconPlayerPlay size={16} />開始會議</button> : meeting.status === "in_progress" ? <button type="button" disabled={busy} onClick={() => run(async () => { await endMeeting(id); }, "會議已結束。")} className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#1f1f1f] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><IconCheck size={16} />結束會議</button> : null}</div></div>
     {(notice || error) && <p role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-[#e9f7f4] text-[#087e6d]"}`}>{error ?? notice}</p>}
     <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]"><div className="space-y-6">

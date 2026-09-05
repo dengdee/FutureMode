@@ -35,15 +35,15 @@
 
 | 步驟 | 功能 | 狀態 | 實際完成內容／剩餘工作 |
 | --- | --- | --- | --- |
-| 01 | 前端基礎與設計語言 | 部分完成 | 已有 Tailwind token、Landing Page 與 `AppShell`；完整 Design System 與所有 route shell 尚未完成 |
+| 01 | 前端基礎與設計語言 | 已完成 | Tailwind token、共用 AppShell、表單控制項、Landing Page 與響應式基礎已完成 |
 | 02 | 路由、版面與導覽骨架 | 已完成 | 已建立所有規劃產品路由的靜態 UI、桌面／手機導覽、會議上下文頁首，以及 loading、error、404 邊界；尚未串接各功能 API |
-| 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已依功能拆分 `system.ts`、`meetbot.ts`、`me.ts`、`teams.ts`、`meetings.ts`、`participants.ts`、`agenda.ts`；全部使用 Axios 與正式 API，不使用 Mock Data |
+| 03 | Domain 型別、API Client 與資料狀態 | 已完成 | `lib/api/` 已涵蓋目前 OpenAPI 的 teams、meetings、participants、agenda、documents、Review、Sidekick 與 suggestions REST function |
 | 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊與 API client JWT 注入已完成；FastAPI issuer／audience／JWKS 與正式測試帳號需由環境設定 |
 | 05 | 工作總覽與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings` 與 `GET /api/v1/teams`，只呈現跨團隊近期會議與導覽；健康檢查僅保留為診斷 API |
 | 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
-| 07–11 | Prepare、Audio、Add-on、Live、Review | UI scaffold 完成／API 待補 | 頁面 UI 已建立；後端尚未提供 Brief、音訊、Live Snapshot、投票、Review 等 endpoint |
+| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入 | Prepare 與 Review 已接會議資料、參與者、逐字稿、共識與 action items；Live 已接 suggestions／vote；Audio／realtime 仍待 WebSocket |
 | 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成 | 目前 OpenAPI 的 REST endpoint 已集中封裝並接入 Web App；WebSocket、重連、事件 envelope 尚未由後端提供 |
-| 13–16 | 驗收、Memory、Settings、外部服務文件 | 尚未完成 | 需依正式契約完成互動、測試、ACL 與部署設定 |
+| 13–16 | 驗收、Memory、Settings、外部服務文件 | 部分完成 | Memory 拖曳上傳／搜尋與 Settings 個人資料已接入；需補文件生命週期 UI、完整測試與正式部署驗收 |
 
 > 狀態只代表 repository 中已完成且可驗證的程式碼。每完成一個步驟，需同步更新本表、步驟內容與驗證結果。
 
@@ -71,10 +71,8 @@
 
 - `/meetings/new` 已改為從 `GET /api/v1/teams` 選擇工作區，不再要求手動填 Team ID。
 - `POST /meetings` 與 agenda 寫入採序列處理；部分議程失敗時保留已建立會議的 Prepare 導入口，不假裝整筆交易成功。
-- Prepare 尚未接 Brief、Personal Sidekick 與公開觀點 endpoint；目前後端未提供。
-- Audio Setup、Live、Meet Add-on 尚未接 Access Token、Live Snapshot、投票與 WebSocket；目前後端未提供。
-- Review 尚未接摘要、逐字稿、共識與行動項目 endpoint；目前後端未提供。
-- Memory 與 Settings 尚未接 RAG／設定 API；目前後端未提供。團隊名稱、成員與會議政策由 `/workspaces` 管理，不放在 Settings。
+- Prepare 的 Brief、Audio WebSocket、Live Snapshot 與正式 Add-on realtime 尚待後端提供。
+- 文件封存、下載、版本還原、共識回饋與 Personal Sidekick 尚未完成完整操作 UI，REST function 已建立。
 - `POST /meetbot/join` 的 response 尚未有穩定 schema，且目前未綁定 meeting、政策、投票與 Host 授權；API function 保留供整合測試，正式 Prepare UI 不直接觸發 Voice Bot。
 - Team members 回傳 `external_id`，participant create 要求內部 UUID；前端不顯示 UUID 輸入，新增參與者等待後端提供可安全選取的契約。
 

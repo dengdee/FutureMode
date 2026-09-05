@@ -61,12 +61,12 @@ export default function WorkspacesPage() {
     if (!workspaceName.trim()) { setNotice("請填寫工作區名稱。"); return; }
     try {
       const team = await createTeam({ name: workspaceName.trim() });
+      setCreateOpen(false);
       setTeams((current) => [...current, team]);
       setSelectedTeamId(team.id);
       setWorkspaceName("");
       setInviteRows([{ id: 1, email: "", role: "member" }]);
       setNotice(inviteRows.some((row) => row.email.trim()) ? "工作區已建立；邀請名單已保留，等待後端邀請 API。" : "工作區已建立。");
-      setCreateOpen(false);
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "建立工作區失敗，請稍後再試。");
     }

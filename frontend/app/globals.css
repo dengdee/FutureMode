@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Keep the custom calendar icon from overlapping the native datetime control. */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator { opacity: 0; cursor: pointer; }
+
 @font-face {
   font-family: "Noto Sans TC";
   src: url("/fonts/NotoSansTC-VF.ttf") format("truetype");

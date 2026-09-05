@@ -23,24 +23,24 @@
 | `PATCH /api/v1/meetings/{meeting_id}/participants/{user_id}` | `updateParticipant` | 更新出席狀態 | 已串接 |
 | `DELETE /api/v1/meetings/{meeting_id}/participants/{user_id}` | `removeParticipant` | 移除參與者 | 已串接 |
 
-## 二、已建立 function，但目前沒有 UI 操作
+## 二、已建立 function，但目前沒有完整 UI 操作
 
 | API | 前端 function | 沒有 UI 的原因 |
 | --- | --- | --- |
-| `POST /api/v1/meetings/{meeting_id}/participants` | `addParticipant` | 從 members response 的 `user_id` 安全加入會議 | 已串接 |
+| `POST /api/v1/meetings/{meeting_id}/participants` | `addParticipant` | 會前準備已提供成員選擇與加入操作 | 已串接 |
 | `POST /meetbot/join` | `joinMeetingBot` | 目前是未綁定 meeting 的測試 join，缺少 meeting scope、Host 權限、政策／投票核准與穩定 response schema；因此不在正式 Prepare UI 直接觸發 |
 | `GET /health` | `getHealth` | 保留給系統診斷；依產品要求已從 Dashboard 移除 |
 | `GET /ready` | `getReady` | 保留給系統診斷；依產品要求已從 Dashboard 移除 |
 
 ## 三、目前尚未接入正式 UI 的後端能力
 
-以下功能目前沒有可供前端串接的正式 endpoint。前端只能保留 UI scaffold、路由與型別規劃，不能自行猜測 API。
+以下為後端已有 REST endpoint、但前端尚未做完整操作介面的項目；API function 已集中封裝，後續可直接接入。
 
 | 產品功能 | 預期前端頁面 | 需要後端提供 |
 | --- | --- | --- |
-| 工作區建立、改名、刪除 | `/workspaces` | workspace CRUD、目前使用者權限 |
+| 團隊改名、刪除與邀請寄送 | `/workspaces` | 目前前端僅完成建立團隊與成員列表 |
 | 團隊邀請與成員管理 | `/workspaces/[workspaceId]/members` | invite、resend、remove、role update |
-| 團隊共用文件 | `/workspaces/[workspaceId]/memory/shared` | multipart upload、檔案列表、刪除、權限與搜尋 |
+| 文件刪除、封存、下載與狀態 | `/memory` | 前端目前完成列表、拖曳上傳與搜尋 |
 | 單次會議文件 | `/workspaces/[workspaceId]/memory/meetings/[meetingId]` | meeting-scoped upload、列表、刪除、權限 |
 | Brief | `/meetings/[id]/prepare` | brief 查詢、重新生成、錯誤狀態 |
 | Personal Sidekick | `/meetings/[id]/prepare` | 個人訊息、thread、draft、publish |
@@ -48,10 +48,10 @@
 | Live Snapshot | `/meetings/[id]/live`、`addon` | 公開狀態、建議、參與者、政策 |
 | Meeting token handoff | `/meetings/[id]/addon` | 短效 token、expiresAt、meeting/user scope |
 | AI 建議與投票 | `/meetings/[id]/addon`、`live` | suggestions、support/later/ignore、重投票、門檻結果 |
-| Review／Consensus | `/meetings/[id]/review` | 摘要、版本、回覆、衝突與確認狀態 |
-| Action Items | `/meetings/[id]/review` | action item CRUD、assignee、狀態與期限 |
-| Memory RAG 搜尋 | 團隊記憶 | 搜尋、索引狀態、引用來源 |
-| Settings 儲存 | `/settings` | 目前僅顯示 Neon Auth session 的帳號名稱；通知／權限設定 CRUD 待 API；團隊名稱與成員改由 `/workspaces` |
+| 共識回饋、建議狀態與投票明細 | `/meetings/[id]/review`、`live` | function 已建立，UI 尚未完整呈現 |
+| Action Items 編輯、刪除、指派與期限 | `/meetings/[id]/review` | 目前 UI 已可新增與列表 |
+| Personal Sidekick 訊息 | `/meetings/[id]/prepare` | 已提供私人訊息儲存操作；publish／預覽仍待補 |
+| 會議取消 | `/meetings/[id]/prepare` | 已提供取消操作 |
 
 ## 四、Participants UUID 契約
 
@@ -83,3 +83,22 @@
 3. 文件上傳的 multipart 欄位、大小限制、檔案類型、掃描與儲存狀態。
 4. WebSocket URL、事件 envelope、重連與 token 過期行為。
 5. WebSocket、Live Snapshot、Meet token handoff 與 meeting-scoped Voice Bot 的正式事件、錯誤碼與權限矩陣。
+
+## 七、Brief／Agent 議程建議需求
+
+目前前端的會議議程以手動新增與編輯為主，現有 Agenda API 僅提供議程 CRUD：
+
+- `GET /api/v1/meetings/{meeting_id}/agenda`
+- `POST /api/v1/meetings/{meeting_id}/agenda`
+- `PATCH /api/v1/meetings/{meeting_id}/agenda/{item_id}`
+- `DELETE /api/v1/meetings/{meeting_id}/agenda/{item_id}`
+
+若產品需要 Agent 自動產生議程或建議討論順序，請後端提供 Brief／AI endpoint，例如：
+
+```text
+POST /api/v1/meetings/{meeting_id}/brief
+```
+
+建議 response 包含 `suggested_agenda`、`existing_consensus`、`disagreements`、`open_questions` 與 `recommended_order`。Agent 只提供建議，不得直接覆蓋使用者已輸入的議程；由使用者或本場 Host 確認、修改後，再透過正式 Agenda API 寫入。
+
+請後端確認 Brief 的同步／非同步狀態、輸入是否包含 Team Memory 文件、重新產生是否保留版本，以及產生失敗時的錯誤格式。

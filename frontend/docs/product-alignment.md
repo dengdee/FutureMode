@@ -26,6 +26,8 @@
 
 ## 尚未實作（需即時後端契約）
 
+議程目前由使用者／Host 手動建立與編輯。未來若後端提供 Brief／AI endpoint，Agent 只能產生建議議程與討論順序，必須由使用者／Host 確認後才寫入正式 Agenda API，不直接覆蓋手動內容。
+
 - Audio WebSocket、Live Snapshot、即時 transcript 與 Meeting State。
 - AI suggestion／舉手卡、投票、Host policy 與門檻控制。
 - Pre-meeting Brief、Personal Sidekick、Delegate。
