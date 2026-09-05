@@ -21,6 +21,7 @@ import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
 import { InvitationInbox } from "./invitation-inbox";
 import { getCurrentUser } from "../lib/api/me";
+import { listTeamMembers, listTeams } from "../lib/api/teams";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -36,10 +37,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: authSession } = authClient.useSession();
   const [apiProfileName, setApiProfileName] = useState<string | null>(null);
   useEffect(() => {
-    const refreshProfile = (event?: Event) => {
+    const refreshProfile = async (event?: Event) => {
       const updatedName = event instanceof CustomEvent && typeof event.detail === "string" ? event.detail : window.localStorage.getItem("proximate:profile-name");
-      if (updatedName) { setApiProfileName(updatedName); return; }
-      getCurrentUser().then((user) => { if (user.display_name) setApiProfileName(user.display_name); }).catch(() => undefined);
+      if (updatedName) setApiProfileName(updatedName);
+      try {
+        const currentUser = await getCurrentUser();
+        const teams = await listTeams();
+        const memberLists = await Promise.all(teams.teams.map((team) => listTeamMembers(team.id)));
+        const currentMember = memberLists.flatMap((result) => result.members).find((member) => member.external_id === currentUser.id);
+        const currentName = currentMember?.display_name ?? currentUser.display_name ?? updatedName;
+        if (currentName) { window.localStorage.setItem("proximate:profile-name", currentName); setApiProfileName(currentName); }
+      } catch { /* Keep the authenticated or cached label if the profile lookup is unavailable. */ }
     };
     refreshProfile();
     window.addEventListener("proximate:profile-updated", refreshProfile);
