@@ -10,13 +10,17 @@ Add-on iframe 入口固定為 `/meetings/[id]/addon`。使用者在 Web App 以 
 - Meeting token 暫不列入 MVP；未來若需要跨網域或更細的會議 scope，再由後端新增短效 token。
 - Add-on 理論上可以嵌入登入頁，但 iframe 內重新登入會造成 cookie、redirect、第三方儲存限制，也會讓使用者重複登入，因此沿用主程式登入狀態。
 
-## 需要人工設定的項目
+## Google Cloud 設定狀態
 
-1. Google Cloud 專案擁有者建立 Google Workspace Add-on manifest。
-2. 設定 development deployment，並將正式 URL `https://future-mode-proximate.vercel.app` 列入允許來源。
-3. OAuth consent screen 使用「外部」＋「測試中」模式，不需要先申請正式驗證；在「測試使用者」中加入要試用的 Google 帳號（上限 100 位）。
-4. 設定 Meet context、SSO／OAuth 與 development deployment；實際欄位依 Google Workspace 官方文件確認。
-5. 以已加入清單的測試帳號在 Google Meet 開啟 Add-on，確認窄版 URL 可載入並能沿用登入 session 呼叫 API。
+以下設定已完成（專案 `future-mode`，project number `446517015863`）：
+
+1. 已啟用 Google Workspace Marketplace SDK 與 Google Workspace Add-ons API。
+2. 已建立並安裝 HTTP deployment `future-mode-meet-addon`。
+3. Meet `sidePanelUrl` 設為 `https://future-mode-proximate.vercel.app/addon`，允許來源為 `https://future-mode-proximate.vercel.app`。
+4. Marketplace 應用程式設為「不公開」、個人＋管理員安裝，並選取 Meet 外掛程式整合。
+5. OAuth 使用外部／測試模式；測試帳號可在下方清單管理。
+
+Vercel 尚未部署最新 `/addon` 路由前，開啟 Add-on 可能暫時顯示 404；部署完成後同一網址會自動生效。
 
 ### 測試模式限制
 
