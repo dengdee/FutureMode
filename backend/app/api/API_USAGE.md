@@ -20,8 +20,11 @@ Base URL：`http://localhost:8000`
 | GET/POST | `/api/v1/teams` | 取得／建立團隊 |
 | PATCH/DELETE | `/api/v1/teams/{team_id}` | 修改／刪除團隊 |
 | GET/PATCH/DELETE | `/api/v1/teams/{team_id}/members[/{user_id}]` | 成員列表、角色修改、移除 |
-| GET/POST | `/api/v1/teams/{team_id}/invitations` | 邀請列表／寄送邀請 |
+| GET/POST | `/api/v1/teams/{team_id}/invitations` | Admin 查看／建立站內邀請（不寄送 Email） |
 | DELETE | `/api/v1/teams/{team_id}/invitations/{invitation_id}` | 取消邀請 |
+| GET | `/api/v1/me/invitations` | 目前登入者查看自己的待處理站內邀請 |
+| POST | `/api/v1/me/invitations/{invitation_id}/accept` | 接受邀請並加入團隊 |
+| POST | `/api/v1/me/invitations/{invitation_id}/decline` | 拒絕邀請 |
 
 ## 會議、參與者與議程
 
@@ -108,4 +111,6 @@ Base URL：`http://localhost:8000`
 }
 ```
 
-登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`。
+登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`、`GET /api/v1/me/invitations`。
+
+站內邀請以 Neon Auth 已驗證的 Email 配對；使用者登入任一頁面即可看到待處理邀請。接受／拒絕後可在團隊頁重新整理，無任何 Email 發送流程。
