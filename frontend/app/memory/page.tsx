@@ -170,13 +170,11 @@ export default function MemoryPage() {
         const result = await getDocumentDownloadUrl(id, action === "download");
         window.open(result.url, "_blank", "noopener,noreferrer");
       }
-      toast.success(
-        action === "delete"
-          ? "文件已刪除。"
-          : action === "preview"
-            ? "已開啟文件預覽。"
-            : "已開始下載文件。",
-      );
+      if (action !== "preview") {
+        toast.success(
+          action === "delete" ? "文件已刪除。" : "已開始下載文件。",
+        );
+      }
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "文件操作失敗。");
     }
