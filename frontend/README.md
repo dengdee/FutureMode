@@ -19,7 +19,7 @@
 | 資料請求 | Axios 共用 client；API 依功能拆在 `lib/api/`，已封裝目前 OpenAPI 的全部 REST endpoint |
 | 現有頁面 | `/` Landing、`/dashboard` 工作總覽、`/workspaces` 團隊管理與各 Meeting Workspace 路由 |
 | 已完成功能 | Next.js、TypeScript、ESLint、Tailwind、Tabler Icons、GSAP Sidebar 動效、API Client、Dashboard 會議清單 UI |
-| 尚未完成 | WebSocket、Google Meet Add-on／音訊實作、AI 即時狀態、Review／投票／Memory API；未提供 endpoint 的能力維持明確 placeholder |
+| 尚未完成 | WebSocket、Google Meet Add-on 的正式 Meet SDK 部署與音訊實作；已提供 REST 均由 Web App／Add-on 接入 |
 
 > **與後端目前實作對齊（2026-09-05）**：後端已提供 `/health`、`/ready`、Neon JWT 保護的 `/api/v1/me`、teams、members、meetings、participants、agenda，以及未綁定 meeting scope 的 `/meetbot/join`。下方早期步驟中的「預期 endpoint」仍是產品規格，不代表後端已提供；以 `frontend/docs/api.md` 的接入表為準。
 
@@ -41,9 +41,9 @@
 | 04 | 登入狀態、角色與存取邊界 | 已完成前端部分 | Neon Auth route、middleware、登入／註冊與 API client JWT 注入已完成；FastAPI issuer／audience／JWKS 與正式測試帳號需由環境設定 |
 | 05 | 工作總覽與會議清單 | 已完成 API 接入 | Dashboard 使用 `GET /api/v1/meetings` 與 `GET /api/v1/teams`，只呈現跨團隊近期會議與導覽；健康檢查僅保留為診斷 API |
 | 06 | 建立與編輯會議 | 已完成目前契約範圍 | 建立會議後依序寫入議程；Prepare 可修改 meeting、開始／結束生命週期與編輯議程 |
-| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入 | Prepare 與 Review 已接會議資料、參與者、逐字稿、共識與 action items；Live 已接 suggestions／vote；Audio／realtime 仍待 WebSocket |
+| 07–11 | Prepare、Audio、Add-on、Live、Review | REST 已接入 | Prepare、Review、Add-on Sidekick、Live suggestions／vote 均已接入；Audio／realtime 仍待 WebSocket |
 | 12 | 正式 REST／WebSocket adapter 切換 | REST 已完成 | 目前 OpenAPI 的 REST endpoint 已集中封裝並接入 Web App；WebSocket、重連、事件 envelope 尚未由後端提供 |
-| 13–16 | 驗收、Memory、Settings、外部服務文件 | 部分完成 | Memory 拖曳上傳／搜尋與 Settings 個人資料已接入；需補文件生命週期 UI、完整測試與正式部署驗收 |
+| 13–16 | 驗收、Memory、Settings、外部服務文件 | 部分完成 | Memory 文件生命週期、Review 回饋／行動項目與 Sidekick 已接入；仍需完整測試與正式部署驗收 |
 
 > 狀態只代表 repository 中已完成且可驗證的程式碼。每完成一個步驟，需同步更新本表、步驟內容與驗證結果。
 
@@ -72,7 +72,7 @@
 - `/meetings/new` 已改為從 `GET /api/v1/teams` 選擇工作區，不再要求手動填 Team ID。
 - `POST /meetings` 與 agenda 寫入採序列處理；部分議程失敗時保留已建立會議的 Prepare 導入口，不假裝整筆交易成功。
 - Prepare 的 Brief、Audio WebSocket、Live Snapshot 與正式 Add-on realtime 尚待後端提供。
-- 文件封存、下載、版本還原、共識回饋與 Personal Sidekick 尚未完成完整操作 UI，REST function 已建立。
+- 文件封存、下載、版本還原、共識回饋與 Personal Sidekick 已完成目前 REST 契約範圍的操作 UI。
 - `POST /meetbot/join` 的 response 尚未有穩定 schema，且目前未綁定 meeting、政策、投票與 Host 授權；API function 保留供整合測試，正式 Prepare UI 不直接觸發 Voice Bot。
 - Team members 回傳 `external_id`，participant create 要求內部 UUID；前端不顯示 UUID 輸入，新增參與者等待後端提供可安全選取的契約。
 
@@ -156,7 +156,7 @@ backend/
 
 ### Add-on 身分與畫面同步
 
-Meet Add-on 不在 iframe 內重新執行登入。使用者從已登入的 Web App 開啟會議後，前端向後端交換一個綁定 `user_id`、`team_id`、`meeting_id` 的短效 meeting token，再把 token 交給 `/meetings/[id]/addon`。Add-on 以此 token 建立自己的 API／Realtime 連線，token 過期或權限不符時必須顯示重新開啟會議的提示。
+Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 Web App 的 Neon Auth session，呼叫目前已提供的 meeting、suggestions、vote 與 Personal Sidekick REST；後端尚未提供正式 meeting access-token／Realtime endpoint，因此不在前端假造 token 或 WebSocket 流程。
 
 同一個使用者的 Web App、瀏覽器 `/live` fallback 與 Meet Add-on 會看到相同的公共 Meeting State，也會看到自己的 Personal Sidekick 對話；其他成員看不到該私人內容。資料與功能元件共用，但版面不必完全相同：Add-on 是窄版 iframe，Web App 是完整工作區。
 

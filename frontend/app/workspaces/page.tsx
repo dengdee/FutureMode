@@ -6,7 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "../../components/app-shell";
 import { PageHeader } from "../../components/page-header";
 import { listMeetings } from "../../lib/api/meetings";
-import { createTeam, listTeamMembers, listTeams } from "../../lib/api/teams";
+import { createTeam, listTeamMembers, listTeams, removeTeamMember, updateTeamMember } from "../../lib/api/teams";
 import type { MeetingSummary, Team, TeamMember } from "../../types/api";
 
 type InviteRow = { id: number; email: string; role: "member" | "owner" };
@@ -72,13 +72,24 @@ export default function WorkspacesPage() {
     }
   }
 
+  async function changeMemberRole(member: TeamMember, role: string) {
+    if (!selectedTeamId) return;
+    try { await updateTeamMember(selectedTeamId, member.user_id, { role }); setMembers((items) => items.map((item) => item.user_id === member.user_id ? { ...item, role } : item)); setNotice("成員角色已更新。"); }
+    catch (cause) { setNotice(cause instanceof Error ? cause.message : "更新成員角色失敗。"); }
+  }
+  async function removeMember(member: TeamMember) {
+    if (!selectedTeamId || !window.confirm(`確定移除 ${member.display_name || member.external_id}？`)) return;
+    try { await removeTeamMember(selectedTeamId, member.user_id); setMembers((items) => items.filter((item) => item.user_id !== member.user_id)); setNotice("成員已移除。"); }
+    catch (cause) { setNotice(cause instanceof Error ? cause.message : "移除成員失敗。"); }
+  }
+
   return <AppShell>
     <PageHeader eyebrow="Teams" title="團隊" description="選擇你所屬的團隊，管理成員並在其中建立會議。" actions={<button type="button" onClick={() => { setCreateOpen(true); setNotice(null); }} className="inline-flex cursor-pointer items-center gap-2 rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"><IconPlus size={17} />建立團隊</button>} />
     {error && <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
     {notice && <p role="status" className="mt-6 rounded-lg bg-[#e9f7f4] px-4 py-3 text-sm text-[#087e6d]">{notice}</p>}
     {loading ? <div className="mt-8 rounded-2xl border border-[#e6e6e3] bg-white p-8 text-sm text-[#787774]">正在讀取團隊…</div> : teams.length === 0 ? <section className="mt-8 rounded-2xl border border-dashed border-[#d8d8d5] bg-white p-12 text-center"><IconBriefcase className="mx-auto text-[#0f9f8a]" size={30} /><h2 className="mt-3 text-xl font-semibold">尚未加入團隊</h2><p className="mt-2 text-sm text-[#787774]">可以先建立團隊並準備邀請名單。</p></section> : <div className="mt-8 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="h-fit rounded-2xl border border-[#e6e6e3] bg-white p-3"><p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0f9f8a]">Your teams</p>{teams.map((team) => <button key={team.id} type="button" onClick={() => setSelectedTeamId(team.id)} className={`mt-1 w-full cursor-pointer rounded-xl px-3 py-3 text-left text-sm ${team.id === selectedTeamId ? "bg-[#e9f7f4] font-semibold text-[#087e6d]" : "text-[#5f5f5b] hover:bg-[#f7f7f5]"}`}><span className="block">{team.name}</span><span className="mt-1 block text-xs font-normal text-[#8b8b87]">{team.role}</span></button>)}</aside>
-      <div className="min-w-0"><section className="rounded-2xl border border-[#e6e6e3] bg-white p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0f9f8a]">Current team</p><h2 className="mt-2 text-2xl font-semibold">{currentTeam?.name}</h2><p className="mt-2 text-sm text-[#787774]">{members.length} 位成員 · 你的角色：{currentTeam?.role}</p></div><Link href={`/meetings/new?teamId=${selectedTeamId}`} className="rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white">在此建立會議</Link></div><div className="mt-5 flex flex-wrap gap-2">{members.map((member) => <span key={member.external_id} className="rounded-full bg-[#eef8f6] px-3 py-1.5 text-xs text-[#24776a]">{member.display_name || member.external_id} · {member.role}</span>)}</div></section>
+      <div className="min-w-0"><section className="rounded-2xl border border-[#e6e6e3] bg-white p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0f9f8a]">Current team</p><h2 className="mt-2 text-2xl font-semibold">{currentTeam?.name}</h2><p className="mt-2 text-sm text-[#787774]">{members.length} 位成員 · 你的角色：{currentTeam?.role}</p></div><Link href={`/meetings/new?teamId=${selectedTeamId}`} className="rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white">在此建立會議</Link></div><div className="mt-5 space-y-2">{members.map((member) => <div key={member.user_id} className="flex flex-wrap items-center gap-2 rounded-xl bg-[#eef8f6] px-3 py-2 text-xs text-[#24776a]"><span className="min-w-0 flex-1 truncate">{member.display_name || member.external_id}</span><select value={member.role} onChange={(event) => void changeMemberRole(member, event.target.value)} className="rounded border border-[#cde5df] bg-white px-2 py-1" aria-label="成員角色"><option value="member">Member</option><option value="admin">Admin</option><option value="owner">Owner</option></select><button type="button" onClick={() => void removeMember(member)} className="text-red-600">移除</button></div>)}</div></section>
       <section className="mt-8"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">工作區內的會議</h2><span className="text-sm text-[#787774]">{teamMeetings.length} 場</span></div>{teamMeetings.length ? <div className="grid gap-3">{teamMeetings.map((meeting) => <Link key={meeting.id} href={`/meetings/${meeting.id}/prepare`} className="rounded-2xl border border-[#e6e6e3] bg-white p-5 transition hover:-translate-y-0.5 hover:ring-1 hover:ring-[var(--accent)]"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{meeting.title}</h3><span className="text-xs text-[#787774]">{meeting.status}</span></div><p className="mt-2 text-sm text-[#787774]">{meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString("zh-TW") : "尚未排程"}</p></Link>)}</div> : <div className="rounded-2xl border border-dashed border-[#d8d8d5] bg-white p-10 text-center text-sm text-[#787774]">此工作區尚未建立會議。</div>}</section></div>
     </div>}
     {selectedTeamId && <div className="mt-4"><Link href={`/memory?teamId=${selectedTeamId}&scope=shared`} className="rounded-primary border border-[#d7e8e5] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]">查看團隊共用文件</Link></div>}

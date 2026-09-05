@@ -2,10 +2,9 @@
 
 import { IconAlertTriangle, IconCircleCheck, IconLoader2, IconLock, IconRefresh } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { getCurrentUser } from "../../lib/api/me";
-import { createMeetingAccessToken, getLiveSnapshot } from "../../lib/api/addon";
-import { getMeeting } from "../../lib/api/meetings";
-import type { LiveSnapshotResponse, MeetingSummary, UserResponse } from "../../types/api";
+import { getLiveSnapshot } from "../../lib/api/addon";
+import { createPersonalMessage, listPersonalMessages, previewContribution, publishContribution } from "../../lib/api/meeting-features";
+import type { LiveSnapshotResponse, MeetingSummary } from "../../types/api";
 import { HostControlsTab, LiveStateTab } from "./live-state";
 
 type Tab = "brief" | "live" | "sidekick" | "host";
@@ -17,7 +16,6 @@ export function AddonShell({ meetingId, preview = false }: { meetingId: string; 
   const [status, setStatus] = useState<Status>(preview ? "connected" : "loading");
   const [meeting, setMeeting] = useState<MeetingSummary | null>(preview ? previewMeeting(meetingId) : null);
   const [snapshot, setSnapshot] = useState<LiveSnapshotResponse | null>(preview ? previewSnapshot : null);
-  const [isHost, setIsHost] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const loadContext = useCallback(async () => {
@@ -25,15 +23,9 @@ export function AddonShell({ meetingId, preview = false }: { meetingId: string; 
     setStatus("loading");
     setErrorMessage("");
     try {
-      const [meetingResponse, snapshotResponse, userResponse] = await Promise.all([
-        getMeeting(meetingId),
-        getLiveSnapshot(meetingId),
-        getCurrentUser(),
-      ]);
-      await createMeetingAccessToken(meetingId);
-      setMeeting(meetingResponse);
+      const snapshotResponse = await getLiveSnapshot(meetingId);
+      setMeeting(snapshotResponse.meeting ?? null);
       setSnapshot(snapshotResponse);
-      setIsHost(hasHostRole(userResponse));
       setStatus("connected");
     } catch (error) {
       const apiError = error as { status?: number; message?: string };
@@ -51,7 +43,6 @@ export function AddonShell({ meetingId, preview = false }: { meetingId: string; 
     { id: "brief", label: "Brief" },
     { id: "live", label: "Live State" },
     { id: "sidekick", label: "Sidekick" },
-    ...(isHost ? [{ id: "host" as const, label: "Host Controls" }] : []),
   ];
 
   return <main className={`addon-preview-root ${embedded ? "is-embedded" : "is-standalone"} min-h-screen overflow-x-hidden text-[#1f1f1f]`}><div className="addon-panel-shell"><header className="flex items-center justify-between gap-3 border-b border-[#e9e9e6] px-[clamp(12px,3vw,20px)] py-3"><div className="min-w-0"><p className="text-sm font-semibold">Proximate {preview ? <span className="ml-1 text-[10px] font-normal text-[#8b8b87]">Preview</span> : null}</p><p className="truncate text-xs text-[#8b8b87]">{meeting?.title ?? `Meeting #${meetingId}`}</p></div><ConnectionStatus status={status} /></header><div className="border-b border-[#e9e9e6] px-3 py-2"><div role="tablist" aria-label="會議面板" className="flex gap-1 overflow-x-auto">{tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition ${tab === item.id ? "bg-[#e7f7ef] text-[#1d6b4d]" : "text-[#787774] hover:bg-[#f7f7f5]"}`}>{item.label}</button>)}</div></div><div className="addon-panel-content min-h-0 flex-1 overflow-y-auto p-[clamp(12px,3vw,20px)]">{status === "loading" ? <LoadingState /> : status === "unauthorized" ? <StateMessage title="需要重新開啟會議" description="此 Add-on 沒有有效的會議權限，請從已登入的 Web App 重新開啟。" /> : status === "error" ? <StateMessage title="無法連線至會議" description={errorMessage} action={<button type="button" onClick={() => void loadContext()} className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold"><IconRefresh size={15} />重新連線</button>} /> : <TabContent tab={tab} meetingId={meetingId} meeting={meeting} snapshot={snapshot} />}</div></div></main>;
@@ -86,18 +77,19 @@ function TabContent({ tab, meetingId, meeting, snapshot }: { tab: Tab; meetingId
   if (tab === "brief") return <section><p className="text-xs font-semibold uppercase tracking-wide text-[#8b8b87]">會議 Brief</p><h1 className="mt-2 text-lg font-semibold">{meeting?.title ?? "目前會議"}</h1><p className="mt-3 text-sm leading-6 text-[#787774]">正式會議資料已載入。Brief 詳細內容將由後續正式 API 欄位提供。</p><InfoCard label="會議狀態" value={meeting?.status ?? "未知"} /></section>;
   if (tab === "live") return <LiveStateTab meetingId={meetingId} meeting={meeting} snapshot={snapshot} />;
   if (tab === "host") return <HostControlsTab meetingId={meetingId} snapshot={snapshot} />;
-  return <section><div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Personal Sidekick</h2><IconLock size={14} className="text-[#8b8b87]" /></div><p className="mt-2 text-xs text-[#787774]">僅你可見</p><div className="mt-5 rounded-xl border border-dashed border-[#d8d8d5] p-5 text-sm text-[#787774]">私人對話區域已保留，正式 Sidekick API 將在後續工作接入。</div></section>;
+  return <SidekickTab meetingId={meetingId} />;
+}
+
+function SidekickTab({ meetingId }: { meetingId: string }) {
+  const [messages, setMessages] = useState<Array<{ id: string; content: string; role: string }>>([]);
+  const [draft, setDraft] = useState(""); const [preview, setPreview] = useState(""); const [notice, setNotice] = useState("");
+  useEffect(() => { if (meetingId) listPersonalMessages(meetingId).then((items) => setMessages(items)).catch(() => undefined); }, [meetingId]);
+  async function send() { if (!draft.trim()) return; try { const item = await createPersonalMessage(meetingId, draft.trim()); setMessages((current) => [...current, item]); setDraft(""); setNotice("訊息已儲存"); } catch (error) { setNotice(error instanceof Error ? error.message : "訊息送出失敗"); } }
+  async function previewAndPublish() { if (!draft.trim()) return; try { await previewContribution(meetingId, draft.trim()); setPreview(draft.trim()); setNotice("已產生公開內容預覽"); } catch (error) { setNotice(error instanceof Error ? error.message : "預覽失敗"); } }
+  return <section><div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Personal Sidekick</h2><IconLock size={14} className="text-[#8b8b87]" /></div><p className="mt-2 text-xs text-[#787774]">僅你可見，可將內容預覽後發布到會議。</p><div className="mt-4 space-y-2">{messages.map((message) => <div key={message.id} className="rounded-lg bg-[#f7f7f5] p-3 text-sm">{message.content}</div>)}</div><textarea value={draft} onChange={(event) => setDraft(event.target.value)} className="control-primary mt-4 min-h-24 w-full" placeholder="輸入你的觀點或問題" /><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void send()} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white">儲存訊息</button><button type="button" onClick={() => void previewAndPublish()} className="rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">預覽發布</button></div>{preview && <div className="mt-4 rounded-xl border border-[#b9e9cc] bg-[#effbf4] p-3 text-sm"><p className="text-xs font-semibold text-[#087f5b]">公開內容預覽</p><p className="mt-2">{preview}</p><button type="button" onClick={() => publishContribution(meetingId, preview).then(() => { setNotice("內容已發布"); setPreview(""); }).catch(() => setNotice("發布失敗"))} className="mt-3 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white">確認發布</button></div>}{notice && <p role="status" className="mt-3 text-xs text-[#787774]">{notice}</p>}</section>;
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) { return <div className="mt-5 rounded-xl bg-[#f7f7f5] p-4"><p className="text-xs text-[#8b8b87]">{label}</p><p className="mt-1 text-sm font-medium">{value}</p></div>; }
 function LoadingState() { return <div className="space-y-4" aria-label="載入會議資料"><div className="flex items-center gap-2 text-sm text-[#787774]"><IconLoader2 size={17} className="animate-spin" />正在載入會議 context…</div><div className="h-28 animate-pulse rounded-xl bg-[#f7f7f5]" /><div className="h-20 animate-pulse rounded-xl bg-[#f7f7f5]" /></div>; }
 function StateMessage({ title, description, action }: { title: string; description: string; action?: ReactNode }) { return <section className="rounded-xl border border-dashed border-[#d8d8d5] p-6 text-center"><h2 className="font-semibold">{title}</h2><p className="mt-2 text-sm leading-6 text-[#787774]">{description}</p>{action ? <div className="mt-4">{action}</div> : null}</section>; }
 
-function hasHostRole(user: UserResponse) {
-  const claims = user.claims;
-  if (!claims || typeof claims !== "object") return false;
-  const role = (claims as { role?: unknown; roles?: unknown }).role;
-  const roles = (claims as { roles?: unknown }).roles;
-  const values = Array.isArray(roles) ? roles : [role];
-  return values.some((value) => typeof value === "string" && ["host", "owner", "admin"].includes(value.toLowerCase()));
-}

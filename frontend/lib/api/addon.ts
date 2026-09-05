@@ -1,18 +1,17 @@
 import { http, request } from "./client";
-import type { AddonAccessTokenResponse, LiveSnapshotResponse, VoteChoice } from "../../types/api";
+import type { LiveSnapshotResponse, VoteChoice } from "../../types/api";
+import { listSuggestions } from "./meeting-features";
+import { getMeeting } from "./meetings";
 
 export function getLiveSnapshot(meetingId: string) {
-  return request<LiveSnapshotResponse>(() => http.get(`/api/v1/meetings/${meetingId}/live-snapshot`));
-}
-
-export function createMeetingAccessToken(meetingId: string) {
-  return request<AddonAccessTokenResponse>(() => http.post(`/api/v1/meetings/${meetingId}/access-token`));
+  return Promise.all([getMeeting(meetingId), listSuggestions(meetingId)]).then(([meeting, suggestions]) => ({ meeting, suggestions } satisfies LiveSnapshotResponse));
 }
 
 export function voteOnSuggestion(meetingId: string, suggestionId: string, choice: VoteChoice) {
-  return request<Record<string, unknown>>(() => http.post(`/api/v1/meetings/${meetingId}/suggestions/${suggestionId}/vote`, { choice }));
+  const vote = choice === "support" ? "support" : choice === "later" ? "abstain" : "reject";
+  return request<Record<string, unknown>>(() => http.post(`/api/v1/meetings/${meetingId}/suggestions/${suggestionId}/vote`, { vote }));
 }
 
 export function updateInterventionPolicy(meetingId: string, policy: Record<string, unknown>) {
-  return request<Record<string, unknown>>(() => http.patch(`/api/v1/meetings/${meetingId}/intervention-policy`, policy));
+  return request<Record<string, unknown>>(() => http.patch(`/api/v1/meetings/${meetingId}`, policy));
 }

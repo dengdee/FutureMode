@@ -12,8 +12,9 @@ export const createActionItem = (id: string, payload: { title: string; assignee_
 export const updateActionItem = (id: string, itemId: string, payload: Partial<{ title: string; assignee_user_id: string; due_date: string; status: string }>) => request<ActionItem>(() => http.patch(`/api/v1/meetings/${id}/action-items/${itemId}`, payload));
 export const deleteActionItem = (id: string, itemId: string) => request<void>(() => http.delete(`/api/v1/meetings/${id}/action-items/${itemId}`));
 export const listSuggestions = (id: string) => request<Suggestion[]>(() => http.get(`/api/v1/meetings/${id}/suggestions`));
-export const voteSuggestion = (id: string, suggestionId: string, vote: string) => request<Suggestion>(() => http.post(`/api/v1/meetings/${id}/suggestions/${suggestionId}/vote`, { vote }));
+export const voteSuggestion = (id: string, suggestionId: string, vote: "support" | "reject" | "abstain") => request<Record<string, string>>(() => http.post(`/api/v1/meetings/${id}/suggestions/${suggestionId}/vote`, { vote }));
 export const updateSuggestion = (id: string, suggestionId: string, status: string) => request<Suggestion>(() => http.patch(`/api/v1/meetings/${id}/suggestions/${suggestionId}`, { status }));
+export const listSuggestionVotes = (id: string, suggestionId: string) => request<{ votes: Array<{ user_id: string; vote: string }> }>(() => http.get(`/api/v1/meetings/${id}/suggestions/${suggestionId}/votes`));
 export const listPersonalMessages = (id: string) => request<PersonalMessage[]>(() => http.get(`/api/v1/meetings/${id}/personal/messages`));
 export const createPersonalMessage = (id: string, content: string) => request<PersonalMessage>(() => http.post(`/api/v1/meetings/${id}/personal/messages`, { content }));
 export const previewContribution = (id: string, content: string) => request<Record<string, unknown>>(() => http.post(`/api/v1/meetings/${id}/personal/contributions/preview`, { content }));
