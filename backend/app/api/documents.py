@@ -281,6 +281,7 @@ async def archive_document(
 @router.get("/documents/{document_id}/download-url", response_model=DocumentDownloadUrl)
 async def document_download_url(
     document_id: UUID,
+    download: bool = Query(default=False),
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
 ) -> DocumentDownloadUrl:
@@ -292,7 +293,7 @@ async def document_download_url(
     if not isinstance(storage_key, str) or not storage_key:
         raise HTTPException(status_code=404, detail="document file not found")
     try:
-        url = await create_download_url(storage_key, settings)
+        url = await create_download_url(storage_key, settings, download=download)
     except StorageConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except (BotoCoreError, ClientError):

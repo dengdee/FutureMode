@@ -82,9 +82,11 @@ export const archiveDocument = (documentId: string) =>
   request<DocumentDetail>(() =>
     http.post(`/api/v1/documents/${documentId}/archive`),
   );
-export const getDocumentDownloadUrl = (documentId: string) =>
+export const getDocumentDownloadUrl = (documentId: string, download = false) =>
   request<DocumentDownloadUrl>(() =>
-    http.get(`/api/v1/documents/${documentId}/download-url`),
+    http.get(`/api/v1/documents/${documentId}/download-url`, {
+      params: download ? { download: true } : undefined,
+    }),
   );
 export const getDocumentStorageStatus = (documentId: string) =>
   request<DocumentStorageStatus>(() =>

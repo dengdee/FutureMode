@@ -1,12 +1,11 @@
 "use client";
 
 import {
-  IconArchive,
   IconArrowLeft,
   IconDownload,
+  IconEye,
   IconFileText,
   IconFolder,
-  IconHistory,
   IconSearch,
   IconTrash,
   IconX,
@@ -22,7 +21,6 @@ import { Tooltip } from "../../components/ui/tooltip";
 import { listTeams } from "../../lib/api/teams";
 import { listMeetings } from "../../lib/api/meetings";
 import {
-  archiveDocument,
   deleteDocument,
   getDocumentDownloadUrl,
   listDocumentVersions,
@@ -161,32 +159,24 @@ export default function MemoryPage() {
   }
   async function documentAction(
     id: string,
-    action: "archive" | "delete" | "download",
+    action: "preview" | "download" | "delete",
   ) {
     try {
-      if (action === "archive") await archiveDocument(id);
       if (action === "delete") {
         await deleteDocument(id);
         setDocuments((items) => items.filter((item) => item.id !== id));
       }
-      if (action === "download") {
-        const result = await getDocumentDownloadUrl(id);
+      if (action === "preview" || action === "download") {
+        const result = await getDocumentDownloadUrl(id, action === "download");
         window.open(result.url, "_blank", "noopener,noreferrer");
       }
       toast.success(
         action === "delete"
           ? "文件已刪除。"
-          : action === "archive"
-            ? "文件已封存。"
-            : "已開啟文件下載。",
+          : action === "preview"
+            ? "已開啟文件預覽。"
+            : "已開始下載文件。",
       );
-      if (action !== "delete")
-        listDocuments(teamId, {
-          scope: scope === "shared" ? "team" : "meeting",
-          meeting_id: scope === "meeting" ? meetingId || undefined : undefined,
-        })
-          .then(setDocuments)
-          .catch(() => undefined);
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "文件操作失敗。");
     }
@@ -345,7 +335,9 @@ export default function MemoryPage() {
           >
             <IconFileText className="mx-auto text-[#0f9f8a]" size={32} />
             <h2 className="mt-4 font-semibold">拖曳多檔上傳</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">支援 PDF、.txt</p>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#787774]">
+              支援 PDF、.txt
+            </p>
             <input
               id="memory-file-picker"
               className="sr-only"
@@ -372,6 +364,17 @@ export default function MemoryPage() {
                   <span className="text-xs text-[#787774]">
                     {document.status}
                   </span>
+                  <Tooltip content="預覽">
+                    <button
+                      type="button"
+                      aria-label="預覽"
+                      onClick={() =>
+                        void documentAction(document.id, "preview")
+                      }
+                    >
+                      <IconEye size={16} />
+                    </button>
+                  </Tooltip>
                   <Tooltip content="下載">
                     <button
                       type="button"
@@ -381,26 +384,6 @@ export default function MemoryPage() {
                       }
                     >
                       <IconDownload size={16} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="封存">
-                    <button
-                      type="button"
-                      aria-label="封存"
-                      onClick={() =>
-                        void documentAction(document.id, "archive")
-                      }
-                    >
-                      <IconArchive size={16} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="選擇要還原的版本">
-                    <button
-                      type="button"
-                      aria-label="選擇要還原的版本"
-                      onClick={() => void openVersions(document)}
-                    >
-                      <IconHistory size={16} />
                     </button>
                   </Tooltip>
                   <Tooltip content="刪除">
