@@ -58,6 +58,18 @@ def test_meeting_event_rejects_unsupported_schema_versions() -> None:
         )
 
 
+@pytest.mark.parametrize("forbidden_key", ["chain_of_thought", "private_prompt"])
+def test_meeting_event_rejects_sensitive_payload_fields(forbidden_key: str) -> None:
+    with pytest.raises(ValidationError):
+        MeetingEvent(
+            event_id=uuid4(),
+            meeting_id=uuid4(),
+            timestamp=datetime.now(UTC),
+            schema_version=1,
+            payload={"type": "agent:status", forbidden_key: "must not be transported"},
+        )
+
+
 def test_authorized_participant_receives_an_empty_state_snapshot() -> None:
     meeting_id = uuid4()
     response = asyncio.run(_get_state_snapshot(meeting_id, snapshot=None))

@@ -29,3 +29,10 @@ class MeetingStateSnapshot(BaseModel):
     state_version: int = Field(ge=0)
     state: dict[str, object]
     updated_at: datetime | None
+
+
+class MeetingStateUpdate(BaseModel):
+    """A compare-and-set request for the public meeting state."""
+
+    expected_state_version: int = Field(ge=0)
+    state: dict[str, object]

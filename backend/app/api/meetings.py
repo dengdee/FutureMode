@@ -21,7 +21,7 @@ from app.models import (
     User,
 )
 from app.schemas.backup import TranscriptBackupRequest
-from app.schemas.events import MeetingStateSnapshot
+from app.schemas.events import MeetingStateSnapshot, MeetingStateUpdate
 from app.schemas.meeting import (
     AgendaItemCreate,
     AgendaItemUpdate,
@@ -161,6 +161,51 @@ async def get_meeting_state(
     except HTTPException:
         raise
     except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+@router.patch("/meetings/{meeting_id}/state", response_model=MeetingStateSnapshot)
+async def update_meeting_state(
+    meeting_id: UUID,
+    payload: MeetingStateUpdate,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> MeetingStateSnapshot:
+    """Apply a public state update only when the caller has the current version."""
+    try:
+        await authorized_meeting(meeting_id, principal, session)
+        user_id = await find_user_id(session, principal.subject)
+        snapshot = await session.scalar(
+            select(MeetingState)
+            .where(MeetingState.meeting_id == meeting_id)
+            .with_for_update()
+        )
+        if snapshot is None:
+            if payload.expected_state_version != 0:
+                raise HTTPException(status_code=409, detail="meeting state version conflict")
+            snapshot = MeetingState(
+                meeting_id=meeting_id,
+                state_version=1,
+                state=payload.state,
+                updated_by=user_id,
+            )
+            session.add(snapshot)
+        else:
+            if snapshot.state_version != payload.expected_state_version:
+                raise HTTPException(status_code=409, detail="meeting state version conflict")
+            snapshot.state_version += 1
+            snapshot.state = payload.state
+            snapshot.updated_by = user_id
+        await session.commit()
+        await session.refresh(snapshot)
+        return MeetingStateSnapshot.model_validate(snapshot)
+    except HTTPException:
+        raise
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="meeting state version conflict") from None
+    except SQLAlchemyError:
+        await session.rollback()
         raise HTTPException(status_code=503, detail="database is unavailable") from None
 
 
