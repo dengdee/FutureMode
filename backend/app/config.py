@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     meeting_baas_max_retries: int = 2
     neon_auth_issuer: str | None = None
     neon_auth_base_url: str | None = None
+    neon_auth_session_url: str | None = None
     neon_auth_audience: str | None = None
     neon_auth_jwks_url: str | None = None
 
@@ -48,7 +49,9 @@ class Settings(BaseSettings):
     @property
     def neon_auth_configured(self) -> bool:
         return bool(
-            self.neon_auth_issuer and self.neon_auth_audience and self.neon_auth_jwks_url
+            (self.neon_auth_issuer and self.neon_auth_audience and self.neon_auth_jwks_url)
+            or self.neon_auth_session_url
+            or self.neon_auth_base_url
         )
 
     model_config = SettingsConfigDict(

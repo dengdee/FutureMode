@@ -28,6 +28,28 @@ async def get_current_principal(
     if not token:
         raise HTTPException(status_code=401, detail="missing bearer token")
     try:
+        # Neon Auth browser sessions commonly use an opaque cookie token.
+        if token.count(".") != 2:
+            session_url = settings.neon_auth_session_url or (
+                f"{settings.neon_auth_base_url.rstrip('/')}/api/auth/get-session"
+                if settings.neon_auth_base_url
+                else None
+            )
+            if not session_url:
+                raise ValueError("session endpoint is not configured")
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    session_url,
+                    headers={"Cookie": f"__Secure-neon-auth.session_token={token}"},
+                )
+                response.raise_for_status()
+            body = response.json()
+            user = body.get("user") if isinstance(body, dict) else None
+            subject = user.get("id") if isinstance(user, dict) else None
+            if not isinstance(subject, str) or not subject:
+                raise ValueError("session user is missing")
+            claims = {"sub": subject, "session": True}
+            return Principal(subject=subject, claims=claims)
         header = jwt.get_unverified_header(token)
         key_id = header.get("kid")
         if not key_id or header.get("alg") != "RS256":
