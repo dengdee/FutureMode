@@ -38,7 +38,8 @@ async function getToken(): Promise<string> {
   if (tokenRequest) return tokenRequest;
   tokenRequest = (async () => {
     try {
-      const token = await authClient.getJWTToken?.();
+      const result = await authClient.getToken();
+      const token = result.data?.token;
       if (typeof token === "string" && token) return token;
     } catch {
       throw new ApiClientError({
