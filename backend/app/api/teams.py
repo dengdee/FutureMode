@@ -34,8 +34,10 @@ def invitation_email(principal: Principal) -> str:
         # Older Neon projects omit the optional verification boolean.
         or not any(key in claims for key in ("email_verified", "emailVerified"))
     )
-    if not verified or not isinstance(email, str) or not email.strip():
-        raise HTTPException(status_code=403, detail="請先驗證登入帳號的 Email，再查看站內邀請。")
+    if not isinstance(email, str) or not email.strip():
+        raise HTTPException(status_code=403, detail="invitation_identity_email_missing")
+    if not verified:
+        raise HTTPException(status_code=403, detail="invitation_identity_email_unverified")
     return email.strip().lower()
 
 
