@@ -4,6 +4,7 @@ import { IconBriefcase, IconPlus, IconTrash, IconUsersGroup, IconX } from "@tabl
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AppShell } from "../../components/app-shell";
+import { InvitationInbox } from "../../components/invitation-inbox";
 import { PageHeader } from "../../components/page-header";
 import { InviteUserPicker } from "../../components/invite-user-picker";
 import { type InvitationUser, createInvitation, createTeam, listTeams } from "../../lib/api/teams";
@@ -99,6 +100,7 @@ export default function TeamsPage() {
 
   return <AppShell>
     <PageHeader eyebrow="Teams" title="團隊" description="從團隊進入成員、會議與共用資料；每個功能都有獨立頁面，方便按流程完成會前準備。" actions={<button type="button" onClick={() => { setCreateOpen(true); setNotice(null); }} className="inline-flex cursor-pointer items-center gap-2 rounded-primary bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"><IconPlus size={17} />建立團隊</button>} />
+    <InvitationInbox />
     {error && <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}<button type="button" className="ml-3 underline" onClick={() => void loadTeams()}>重新載入</button></p>}
     {notice && <p role="status" className="mt-6 rounded-lg bg-[#e9f7f4] px-4 py-3 text-sm text-[#087e6d]">{notice}</p>}
     {loading ? <div className="mt-8 rounded-2xl border border-[#e6e6e3] bg-white p-8 text-sm text-[#787774]">正在讀取團隊…</div> : !error && teams.length === 0 ? <section className="mt-8 rounded-2xl border border-dashed border-[#d8d8d5] bg-white p-12 text-center"><IconBriefcase className="mx-auto text-[#0f9f8a]" size={30} /><h2 className="mt-3 text-xl font-semibold">尚未加入團隊</h2><p className="mt-2 text-sm text-[#787774]">先建立團隊，再邀請成員並建立會議。</p></section> : !error && <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{teams.map((team) => <article key={team.id} className="rounded-2xl border border-[#e6e6e3] bg-white p-6"><IconUsersGroup className="text-[#0f9f8a]" size={24} /><h2 className="mt-4 text-xl font-semibold">{team.name}</h2><p className="mt-2 text-sm text-[#787774]">你的角色：{team.role === "admin" ? "管理員" : "成員"}</p><div className="mt-6 flex flex-wrap gap-2"><Link href={`/workspaces/${team.id}`} className="rounded-primary bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white">開啟團隊</Link><Link href={`/meetings/new?teamId=${team.id}`} className="rounded-primary border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d]">建立會議</Link></div></article>)}</section>}
