@@ -19,6 +19,7 @@ from app.api.transcripts import router as transcripts_router
 from app.config import get_settings
 from app.db.session import database_check
 from app.api.meetbot import router as meetbot_router
+from app.websocket.events import router as realtime_events_router
 
 settings = get_settings()
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
@@ -29,6 +30,7 @@ app = FastAPI(
     version="0.1.0",
     description="Initial API scaffold. No product features are implemented.",
 )
+app.state.settings = settings
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,3 +130,4 @@ app.include_router(documents_router)
 app.include_router(personal_router)
 app.include_router(suggestions_router)
 app.include_router(meetings_router)
+app.include_router(realtime_events_router)
