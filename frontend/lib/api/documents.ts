@@ -65,9 +65,7 @@ export const uploadDocuments = (
   body.append("source_type", payload.source_type);
   if (payload.meeting_id) body.append("meeting_id", payload.meeting_id);
   return request<Record<string, unknown>[]>(() =>
-    http.post(`/api/v1/teams/${teamId}/documents/upload`, body, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+    http.post(`/api/v1/teams/${teamId}/documents/upload`, body),
   );
 };
 export const ingestDocument = (documentId: string, content: string) =>
