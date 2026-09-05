@@ -102,13 +102,14 @@ export default function PreMeetingSummaryPage() {
     );
   const ready = Boolean(deadline) && new Date(deadline).getTime() <= Date.now();
   const canStart = meeting.status === "draft" || meeting.status === "scheduled";
+  const isPreparing = meeting.status === "draft" && ready;
   return (
     <AppShell>
       <MeetingWorkspaceHeader phase="summary" title={meeting.title} />
       <section className="mt-6 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-            {statusLabels[meeting.status] ?? meeting.status}
+          <span className={`rounded-full px-3 py-1 text-sm font-semibold ${isPreparing ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-700"}`}>
+            {isPreparing ? "準備中" : statusLabels[meeting.status] ?? meeting.status}
           </span>
           <span className="text-sm text-[#787774]">
             AI 已彙整本場會議的討論脈絡
