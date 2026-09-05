@@ -113,4 +113,4 @@ Base URL：`http://localhost:8000`
 
 登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`、`GET /api/v1/me/invitations`。
 
-站內邀請以 Neon Auth 已驗證 session 的 Email 配對；使用者登入任一頁面即可看到待處理邀請。接受／拒絕後可在團隊頁重新整理，無任何 Email 發送流程。Opaque session 由 `/get-session` 驗證，部署若未回傳 `email_verified` 也可正常配對；JWT 則仍要求明確驗證旗標。
+站內邀請以 Neon Auth 已驗證 session 或簽章 JWT 的 Email claim 配對；使用者登入任一頁面即可看到待處理邀請。接受／拒絕後可在團隊頁重新整理，無任何 Email 發送流程。Opaque session 由 `/get-session` 驗證；舊版 Neon JWT 若未回傳 `email_verified`，只要 JWT 本身含 Email claim 也可正常配對。

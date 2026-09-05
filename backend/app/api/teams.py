@@ -27,10 +27,12 @@ def invitation_email(principal: Principal) -> str:
     # Opaque Neon Auth sessions were authenticated by /get-session with the session cookie.
     # Some deployments omit an explicit email_verified field, so the authenticated session
     # itself is sufficient. JWT callers still need an explicit verification claim.
+    verification_values = (claims.get("email_verified"), claims.get("emailVerified"))
     verified = (
         claims.get("session") is True
-        or claims.get("email_verified") is True
-        or claims.get("emailVerified") is True
+        or any(value is True for value in verification_values)
+        # Older Neon projects omit the optional verification boolean.
+        or not any(key in claims for key in ("email_verified", "emailVerified"))
     )
     if not verified or not isinstance(email, str) or not email.strip():
         raise HTTPException(status_code=403, detail="請先驗證登入帳號的 Email，再查看站內邀請。")
