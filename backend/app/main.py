@@ -15,6 +15,7 @@ from app.api.documents import router as documents_router
 from app.api.me import router as identity_router
 from app.api.meetings import router as meetings_router
 from app.api.personal import router as personal_router
+from app.api.preparation import router as preparation_router
 from app.api.suggestions import router as suggestions_router
 from app.api.teams import router as teams_router
 from app.api.transcripts import router as transcripts_router
@@ -227,6 +228,7 @@ app.include_router(consensus_router)
 app.include_router(delegates_router)
 app.include_router(documents_router)
 app.include_router(personal_router)
+app.include_router(preparation_router)
 app.include_router(suggestions_router)
 app.include_router(meetings_router)
 app.include_router(realtime_events_router)

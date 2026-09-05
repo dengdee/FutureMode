@@ -139,6 +139,19 @@ class ContributionPublish(BaseModel):
     source_message_id: UUID | None = None
 
 
+class PreparationMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+
+
+class PreparationMessageSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
 class DelegateProfileCreate(BaseModel):
     stance: str = Field(min_length=1, max_length=20_000)
     constraints: str | None = Field(default=None, max_length=20_000)
