@@ -90,7 +90,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const meetingPath = pathname.split("/");
   const isWorkspaceMeeting =
     pathname.startsWith("/workspaces/") && meetingPath[3] === "meetings";
-  const isMeetingRoute = pathname.startsWith("/meetings/") || isWorkspaceMeeting;
+  const isMeetingRoute =
+    pathname.startsWith("/meetings/") || isWorkspaceMeeting;
   const meetingId = isWorkspaceMeeting ? meetingPath[4] : meetingPath[2];
   const workspacePath = pathname.startsWith("/workspaces/")
     ? pathname.split("/")
@@ -103,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {
           new: "建立會議",
           prepare: "議前討論",
-          "pre-meeting-summary": "議前整理",
+          "pre-meeting-summary": "議前準備",
           "audio-setup": "收音設定",
           addon: "Meet Add-on",
           live: "即時會議",
@@ -137,8 +138,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     listTeams()
       .then((result) => {
         if (active) {
-            setWorkspaceName(
-            result.teams.find((team) => team.id === contextTeamId)?.name ?? null,
+          setWorkspaceName(
+            result.teams.find((team) => team.id === contextTeamId)?.name ??
+              null,
           );
         }
       })
@@ -156,7 +158,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         ? ["團隊", workspaceName ?? "團隊", meetingPhase]
         : ["儀表板", meetingPhase]
       : workspaceId
-        ? ["團隊", workspaceName ?? "團隊", "會議", meetingTitle ?? "會議", meetingPhase]
+        ? [
+            "團隊",
+            workspaceName ?? "團隊",
+            "會議",
+            meetingTitle ?? "會議",
+            meetingPhase,
+          ]
         : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]
     : workspaceId
       ? [
@@ -169,17 +177,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               : ["團隊記憶", "單次會議文件"]
             : []),
         ]
-    : pathname === "/memory"
-      ? [
-          "團隊",
-          ...(teamIdQuery ? [workspaceName ?? "團隊"] : []),
-          memoryScope === "meeting"
-            ? "會議文件"
-            : memoryScope === "shared"
-              ? "共用文件"
-              : "團隊記憶",
-        ]
-      : [];
+      : pathname === "/memory"
+        ? [
+            "團隊",
+            ...(teamIdQuery ? [workspaceName ?? "團隊"] : []),
+            memoryScope === "meeting"
+              ? "會議文件"
+              : memoryScope === "shared"
+                ? "共用文件"
+                : "團隊記憶",
+          ]
+        : [];
   const breadcrumb =
     meetingPhase ??
     (pathname === "/memory"

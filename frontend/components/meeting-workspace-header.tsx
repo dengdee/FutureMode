@@ -11,7 +11,7 @@ export function MeetingWorkspaceHeader({
 }) {
   const phaseLabel = {
     prepare: "議前討論",
-    summary: "議前整理",
+    summary: "議前準備",
     review: "會後回顧",
     audio: "收音設定",
     live: "即時會議",

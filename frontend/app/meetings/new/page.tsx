@@ -260,7 +260,7 @@ export default function NewMeetingPage() {
                 className={fieldClass}
               />
               <span className="mt-1 block text-xs font-normal text-[#787774]">
-                期限到後才開放 AI 的議前整理。
+                期限到後才開放 AI 的議前準備。
               </span>
             </label>
           </div>
