@@ -19,18 +19,17 @@
 | --- | --- | --- |
 | 團隊建立／邀請 | 建立工作區對話框與表格 UI | 後端尚無 workspace CRUD／invite endpoint，因此不寫入 |
 | 會議參與者 | 可讀取、修改、移除 | 新增仍受後端要求內部 UUID 限制，members API 只有 `external_id` |
-| Team Memory／RAG | 有 team／meeting 範圍與拖曳上傳區 | 尚無檔案上傳、索引、搜尋與來源 API |
+| Team Memory／RAG | 有 team／meeting 範圍、拖曳上傳與搜尋 | 已接文件清單、上傳、索引與 hybrid search |
 | Personal Sidekick | Add-on 內有版面預覽 | 尚無對話、授權公開與 thread API |
-| 會議 Review | 有摘要、決策、行動項目版面 | 尚無 transcript、consensus、action item API |
+| 會議 Review | 有逐字稿、決策與行動項目操作 | 已接 transcript、consensus、action item API |
 | 設定 | 顯示 Neon Auth 登入者資料 | 尚無個人資料更新、通知、隱私與團隊設定 API |
 
-## 尚未實作（需後端契約）
+## 尚未實作（需即時後端契約）
 
 - Audio WebSocket、Live Snapshot、即時 transcript 與 Meeting State。
 - AI suggestion／舉手卡、投票、Host policy 與門檻控制。
 - Pre-meeting Brief、Personal Sidekick、Delegate。
-- Review／Consensus／Action Items 寫入與逐人確認。
-- Decision Memory、文件索引與 hybrid search。
+- Live WebSocket、音訊串流與 Meet token handoff。
 - meeting access-token handoff 與正式 Google Meet Add-on deployment。
 
 ## 資訊架構決策
@@ -44,4 +43,4 @@ Dashboard 不顯示「待確認共識」或「我的行動項目」。共識與�
 1. 工作區頁以選定 team 過濾成員與會議，避免跨團隊資料混在一起。
 2. 會議建立成功後導向該場 `/prepare`，並顯示明確的成功通知。
 3. 會前頁加入既有議程／參與者的載入、錯誤與空狀態提示。
-4. 文件拖曳區補上檔案類型、大小與重複檔案的前端驗證；真正上傳仍等待後端 endpoint。
+4. 文件拖曳區已接 PDF／TXT 上傳；後續補檔案大小與重複檔案驗證。

@@ -6,7 +6,7 @@
 
 | API | 前端 function | UI 位置 | 狀態 |
 | --- | --- | --- | --- |
-| `GET /api/v1/me` | `getCurrentUser` | 保留作後端身分診斷；App Shell／Settings 的名稱改由 Neon Auth session 顯示 | 已封裝，非主要 UI 資料源 |
+| `GET/PATCH /api/v1/me` | `getCurrentUser`／`updateCurrentUser` | Settings 個人資料讀取與更新；登入身分仍由 Neon Auth 顯示 | 已串接 |
 | `GET /api/v1/teams` | `listTeams` | 團隊頁、建立會議、團隊記憶工作區選擇 | 已串接 |
 | `GET /api/v1/teams/{team_id}/members` | `listTeamMembers` | 團隊成員數量、會前準備成員資訊 | 已串接 |
 | `GET /api/v1/meetings` | `listMeetings` | Dashboard、團隊頁、團隊記憶會議選擇 | 已串接 |
@@ -27,12 +27,12 @@
 
 | API | 前端 function | 沒有 UI 的原因 |
 | --- | --- | --- |
-| `POST /api/v1/meetings/{meeting_id}/participants` | `addParticipant` | 後端要求內部 `user_id` UUID，但 members response 目前只有 `external_id`；前端不能讓使用者輸入或自行產生 UUID |
+| `POST /api/v1/meetings/{meeting_id}/participants` | `addParticipant` | 從 members response 的 `user_id` 安全加入會議 | 已串接 |
 | `POST /meetbot/join` | `joinMeetingBot` | 目前是未綁定 meeting 的測試 join，缺少 meeting scope、Host 權限、政策／投票核准與穩定 response schema；因此不在正式 Prepare UI 直接觸發 |
 | `GET /health` | `getHealth` | 保留給系統診斷；依產品要求已從 Dashboard 移除 |
 | `GET /ready` | `getReady` | 保留給系統診斷；依產品要求已從 Dashboard 移除 |
 
-## 三、後端目前完全尚未提供
+## 三、目前尚未接入正式 UI 的後端能力
 
 以下功能目前沒有可供前端串接的正式 endpoint。前端只能保留 UI scaffold、路由與型別規劃，不能自行猜測 API。
 
@@ -74,7 +74,7 @@
 - 前端預期錯誤 envelope：`{ "error": { "code", "message", "request_id" } }`。
 - `401` 顯示「需要驗證身分，請先登入」；`403` 顯示權限不足。
 - `/api/v1/*` 由 Axios interceptor 附加 Neon Auth Bearer token。
-- Add-on 不重新登入，需使用單一 meeting 的短效 token。
+- Add-on 不重新登入：Web App 先完成 Neon Auth，再由後端簽發單一 meeting 的短效 token。
 
 ## 六、前端交接問題
 
@@ -82,4 +82,4 @@
 2. Participants UUID 方案及新增後 response 是否包含 `display_name`。
 3. 文件上傳的 multipart 欄位、大小限制、檔案類型、掃描與儲存狀態。
 4. WebSocket URL、事件 envelope、重連與 token 過期行為。
-5. Brief、Sidekick、Vote、Review、Memory、Settings 的正式 endpoint、錯誤碼與權限矩陣。
+5. WebSocket、Live Snapshot、Meet token handoff 與 meeting-scoped Voice Bot 的正式事件、錯誤碼與權限矩陣。

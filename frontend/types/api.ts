@@ -28,7 +28,9 @@ export type MeetingBotResponse = Record<string, unknown>;
 
 export type UserResponse = {
   id: string;
-  claims: Record<string, unknown>;
+  display_name?: string | null;
+  email?: string | null;
+  claims?: Record<string, unknown>;
 };
 
 export type Team = {
@@ -41,8 +43,8 @@ export type TeamResponse = {
   teams: Team[];
 };
 
-/** `external_id` is currently the only user identifier returned by the API. */
 export type TeamMember = {
+  user_id: string;
   external_id: string;
   display_name: string;
   role: string;
@@ -105,3 +107,12 @@ export type AgendaItemResponse = AgendaItem;
 export type AgendaItemsResponse = {
   items: AgendaItem[];
 };
+
+export type Transcript = { id: string; meeting_id: string; speaker_user_id: string | null; speaker_label: string | null; sequence: number; started_at: string | null; ended_at: string | null; text: string; source: string; confidence: number | null };
+export type Consensus = { id: string; meeting_id: string; version: number; content: string; status: string; created_at: string };
+export type ConsensusFeedback = { id: string; decision: string; comment: string | null; created_at: string };
+export type ActionItem = { id: string; meeting_id: string; title: string; assignee_user_id: string | null; due_date: string | null; status: string };
+export type Suggestion = { id: string; meeting_id: string; state_version: number; title: string; content: string; status: string; confidence: number | null; created_at: string };
+export type DocumentSummary = { id: string; team_id: string; name: string; source_type: string; status: string };
+export type DocumentSearchResult = { chunk_id: string; document_id: string; document_name: string; position: number; content: string; score: number };
+export type PersonalMessage = { id: string; meeting_id: string; role: string; content: string; created_at: string };

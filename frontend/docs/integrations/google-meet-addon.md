@@ -2,7 +2,14 @@
 
 ## 使用方式
 
-Add-on iframe 入口固定為 `/meetings/[id]/addon`，不在 iframe 內重新登入，也不把長效 session 或 API key 放進 URL。Web App 先取得綁定 user／team／meeting 的短效 token，再交給 Add-on 建立連線。
+Add-on iframe 入口固定為 `/meetings/[id]/addon`。使用者仍在 Web App 以 Neon Auth 登入；Add-on 不重複顯示登入頁，也不把長效 session 或 API key 放進 URL。Web App 登入後向後端取得綁定 user／team／meeting 的短效 meeting token，再交給 Add-on 建立連線。
+
+## Token 與登入邊界
+
+- Neon Auth session JWT：證明使用者已登入，供 Web App 呼叫 `/api/v1/*` REST API。
+- Meeting token：由後端針對單一會議簽發的短效、限 scope token，只能讀取該 user／team／meeting 的 Add-on 公開狀態與即時連線。
+- Add-on 理論上可以嵌入登入頁，但 iframe 內重新登入會造成 cookie、redirect、第三方儲存限制，也會讓使用者重複登入；因此產品流程採「Web App 登入 → 開啟 Meet Add-on → handoff 短效 meeting token」。
+- Token 不放在可分享的長效 URL；過期時由 Add-on 顯示重新從 Web App 開啟的提示。
 
 ## 需要人工設定的項目
 

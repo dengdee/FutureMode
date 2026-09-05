@@ -12,7 +12,7 @@
 | `/meetings/[id]/audio-setup` | Web App／Capture Page | 收音同意與連線狀態 | UI scaffold；Audio API 待提供 |
 | `/meetings/[id]/addon` | Google Meet Meet Add-on | 窄版公共狀態與 Personal Sidekick | UI scaffold；token／realtime 待提供 |
 | `/meetings/[id]/live` | 瀏覽器 fallback | Add-on 不可用時的同一公共狀態 | UI scaffold；realtime 待提供 |
-| `/meetings/[id]/review` | Web App | 摘要、逐字稿、共識與行動項目 | UI scaffold；Review API 待提供 |
+| `/meetings/[id]/review` | Web App | 摘要、逐字稿、共識與行動項目 | 已接 REST API；即時更新待 WebSocket |
 | `/memory` | 相容入口 | 舊版團隊記憶頁 | 保留舊連結；正式入口改為 `/workspaces/[workspaceId]/memory/...` |
 | `/settings` | Web App | 帳號 | 目前僅顯示 Neon Auth session；通知／安全設定待 API 完成後加入；團隊資訊移至 `/workspaces` |
 
