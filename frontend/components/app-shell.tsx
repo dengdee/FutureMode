@@ -36,7 +36,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: authSession } = authClient.useSession();
   const [apiProfileName, setApiProfileName] = useState<string | null>(null);
   useEffect(() => {
-    const refreshProfile = () => { getCurrentUser().then((user) => setApiProfileName(user.display_name || null)).catch(() => undefined); };
+    const refreshProfile = (event?: Event) => {
+      const updatedName = event instanceof CustomEvent && typeof event.detail === "string" ? event.detail : window.localStorage.getItem("proximate:profile-name");
+      if (updatedName) { setApiProfileName(updatedName); return; }
+      getCurrentUser().then((user) => { if (user.display_name) setApiProfileName(user.display_name); }).catch(() => undefined);
+    };
     refreshProfile();
     window.addEventListener("proximate:profile-updated", refreshProfile);
     return () => window.removeEventListener("proximate:profile-updated", refreshProfile);
@@ -53,7 +57,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const meetingPhase = pathname.startsWith("/meetings/")
-    ? ({ new: "建立會議", prepare: "會前準備", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
+    ? ({ new: "建立會議", prepare: "議前討論", "pre-meeting-summary": "議前整理", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
     : undefined;
   const memoryScope = searchParams.get("scope");
   const breadcrumbGroup = meetingPhase
