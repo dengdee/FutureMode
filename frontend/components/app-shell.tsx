@@ -113,6 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         } as Record<string, string>
       )[pathname.split("/").at(-1) ?? ""]
     : undefined;
+  const isStartLiveRoute = meetingPath[3] === "start" && meetingPath[4] === "live";
   useEffect(() => {
     if (!meetingId || meetingId === "new") {
       setMeetingTitle(null);
@@ -164,6 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             workspaceName ?? "團隊",
             "會議",
             meetingTitle ?? "會議",
+            ...(isStartLiveRoute ? ["開始會議"] : []),
             meetingPhase,
           ]
         : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]

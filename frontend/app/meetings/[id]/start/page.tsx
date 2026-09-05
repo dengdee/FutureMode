@@ -27,7 +27,7 @@ export default function StartMeetingPage() {
     setMeetUrl(localStorage.getItem(`proximate:meeting-url:${id}`) ?? "");
   }, [id]);
 
-  function enterLive() { router.push(`/meetings/${id}/live`); }
+  function enterLive() { router.push(`/meetings/${id}/start/live`); }
 
   if (loading) return <AppShell><p className="text-sm text-[#787774]">正在載入開始會議設定…</p></AppShell>;
   if (!meeting) return <AppShell><p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || "找不到此會議。"}</p></AppShell>;

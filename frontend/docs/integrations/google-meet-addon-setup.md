@@ -4,11 +4,11 @@
 
 - Web App：`https://future-mode.vercel.app`
 - 會議 Add-on UI：`https://future-mode.vercel.app/meetings/{meetingId}/addon`
-- 瀏覽器 Live fallback：`https://future-mode.vercel.app/meetings/{meetingId}/live`
+- 瀏覽器 Live fallback：`https://future-mode.vercel.app/meetings/{meetingId}/start/live`
 
 ## 目前實作範圍
 
-`/meetings/[id]/addon` 是窄版 Meet iframe UI，包含 Brief、Live State、Personal Sidekick 與 Host 控制。它與 `/meetings/[id]/live` 共用會議狀態與 API，但兩者版面不同：Add-on 適合嵌入 Google Meet，Live 是完整瀏覽器頁面。
+`/meetings/[id]/addon` 是窄版 Meet iframe UI，包含 Brief、Live State、Personal Sidekick 與 Host 控制。它與 `/meetings/[id]/start/live` 共用會議狀態與 API，但兩者版面不同：Add-on 適合嵌入 Google Meet，Live 是完整瀏覽器頁面。
 
 目前可直接在瀏覽器測試指定會議：
 
