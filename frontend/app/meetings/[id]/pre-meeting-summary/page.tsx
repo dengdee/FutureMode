@@ -163,8 +163,8 @@ export default function PreMeetingSummaryPage() {
           <p className="inline-flex items-center gap-2 text-sm font-semibold">
             <IconClock size={17} />
             {deadline
-              ? `參與者填寫期限：${new Date(deadline).toLocaleString("zh-TW")}`
-              : "尚未設定參與者填寫期限"}
+              ? `議前討論填寫期限：${new Date(deadline).toLocaleString("zh-TW")}`
+              : "尚未設定議前討論填寫期限"}
           </p>
           <p className="mt-2 text-sm leading-6">
             {ready

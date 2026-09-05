@@ -148,8 +148,8 @@ export default function NewMeetingPage() {
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!title.trim() || !teamId || !prepDeadline) {
-      setError("請選擇團隊、填寫會議名稱與參與者填寫期限。");
+    if (!title.trim() || !teamId || !scheduledAt || !prepDeadline) {
+      setError("請選擇團隊並填寫會議名稱、會議時間與議前討論填寫期限。");
       return;
     }
     setSubmitting(true);
@@ -234,11 +234,9 @@ export default function NewMeetingPage() {
               />
             </label>
             <label className="block text-sm font-medium">
-              開始時間
-              <span className="ml-1 font-normal text-[#787774]">
-                （可稍後設定）
-              </span>
+              會議時間
               <input
+                required
                 type="datetime-local"
                 value={scheduledAt}
                 onChange={(event) => setScheduledAt(event.target.value)}
@@ -246,7 +244,7 @@ export default function NewMeetingPage() {
               />
             </label>
             <label className="block text-sm font-medium">
-              參與者填寫期限
+              議前討論填寫期限
               <input
                 required
                 type="datetime-local"
@@ -255,7 +253,7 @@ export default function NewMeetingPage() {
                 className={fieldClass}
               />
               <span className="mt-1 block text-xs font-normal text-[#787774]">
-                期限到後才開放 AI 的議前整理。
+                期限到後才開放 AI 的議前準備。
               </span>
             </label>
           </div>
