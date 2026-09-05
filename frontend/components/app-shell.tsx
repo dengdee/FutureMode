@@ -19,7 +19,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
-import { InvitationInbox } from "./invitation-inbox";
 import { getCurrentUser } from "../lib/api/me";
 import { listTeamMembers, listTeams } from "../lib/api/teams";
 
@@ -310,7 +309,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           ref={contentRef}
           className="min-w-0 flex-1 px-5 py-8 sm:px-8 md:overflow-y-auto md:px-10 md:py-10"
         >
-          <InvitationInbox />
           {children}
         </main>
       </div>
