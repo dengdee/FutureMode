@@ -16,7 +16,7 @@ Add-on iframe 入口固定為 `/meetings/[id]/addon`。使用者在 Web App 以 
 
 1. 已啟用 Google Workspace Marketplace SDK 與 Google Workspace Add-ons API。
 2. 已建立並安裝 HTTP deployment `future-mode-meet-addon`。
-3. Meet `sidePanelUrl` 設為 `https://future-mode-proximate.vercel.app/addon`，允許來源為 `https://future-mode-proximate.vercel.app`。
+3. Meet `sidePanelUrl` 設為 `https://future-mode-proximate-v2.vercel.app/addon`，允許來源為 `https://future-mode-proximate-v2.vercel.app`。
 4. Marketplace 應用程式設為「不公開」、個人＋管理員安裝，並選取 Meet 外掛程式整合。
 5. OAuth 使用外部／測試模式；測試帳號可在下方清單管理。
 
