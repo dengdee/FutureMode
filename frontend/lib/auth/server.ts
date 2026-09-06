@@ -7,5 +7,8 @@ export const auth = createNeonAuth({
   cookies: {
     secret: process.env.NEON_AUTH_COOKIE_SECRET || "development-only-neon-auth-cookie-secret-32",
     sessionDataTtl: 300,
+    // Google Meet loads the Add-on as a third-party iframe.
+    // SameSite=None is required for the Neon Auth session cookie to be sent.
+    sameSite: "none",
   },
 });
