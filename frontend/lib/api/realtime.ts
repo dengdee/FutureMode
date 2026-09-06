@@ -9,8 +9,16 @@ export class RealtimeEventAdapter {
     const eventId = typeof raw.event_id === "string" ? raw.event_id : null;
     const meetingId =
       typeof raw.meeting_id === "string" ? raw.meeting_id : null;
+    const payload =
+      raw.payload && typeof raw.payload === "object"
+        ? (raw.payload as Record<string, unknown>)
+        : null;
     const eventType =
-      typeof raw.event_type === "string" ? raw.event_type : null;
+      typeof raw.event_type === "string"
+        ? raw.event_type
+        : typeof payload?.type === "string"
+          ? payload.type
+          : null;
     if (!eventId || !meetingId || !eventType || this.seen.has(eventId))
       return null;
     this.seen.add(eventId);
@@ -24,6 +32,7 @@ export class RealtimeEventAdapter {
       schema_version:
         typeof raw.schema_version === "string" ? raw.schema_version : "1",
       event_type: eventType,
+      cursor: typeof raw.cursor === "number" ? raw.cursor : 0,
       payload: raw.payload,
     };
   }

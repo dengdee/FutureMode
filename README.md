@@ -1,151 +1,115 @@
 # Proximate
 
-Proximate 是一套以「AI 作為另一位組員」為核心的智慧會議協作系統。本 Repository 已包含可執行的 Next.js Web App 與 FastAPI 基礎 API；AI 即時狀態、WebSocket、Review、Memory 與 Settings 等產品能力仍依後端契約逐步開發。
+## 問題與目標
 
-完整產品與技術規劃請見 [`ProductPlanning.md`](ProductPlanning.md)。
+傳統會議常把重要思考集中在短暫的會議時間內，導致參與者準備不足、資訊分散，會後決策也難以追蹤與延續。無法出席的成員更容易失去發表觀點的機會，團隊知識也會隨著會議結束而逐漸流失。
 
-## 專案結構
+Proximate 將 AI Agent 整合進完整的會議流程。會前，使用者可與 AI 對話，釐清問題、分析風險並整理成議前文件；會議中，Voice Bot 會像真正的組員一樣參與討論，根據即時逐字稿與團隊脈絡主動提出問題、補充觀點，並在獲得團隊同意後以語音發言，協助成員即時評估選項與做出決策。會後，討論內容會切分為文件 chunks，建立 embedding 並寫入團隊 RAG 記憶，讓後續會議能快速搜尋並延續脈絡。透過這套流程，Proximate 將一次性的會議，轉化為 AI 能持續參與、協助決策，並可累積、搜尋與改善的團隊協作能力。
 
-```text
-.
-├─ frontend/        # Next.js 16.3、React 19、TypeScript、Tailwind CSS
-│  ├─ app/           # Dashboard 與 Meeting Workspace routes
-│  │  ├─ meetings/[id]/addon/ # Google Meet Add-on iframe 入口
-│  │  └─ meetings/[id]/live/  # 瀏覽器 fallback／開發期 Live UI
-│  └─ .env.example  # 前端環境變數範例
-├─ backend/         # FastAPI、Pydantic settings、pytest、Ruff
-│  ├─ app/           # API 與服務模組
-│  ├─ app/api/       # 身分、團隊、會議 REST API
-│  ├─ app/meetbot.py # Meeting BaaS Google Meet Bot join proxy
-│  ├─ app/models/    # SQLAlchemy core models
-│  └─ .env.example   # 後端環境變數範例
-├─ integrations/
-│  └─ google-meet/   # Meet Add-on deployment 與整合設定
-└─ ProductPlanning.md
-```
+## 核心功能
 
-前端與後端彼此獨立，不直接引用對方的內部程式碼。
+- 議前討論：使用者可與個人 AI Agent 對話，釐清問題、風險、反例與待決事項，並整理成議前文件。
+- 會議協作：提供會議工作區、議程、參與者、逐字稿、AI 主動提問、投票與共識流程。
+- 缺席代理：成員可保存自己的代理重點，經核准後由 AI 產生發言文字並交給 Voice Bot 播放。
+- 團隊記憶：文件切成 chunks、建立 embedding 寫入 RAG，支援全文與 hybrid 搜尋。
+- 團隊與邀請：建立工作區、管理成員角色，使用站內邀請加入團隊，不依賴 Email 寄送。
 
-## 前端資訊架構
-
-前端統一使用 `frontend/public/fonts/NotoSansTC-VF.ttf`（Noto Sans TC 可變字體），並以共用控制項與圓角 token 維持跨頁面一致性。
-
-每場會議使用同一個 Meeting Workspace，依階段分為：
+## 系統架構
 
 ```text
-/dashboard
-/workspaces                  # 建立團隊、邀請成員與管理多場會議
-/meetings/new                # 從工作區建立會議
-/meetings/[id]/prepare       # 會前 Brief、議程、AI 角色與 Personal Agent
-/meetings/[id]/audio-setup   # 啟動麥克風／分頁音訊後回到 Google Meet
-/meetings/[id]/addon         # Google Meet Add-on：Brief、Live State、Sidekick、Host Controls
-/meetings/[id]/live          # Add-on 不可用時的瀏覽器 fallback／開發期測試頁
-/meetings/[id]/review        # 會後摘要、逐字稿、決策、行動項目與成員確認
-/memory                      # Team Memory
-/settings                    # 登入者帳號資訊（團隊管理在 /workspaces）
+使用者／Google Meet
+        │  Next.js Web App + Meet Add-on
+        ▼
+FastAPI REST / WebSocket API
+   ├─ Neon Auth：登入、JWT、session
+   ├─ PostgreSQL：團隊、會議、訊息、文件、成員與邀請
+   ├─ Gemini：議前回覆、文件整理、embedding
+   ├─ RAG：chunks、向量搜尋與團隊記憶
+   └─ Meeting BaaS：Google Meet Voice Bot（可選）
+        │
+        ▼
+會前文件 → 會議協作 → 會後 Review／可搜尋記憶
 ```
 
-`/meetings/[id]/addon` 是嵌入 Google Meet 的窄版 iframe；會議中不要求使用者切回完整 Web App。Voice Bot 由後端透過 [Meeting BaaS Google Meet Bot API](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet) 加入會議並輸出語音。主要逐人收音仍由 Audio Setup／Capture 流程提供，Meeting BaaS 音訊串流可作為備援。
+前端負責畫面、登入狀態與會議工作區互動；後端負責授權、資料保存、AI 呼叫、文件處理與 RAG。所有需要權限的 API 都使用 Neon Auth Bearer JWT，不信任前端自行送入的身分資訊。
 
-Add-on 不在 iframe 內重新登入。已登入的 Web App 會向後端取得綁定使用者與會議的短效 meeting token，交給 `/meetings/[id]/addon` 建立連線。Web App、`/meetings/[id]/live` 與 Add-on 共用同一份公共 Meeting State；同一使用者也能看到自己的 Personal Sidekick，但 Add-on 只使用窄版版面，不會把長效 session 或 API key 放入 iframe。
+## 使用技術
 
-## Voice Bot 整合
+| 類型 | 技術／服務 | 用途 |
+| --- | --- | --- |
+| AI 模型 | Gemini Flash Lite、Gemini Embedding | 議前對話、文件整理、向量 embedding |
+| 前端 | Next.js、React、TypeScript、Tailwind CSS | Web App、Meet Add-on、響應式介面 |
+| 後端 | FastAPI、Python、SQLAlchemy、PostgreSQL | REST/WebSocket API、授權、資料與 RAG |
+| 身分驗證 | Neon Auth | Email/password 登入、JWT 與 session |
+| 即時／會議 | Google Meet Add-on、Meeting BaaS | 會議嵌入、即時協作與 Voice Bot |
+| 影片展示 | Remotion | 2 分鐘作品評選展示影片 |
+| Sponsor 技術 | 目前無 | 本作品未使用 Sponsor 提供的技術或服務 |
 
-Proximate 不自行維護 Google 帳號登入或瀏覽器自動化。後端透過 Meeting BaaS 建立與管理 Google Meet Bot，只有在會議政策允許且投票達到門檻後，才傳送 `approved_text` 要求 Bot 播放語音。Meeting BaaS 的 API、Webhook、串流能力與用量限制，應以其[官方文件](https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet)為準。
+## 安裝與執行
 
-主要流程：
+```bash
+git clone https://github.com/dengdee/FutureMode.git
+cd FutureMode
 
-```text
-Capture Page → WebSocket → STT → OpenAI
-→ 結構化 approved_text → ElevenLabs TTS
-→ Meeting BaaS Voice Bot → Google Meet 語音輸出
-```
-
-Meeting BaaS 的會議音訊／逐字稿串流可作為 Capture Page 失敗時的備援輸入。若 API、語音輸出或用量額度不可用，系統回退為 Meet Add-on 公開文字卡片，不中斷會議紀錄與共識流程。
-
-## 環境需求
-
-- Node.js 24.13.1（建議依 `.node-version`）
-- npm 11 或相容版本
-- uv 0.11 或相容版本
-- Python 3.12（由 uv 自動安裝與管理）
-
-## 環境變數
-
-後端環境變數放在 `backend/`：
-
-```cmd
+# 後端
 cd backend
 copy .env.example .env
-```
+uv sync
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
-後端由 `pydantic-settings` 讀取 `backend/.env`。
-
-前端環境變數放在 `frontend/`：
-
-```cmd
-cd frontend
-copy .env.example .env.local
-```
-
-前端在沒有設定時使用安全的本機預設值 `http://localhost:8000`；若要覆寫，請編輯 `frontend/.env.local`：
-
-```dotenv
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-```
-
-`backend/.env` 與 `frontend/.env.local` 均已被 Git 忽略。不要在 `NEXT_PUBLIC_` 變數中放置機密。
-
-## 前端
-
-```cmd
+# 前端
 cd frontend
 npm install
+copy .env.example .env
 npm run dev
 ```
 
-瀏覽器開啟 `http://localhost:3000`。
+瀏覽器開啟 `http://localhost:3000`；後端 API 文件位於 `http://127.0.0.1:8000/docs`。若只要執行展示影片：
 
-檢查指令：
-
-```cmd
-cd frontend
-npm run lint
-npm run typecheck
-npm run build
+```bash
+cd video
+npm install
+npm run render
 ```
 
-## 後端
+## 作品展示
 
-```cmd
-cd backend
-uv python install 3.12
-uv sync
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
+- 作品展示網址：https://future-mode-proximate-v2.vercel.app/
+- 原始碼：https://github.com/dengdee/FutureMode
+- 評選影片：[Proximate Showcase](video/out/proximate-showcase.mp4)
 
-健康檢查位於 `http://127.0.0.1:8000/health`，API 文件位於 `http://127.0.0.1:8000/docs`。
+## 限制與未來工作
 
-檢查指令：
+- Gemini 與 Meeting BaaS 需要有效的環境變數與外部服務連線；本機未設定時，相關功能會回傳可理解的錯誤。
+- Google Meet Add-on、WebSocket 在正式 Vercel 部署上的長連線與重連策略仍需持續驗證。
+- 目前議前文件以字幕與文字介面為主，後續可加入更完整的語音互動、多人即時 presence 與權限細分。
+- RAG 搜尋結果會依 embedding provider 與資料量影響，正式上線前需要建立評估資料集與品質監控。
 
-```cmd
-cd backend
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest
-```
+## 第三方服務、資料與素材
 
-## 已採用的產品決策
+- Neon Auth：https://neon.tech/docs/neon-auth —— 登入與 session 服務，依 Neon 使用條款。
+- Gemini API：https://ai.google.dev/ —— AI 回覆與 embedding；金鑰只放在本機或部署環境變數，不提交至儲存庫。
+- Meeting BaaS：https://www.meetingbaas.com/zh-CN/meeting-bot-api-for-google-meet —— Google Meet Bot 與語音輸出服務。
+- Remotion：https://www.remotion.dev/ —— 作品展示影片製作工具，依其授權條款使用。
+- 字體：`frontend/public/fonts/NotoSansTC-VF.ttf`，隨專案提供，使用前請依原字體授權條款確認。
 
-- 正式登入採 **Neon Auth**；`/dashboard` 是跨團隊工作總覽，產品首頁為 `/`。
-- 共識與行動項目屬於單一會議，放在 `/meetings/[id]/review`，不放在跨團隊 Dashboard。
-- Web App 與 FastAPI API 正式部署目標為 **Vercel**；FastAPI WebSocket 長連線需先完成部署驗證。
-- Google Meet 會中介面採 Meet Add-on `/meetings/[id]/addon`，並保留瀏覽器 fallback `/meetings/[id]/live`。
-- Audio Setup 開始後需持續收音；Capture Page 保持開啟並回報 track／WebSocket 中斷。
-- Member 可在每張 AI 發言卡重新投票；「稍後／忽略」不是永久終止狀態。
-- 前端優先採用 ProductPlanning.md 列出的套件；安裝前仍需逐批驗證相容性。
+## 團隊成員
 
-## 尚待正式開發前確認
+| 姓名 | 分工 |
+| --- | --- |
+| fengyenchen（馮妍禎） | 後端 Web：FastAPI REST API、資料庫模型與 migration、JWT 權限驗證、團隊／會議／邀請、議前對話 API。 |
+| dengdee（鄧亦宸） | Meeting Bot、TTS：Google Meet Bot、會議中 AI 發言、LLM 文字生成、文字轉語音與語音輸出整合。 |
+| fengyenchia（馮妍嘉） | 前端 Web：Next.js Web App、Dashboard、團隊與會議頁面、議前討論介面、RAG 文件流程與 UI/UX。 |
+| Yun011017（林芸萱） | 前端 Add-on：Google Meet Add-on iframe、會議中窄版介面、即時狀態與 AI Sidekick 互動。 |
 
-- FastAPI WebSocket 在 Vercel 的長連線、timeout、重連與替代部署方案。
-- Neon Auth、Google Meet Add-on、Meeting BaaS、OpenAI、Groq、ElevenLabs 與 Sentry 的帳號、金鑰及 development deployment 尚未建立或連線。
+### 團隊協作方式
+
+- 後端 Web 與前端 Web 以 REST API 契約協作，統一使用 Neon Auth Bearer JWT。
+- Meeting Bot 與 TTS 將核准的 AI 發言轉成可播放語音，前端 Add-on 顯示同步狀態。
+- Web App 與 Add-on 共用會議狀態，但分別提供完整頁面與 Google Meet 內嵌介面。
+- 議前對話、文件、embedding 與 RAG 由後端保存，確保團隊記憶不依賴單一瀏覽器。
+
+
+## License
+
+本專案採用 [MIT License](LICENSE)。第三方服務、字體與素材仍須依各自的授權條款使用。

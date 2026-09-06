@@ -320,6 +320,7 @@ export type RealtimeEvent = {
   timestamp: string;
   schema_version: string;
   event_type: string;
+  cursor: number;
   payload: unknown;
 };
 export type VoiceBotStatus =
