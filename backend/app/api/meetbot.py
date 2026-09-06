@@ -339,3 +339,7 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
             detail=f"{type(exc).__name__}: {exc}",
         ) from None
 
+    finally:
+        output_file.unlink(missing_ok=True)
+
+        # print("========== SPEAK DEBUG END ==========\n")
