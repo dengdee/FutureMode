@@ -1,18 +1,51 @@
 "use client";
 
-import { IconArrowLeft, IconBrain, IconCheck, IconFileText, IconSend, IconSparkles, IconUsers } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconBrain,
+  IconCheck,
+  IconFileText,
+  IconSend,
+  IconSparkles,
+  IconUsers,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { createDelegate, listDelegates } from "../../../../lib/api/delegates";
 import { listAgendaItems } from "../../../../lib/api/agenda";
 import { getMeeting } from "../../../../lib/api/meetings";
-import { createPreparationMessage, generatePreparationDocument, listPreparationMessages, publishPreparationToRag } from "../../../../lib/api/preparation";
-import type { AgendaItem, DelegateProfile, MeetingSummary, PreparationDocument, PreparationMessage } from "../../../../types/api";
+import {
+  createPreparationMessage,
+  generatePreparationDocument,
+  listPreparationMessages,
+  publishPreparationToRag,
+} from "../../../../lib/api/preparation";
+import type {
+  AgendaItem,
+  DelegateProfile,
+  MeetingSummary,
+  PreparationDocument,
+  PreparationMessage,
+} from "../../../../types/api";
 
-const statusLabel: Record<string, string> = { draft: "待討論", scheduled: "已排程", in_progress: "進行中", completed: "已結束", cancelled: "已取消" };
-const errorMessage = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback;
+const statusLabel: Record<string, string> = {
+  draft: "待討論",
+  scheduled: "已排程",
+  in_progress: "進行中",
+  completed: "已結束",
+  cancelled: "已取消",
+};
+const errorMessage = (cause: unknown, fallback: string) =>
+  cause instanceof Error ? cause.message : fallback;
 
 export default function PreparePage() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +58,9 @@ export default function PreparePage() {
   const [delegateEnabled, setDelegateEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -32,25 +68,320 @@ export default function PreparePage() {
 
   const refresh = useCallback(async () => {
     const current = await getMeeting(id);
-    const [agendaResult, preparation, delegateResult] = await Promise.all([listAgendaItems(id), listPreparationMessages(id), listDelegates(id)]);
-    setMeeting(current); setAgenda(agendaResult.items); setMessages(preparation); setDelegates(delegateResult); setDelegateEnabled(delegateResult.length > 0);
+    const [agendaResult, preparation, delegateResult] = await Promise.all([
+      listAgendaItems(id),
+      listPreparationMessages(id),
+      listDelegates(id),
+    ]);
+    setMeeting(current);
+    setAgenda(agendaResult.items);
+    setMessages(preparation);
+    setSaveStatus(preparation.length ? "saved" : "idle");
+    setDelegates(delegateResult);
+    setDelegateEnabled(delegateResult.length > 0);
   }, [id]);
-  useEffect(() => { let active = true; const timer = window.setTimeout(() => { refresh().catch((cause) => active && setError(errorMessage(cause, "無法讀取議前討論。"))).finally(() => active && setLoading(false)); }, 0); return () => { active = false; window.clearTimeout(timer); }; }, [refresh]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      refresh()
+        .catch(
+          (cause) =>
+            active && setError(errorMessage(cause, "無法讀取議前討論。")),
+        )
+        .finally(() => active && setLoading(false));
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [refresh]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, sending]);
 
-  const prompts = useMemo(() => { const topic = agenda[0]?.title ?? "這場會議"; return [`幫我拆解「${topic}」最需要先釐清的問題`, "有哪些可能被忽略的風險或反例？", "如果我不能出席，代理人一定要替我提出哪些觀點？"]; }, [agenda]);
-  async function send(event?: FormEvent) { event?.preventDefault(); const content = draft.trim(); if (!content || sending) return; setSending(true); setError(""); try { const response = await createPreparationMessage(id, content); setMessages((current) => [...current, ...response]); setDraft(""); } catch (cause) { setError(errorMessage(cause, "AI 暫時無法回覆，請稍後再試。")); } finally { setSending(false); } }
-  async function run(action: () => Promise<unknown>, success: string) { setBusy(true); setError(""); setNotice(""); try { await action(); setNotice(success); await refresh(); } catch (cause) { setError(errorMessage(cause, "操作失敗，請稍後再試。")); } finally { setBusy(false); } }
-  async function createDocument() { setBusy(true); setError(""); setNotice(""); try { setDocument(await generatePreparationDocument(id)); setNotice("議前文件已整理完成，確認後即可發布到團隊共用記憶。"); } catch (cause) { setError(errorMessage(cause, "目前還不能產生文件。")); } finally { setBusy(false); } }
-  async function publishDocument() { if (!document) return; await run(() => publishPreparationToRag(id, document.document_id), "已發布到團隊共用記憶，會議中可用 RAG 查詢。"); setDocument((current) => current ? { ...current, status: "embedded" } : current); }
-  async function saveDelegate() { const privateNotes = messages.filter((message) => message.role === "user").map((message) => message.content).join("\n"); if (!privateNotes && !document?.content) { setError("請先和 Agent 討論幾輪，再設定缺席代理。"); return; } await run(() => createDelegate(id, { stance: document?.content ?? privateNotes }), "缺席代理已保存；這份內容只屬於你的代理設定。"); }
+  const prompts = useMemo(() => {
+    const topic = agenda[0]?.title ?? "這場會議";
+    return [
+      `幫我拆解「${topic}」最需要先釐清的問題`,
+      "有哪些可能被忽略的風險或反例？",
+      "如果我不能出席，代理人一定要替我提出哪些觀點？",
+    ];
+  }, [agenda]);
+  async function send(event?: FormEvent) {
+    event?.preventDefault();
+    const content = draft.trim();
+    if (!content || sending) return;
+    setSending(true);
+    setSaveStatus("saving");
+    setError("");
+    setNotice("");
+    try {
+      const response = await createPreparationMessage(id, content);
+      setMessages((current) => [...current, ...response]);
+      setDraft("");
+      setSaveStatus("saved");
+      setNotice("訊息已儲存。");
+    } catch (cause) {
+      setSaveStatus("idle");
+      setError(errorMessage(cause, "AI 暫時無法回覆，請稍後再試。"));
+    } finally {
+      setSending(false);
+    }
+  }
+  async function run(action: () => Promise<unknown>, success: string) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+      setNotice(success);
+      await refresh();
+    } catch (cause) {
+      setError(errorMessage(cause, "操作失敗，請稍後再試。"));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function createDocument() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      setDocument(await generatePreparationDocument(id));
+      setNotice("議前文件已整理完成，確認後即可發布到團隊共用記憶。");
+    } catch (cause) {
+      setError(errorMessage(cause, "目前還不能產生文件。"));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function publishDocument() {
+    if (!document) return;
+    await run(
+      () => publishPreparationToRag(id, document.document_id),
+      "已發布到團隊共用記憶，會議中可用 RAG 查詢。",
+    );
+    setDocument((current) =>
+      current ? { ...current, status: "embedded" } : current,
+    );
+  }
+  async function saveDelegate() {
+    const privateNotes = messages
+      .filter((message) => message.role === "user")
+      .map((message) => message.content)
+      .join("\n");
+    if (!privateNotes && !document?.content) {
+      setError("請先和 Agent 討論幾輪，再設定缺席代理。");
+      return;
+    }
+    await run(
+      () => createDelegate(id, { stance: document?.content ?? privateNotes }),
+      "缺席代理已保存；這份內容只屬於你的代理設定。",
+    );
+  }
 
-  if (loading) return <AppShell><div className="p-8 text-sm text-zinc-500">正在載入議前討論…</div></AppShell>;
-  if (!meeting) return <AppShell><p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error || "找不到此會議。"}</p></AppShell>;
+  if (loading)
+    return (
+      <AppShell>
+        <div className="p-8 text-sm text-zinc-500">正在載入議前討論…</div>
+      </AppShell>
+    );
+  if (!meeting)
+    return (
+      <AppShell>
+        <p
+          role="alert"
+          className="rounded-2xl bg-red-50 p-4 text-sm text-red-700"
+        >
+          {error || "找不到此會議。"}
+        </p>
+      </AppShell>
+    );
   const isPublished = document?.status === "embedded";
 
-  return <AppShell><div className="min-h-[calc(100vh-120px)] bg-white text-slate-900">
-    <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-5 py-5 sm:px-10"><div className="flex items-center gap-3"><Link href="/dashboard" className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="返回儀表板"><IconArrowLeft size={20} /></Link><div><p className="text-xs font-semibold uppercase tracking-[0.24em] text-teal-600">議前討論</p><h1 className="mt-1 text-xl font-semibold text-slate-900">{meeting.title}</h1></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{statusLabel[meeting.status] ?? meeting.status}</span></div></header>
-    <main className="mx-auto flex min-h-[680px] max-w-4xl flex-col px-5 py-8 sm:px-10"><div className="mb-7 flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600"><IconBrain size={19} /></div><div><p className="font-medium text-slate-900">和你的 Agent 一起準備</p><p className="mt-1 text-sm leading-6 text-slate-500">把直覺、疑慮與不同角度說出來。對話預設是私人草稿，發布後才會進入團隊共用記憶。</p></div></div>{(notice || error) && <p role={error ? "alert" : "status"} className={`mb-5 px-1 text-sm ${error ? "text-red-600" : "text-teal-700"}`}>{error || notice}</p>}<div className="flex-1 space-y-6">{messages.length === 0 && <p className="border-b border-slate-200 pb-6 text-sm leading-7 text-slate-500">先從一個問題開始，Agent 會協助你找出假設、風險、反例與需要帶進會議的重點。</p>}<div className="space-y-6">{messages.map((message) => <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>{message.role !== "user" && <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600"><IconSparkles size={15} /></div>}<div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-teal-600 text-white" : "rounded-bl-md bg-slate-100 text-slate-700"}`}>{message.content}</div></div>)}{sending && <div className="flex items-center gap-3 text-sm text-slate-500"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-600"><IconSparkles size={15} /></div><span className="animate-pulse">Agent 正在整理想法…</span></div>}</div><div ref={bottomRef} /></div><div className="mt-8 border-t border-slate-200 pt-6"><div className="mb-3 flex gap-2 overflow-x-auto pb-1">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => setDraft(prompt)} className="shrink-0 rounded-full border border-slate-300 px-3 py-2 text-xs text-slate-600 transition hover:border-teal-500 hover:text-teal-700">{prompt}</button>)}</div><form onSubmit={send} className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400" placeholder="和 Agent 討論一個問題…" aria-label="議前討論訊息" /><button type="submit" disabled={!draft.trim() || sending} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40" aria-label="送出訊息"><IconSend size={18} /></button></form><p className="mt-2 text-center text-[11px] text-slate-400">AI 可能會犯錯，重要決策請在會議中再次確認。</p></div><div className="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-5 text-sm"><IconFileText size={17} className="text-teal-600" /><span className="font-medium text-slate-700">議前文件</span><span className="text-slate-500">{document ? (isPublished ? "已發布到團隊共用記憶" : "已整理草稿，尚未共用") : "尚未整理"}</span><button type="button" disabled={busy || !messages.length} onClick={() => void createDocument()} className="ml-auto rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">{document ? "重新整理" : "整理成文件"}</button><button type="button" disabled={busy || !document || isPublished} onClick={() => void publishDocument()} className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40">{isPublished ? "已發布" : "發布到共用記憶"}</button></div><div className="mt-4 flex flex-wrap items-center gap-3 border-b border-slate-200 pb-5 text-sm"><IconUsers size={17} className="text-teal-600" /><label className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked={delegateEnabled} onChange={(event) => setDelegateEnabled(event.target.checked)} className="accent-teal-600" />我可能無法出席，需要代理代為提出重點</label><button type="button" disabled={!delegateEnabled || busy || delegates.length > 0 || !messages.length} onClick={() => void saveDelegate()} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">{delegates.length ? "代理已保存" : "保存代理重點"}</button></div><p className="mt-4 text-xs text-slate-500"><IconCheck size={14} className="mr-1 inline text-teal-600" />本場共 {agenda.length} 個議題，提示詞會依第一個議題產生。{agenda.slice(0, 3).map((item) => ` ${item.position}. ${item.title}`).join("、")}</p></main>
-  </div></AppShell>;
+  return (
+    <AppShell>
+      <div className="min-h-[calc(100vh-120px)] bg-white text-slate-900">
+        <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-5 py-5 sm:px-10">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              aria-label="返回儀表板"
+            >
+              <IconArrowLeft size={20} />
+            </Link>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-teal-600">
+                議前討論
+              </p>
+              <h1 className="mt-1 text-xl font-semibold text-slate-900">
+                {meeting.title}
+              </h1>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+              {statusLabel[meeting.status] ?? meeting.status}
+            </span>
+          </div>
+        </header>
+        <main className="mx-auto flex min-h-[680px] max-w-4xl flex-col px-5 py-8 sm:px-10">
+          <div className="mb-7 flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+              <IconBrain size={19} />
+            </div>
+            <div>
+              <p className="font-medium text-slate-900">
+                和你的 Agent 一起準備
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                把直覺、疑慮與不同角度說出來。對話預設是私人草稿，發布後才會進入團隊共用記憶。
+              </p>
+            </div>
+          </div>
+          {(notice || error) && (
+            <p
+              role={error ? "alert" : "status"}
+              className={`mb-5 px-1 text-sm ${error ? "text-red-600" : "text-teal-700"}`}
+            >
+              {error || notice}
+            </p>
+          )}
+          <div className="flex-1 space-y-6">
+            {messages.length === 0 && (
+              <p className="border-b border-slate-200 pb-6 text-sm leading-7 text-slate-500">
+                先從一個問題開始，Agent
+                會協助你找出假設、風險、反例與需要帶進會議的重點。
+              </p>
+            )}
+            <div className="space-y-6">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {message.role !== "user" && (
+                    <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+                      <IconSparkles size={15} />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-teal-600 text-white" : "rounded-bl-md bg-slate-100 text-slate-700"}`}
+                  >
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+              {sending && (
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+                    <IconSparkles size={15} />
+                  </div>
+                  <span className="animate-pulse">Agent 正在整理想法…</span>
+                </div>
+              )}
+            </div>
+            <div ref={bottomRef} />
+          </div>
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+              {prompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => setDraft(prompt)}
+                  className="shrink-0 rounded-full border border-slate-300 px-3 py-2 text-xs text-slate-600 transition hover:border-teal-500 hover:text-teal-700"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+            <form
+              onSubmit={send}
+              className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100"
+            >
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                rows={2}
+                className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400"
+                placeholder="和 Agent 討論一個問題…"
+                aria-label="議前討論訊息"
+              />
+              <button
+                type="submit"
+                disabled={!draft.trim() || sending}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="送出訊息"
+              >
+                <IconSend size={18} />
+              </button>
+            </form>
+            <p className="mt-2 text-center text-[11px] text-slate-400">
+              AI 可能會犯錯，重要決策請在會議中再次確認。
+            </p>
+          </div>
+          <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-5 text-sm">
+            <IconFileText size={17} className="text-teal-600" />
+            <span className="font-medium text-slate-700">議前文件</span>
+            <span className="text-slate-500">
+              {document
+                ? isPublished
+                  ? "已發布到團隊共用記憶"
+                  : "已整理草稿，尚未共用"
+                : "尚未整理"}
+            </span>
+            <button
+              type="button"
+              disabled={busy || !messages.length}
+              onClick={() => void createDocument()}
+              className="ml-auto rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {document ? "重新整理" : "整理成文件"}
+            </button>
+            <button
+              type="button"
+              disabled={busy || !document || isPublished}
+              onClick={() => void publishDocument()}
+              className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isPublished ? "已發布" : "發布到共用記憶"}
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-b border-slate-200 pb-5 text-sm">
+            <IconUsers size={17} className="text-teal-600" />
+            <label className="flex items-center gap-2 text-slate-700">
+              <input
+                type="checkbox"
+                checked={delegateEnabled}
+                onChange={(event) => setDelegateEnabled(event.target.checked)}
+                className="accent-teal-600"
+              />
+              我可能無法出席，需要代理代為提出重點
+            </label>
+            <button
+              type="button"
+              disabled={
+                !delegateEnabled ||
+                busy ||
+                delegates.length > 0 ||
+                !messages.length
+              }
+              onClick={() => void saveDelegate()}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {delegates.length ? "代理已保存" : "保存代理重點"}
+            </button>
+          </div>
+          <p className="mt-4 text-xs text-slate-500">
+            <IconCheck size={14} className="mr-1 inline text-teal-600" />
+            本場共 {agenda.length} 個議題，提示詞會依第一個議題產生。
+            {agenda
+              .slice(0, 3)
+              .map((item) => ` ${item.position}. ${item.title}`)
+              .join("、")}
+          </p>
+        </main>
+      </div>
+    </AppShell>
+  );
 }
