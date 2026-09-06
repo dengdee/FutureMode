@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 
@@ -21,7 +22,10 @@ export default function Home() {
   return (
     <main ref={pageRef} className="min-h-screen bg-[#fbfbfa] text-[#1f1f1f]">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="text-lg font-semibold tracking-tight">Proximate</Link>
+        <Link href="/" className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Image src="/logo.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" priority />
+          <span>Proximate</span>
+        </Link>
         <div className="flex items-center gap-3 text-sm text-[#787774]">
           <Link href="/sign-in" className="rounded-lg border border-[#d7e8e5] bg-white px-4 py-2 font-medium text-[#0f806f] hover:bg-[#f2fbf9]">登入</Link><Link href="/sign-up" className="rounded-lg bg-[var(--accent)] px-4 py-2 font-medium text-white hover:bg-[#0b8978]">註冊</Link>
         </div>
