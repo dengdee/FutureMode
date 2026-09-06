@@ -1,8 +1,8 @@
 "use client";
 
-import { IconCheck, IconLoader2, IconPlayerPause, IconRobot, IconVolume } from "@tabler/icons-react";
+import { IconPlayerPause, IconRobot, IconVolume } from "@tabler/icons-react";
 import { useState } from "react";
-import { updateInterventionPolicy, voteOnSuggestion } from "../../lib/api/addon";
+import { voteOnSuggestion } from "../../lib/api/addon";
 import type { LiveSnapshotResponse, MeetingSummary, VoteChoice } from "../../types/api";
 
 export function LiveStateTab({ meetingId, meeting, snapshot }: { meetingId: string; meeting: MeetingSummary | null; snapshot: LiveSnapshotResponse | null }) {
@@ -17,18 +17,8 @@ export function LiveStateTab({ meetingId, meeting, snapshot }: { meetingId: stri
   return <div className="space-y-4"><div aria-live="polite">{suggestions.length ? <div className="space-y-3">{suggestions.map((suggestion) => <AiSuggestionCard key={String(suggestion.id ?? suggestion.suggestion_id)} meetingId={meetingId} suggestion={suggestion} prominent showRaiseHeader />)}</div> : <section className="rounded-xl border-2 border-[#8bd3b2] bg-[#effbf4] p-4 text-sm text-[#5d806f] shadow-[0_4px_16px_rgba(15,159,138,0.12)]">目前沒有待處理的 AI 舉手。</section>}</div><section className="rounded-xl bg-[#f7f7f5] p-4"><p className="text-xs font-semibold uppercase tracking-wide text-[#8b8b87]">目前議題</p><h2 className="mt-2 font-semibold">{currentTopic}</h2><p className="mt-2 text-sm text-[#787774]">{meeting?.status ? `會議狀態：${meeting.status}` : "等待正式會議狀態資料"}</p></section><DataSection title="目前立場" items={positions} empty="尚未收到公開立場" /><DataSection title="未決問題" items={questions} empty="尚未收到未決問題" /><DataSection title="暫定決策" items={decisions} empty="尚未形成暫定決策" /><ParkingLot items={parkingLot} /><VoiceBotStatus value={state.voice_bot ?? state.voiceBot} /></div>;
 }
 
-export function HostControlsTab({ meetingId, snapshot }: { meetingId: string; snapshot: LiveSnapshotResponse | null }) {
-  const rawLevel = snapshot?.policy?.intervention_level ?? snapshot?.policy?.interventionLevel;
-  const [level, setLevel] = useState(typeof rawLevel === "string" ? rawLevel : "medium");
-  const [pending, setPending] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  async function savePolicy() {
-    setPending(true); setFeedback("");
-    try { await updateInterventionPolicy(meetingId, { intervention_level: level }); setFeedback("政策已更新"); }
-    catch (error) { setFeedback((error as { message?: string }).message ?? "政策更新失敗"); }
-    finally { setPending(false); }
-  }
-  return <section className="space-y-5"><div><p className="text-xs font-semibold uppercase tracking-wide text-[#8b8b87]">主持控制</p><h2 className="mt-2 text-lg font-semibold">介入政策</h2><p className="mt-2 text-sm leading-6 text-[#787774]">調整後會套用至本場會議；不會改寫已產生的公共紀錄。</p></div><label className="block text-sm font-medium">AI 介入程度<select value={level} onChange={(event) => setLevel(event.target.value)} className="control-primary mt-2"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></label><button type="button" disabled={pending} onClick={() => void savePolicy()} className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? <IconLoader2 size={15} className="animate-spin" /> : <IconCheck size={15} />}儲存政策</button>{feedback ? <p role="status" className="text-sm text-[#787774]">{feedback}</p> : null}<div className="rounded-xl border border-[#e6e6e3] p-4"><div className="flex items-center gap-2"><IconPlayerPause size={16} className="text-[#787774]" /><h3 className="text-sm font-semibold">暫停 AI 介入</h3></div><p className="mt-2 text-sm text-[#787774]">暫停／恢復操作將在正式 Host action API 提供後啟用。</p></div></section>;
+export function HostControlsTab() {
+  return <section className="space-y-5"><div><p className="text-xs font-semibold uppercase tracking-wide text-[#8b8b87]">主持控制</p><h2 className="mt-2 text-lg font-semibold">會議控制</h2><p className="mt-2 text-sm leading-6 text-[#787774]">主持人可在會議中控制 AI 是否暫停；不會改寫已產生的公共紀錄。</p></div><div className="rounded-xl border border-[#e6e6e3] p-4"><div className="flex items-center gap-2"><IconPlayerPause size={16} className="text-[#787774]" /><h3 className="text-sm font-semibold">暫停 AI 介入</h3></div><p className="mt-2 text-sm text-[#787774]">暫停／恢復操作將在正式 Host action API 提供後啟用。</p></div></section>;
 }
 
 function AiSuggestionCard({ meetingId, suggestion, prominent = false, showRaiseHeader = false }: { meetingId: string; suggestion: Record<string, unknown>; prominent?: boolean; showRaiseHeader?: boolean }) {

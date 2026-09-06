@@ -1,7 +1,6 @@
 "use client";
 
-import { IconExternalLink, IconRefresh, IconWifi } from "@tabler/icons-react";
-import Link from "next/link";
+import { IconRefresh, IconWifi } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
@@ -16,6 +15,7 @@ import {
   RealtimeEventAdapter,
 } from "../../../../lib/api/realtime";
 import {
+  generateAndSpeakVoiceBot,
   getVoiceBotStatus,
   type VoiceBotStatusResponse,
 } from "../../../../lib/api/voice";
@@ -46,12 +46,19 @@ export default function LivePage() {
   const [voiceStatus, setVoiceStatus] = useState<VoiceBotStatusResponse | null>(
     null,
   );
+  const [speaking, setSpeaking] = useState(false);
   const [connection, setConnection] = useState<
     "connecting" | "connected" | "reconnecting" | "stale" | "offline"
   >("connecting");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState("");
   const state = snapshot?.state ?? {};
+  const meetingInProgress = Boolean(
+    meeting &&
+      meeting.status !== "completed" &&
+      meeting.status !== "cancelled" &&
+      (!meeting.scheduled_at || new Date(meeting.scheduled_at).getTime() <= Date.now()),
+  );
   const currentTopic =
     typeof state.current_topic === "string"
       ? state.current_topic
@@ -83,11 +90,13 @@ export default function LivePage() {
   useEffect(() => {
     let active = true;
     const adapter = new RealtimeEventAdapter();
-    load().catch(
-      (cause) =>
-        active &&
-        setError(cause instanceof Error ? cause.message : "無法讀取會議狀態。"),
-    );
+    const loadTimer = window.setTimeout(() => {
+      load().catch(
+        (cause) =>
+          active &&
+          setError(cause instanceof Error ? cause.message : "無法讀取會議狀態。"),
+      );
+    }, 0);
     const socket = new WebSocket(socketUrl(id));
     socket.onopen = () => active && setConnection("connected");
     socket.onerror = () => active && setConnection("reconnecting");
@@ -152,6 +161,7 @@ export default function LivePage() {
     };
     return () => {
       active = false;
+      window.clearTimeout(loadTimer);
       socket.close();
     };
   }, [id]);
@@ -164,6 +174,21 @@ export default function LivePage() {
       setSuggestions(await listSuggestions(id));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "投票失敗。 ");
+    }
+  }
+  async function generateAndSpeak() {
+    setSpeaking(true);
+    setError("");
+    try {
+      const response = await generateAndSpeakVoiceBot(id, {
+        prompt: `請針對目前議題「${currentTopic}」提出最重要的觀察與下一步。`,
+        context: textValue(state.latest_transcript ?? state.latestTranscript ?? state.transcript) ?? undefined,
+      });
+      setVoiceStatus(response);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Voice Bot 發言失敗。");
+    } finally {
+      setSpeaking(false);
     }
   }
   return (
@@ -299,7 +324,7 @@ export default function LivePage() {
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
             <h2 className="font-semibold">會議狀態</h2>
             <p className="mt-2 text-sm text-[#787774]">
-              {meeting?.status === "in_progress"
+              {meetingInProgress
                 ? "會議進行中"
                 : "尚未開始或已結束"}
             </p>
@@ -311,17 +336,18 @@ export default function LivePage() {
             value={voiceStatus?.status ?? state.voice_bot ?? state.voiceBot}
           />
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
-            <h2 className="font-semibold">收音與 Meet</h2>
+            <h2 className="font-semibold">AI 語音發言</h2>
             <p className="mt-2 text-sm leading-6 text-[#787774]">
-              保持 Capture Page 開啟以送出你的授權音訊。若 Meet Add-on
-              不可用，可在此瀏覽器頁查看公共會議狀態。
+              需先由 Host 核准，接著由 Gemini 產生發言稿，再轉成語音送入會議。
             </p>
-            <Link
-              href={`/meetings/${id}/audio-setup`}
-              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#087e6d]"
+            <button
+              type="button"
+              disabled={speaking || voiceStatus?.status !== "approved"}
+              onClick={() => void generateAndSpeak()}
+              className="mt-4 w-full rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              開啟收音設定 <IconExternalLink size={16} />
-            </Link>
+              {speaking ? "正在準備並播放…" : "生成文字並發言"}
+            </button>
           </section>
         </aside>
       </div>

@@ -134,6 +134,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           new: "建立會議",
           prepare: "議前討論",
           "pre-meeting-summary": "議前整理",
+          start: "開始會議",
           "audio-setup": "收音設定",
           addon: "Meet Add-on",
           live: "即時會議",
@@ -141,6 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         } as Record<string, string>
       )[pathname.split("/").at(-1) ?? ""]
     : undefined;
+  const isStartLiveRoute = meetingPath[3] === "start" && meetingPath[4] === "live";
   useEffect(() => {
     if (!meetingId || meetingId === "new") {
       void Promise.resolve().then(() => setMeetingTitle(null));
@@ -202,6 +204,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             { label: "團隊", href: "/workspaces" },
             { label: "會議", href: "/dashboard" },
             { label: meetingTitle ?? "會議", href: `/meetings/${meetingId}/prepare` },
+            ...(isStartLiveRoute ? [{ label: "開始會議", href: `/meetings/${meetingId}/start` }] : []),
             { label: meetingPhase },
           ]
     : workspaceId

@@ -126,6 +126,13 @@ class VoiceRequestCreate(BaseModel):
     approved_text: str | None = Field(default=None, max_length=20_000)
 
 
+class VoiceSpeakRequest(BaseModel):
+    """Optional context used when the approved voice request needs a fresh script."""
+
+    prompt: str | None = Field(default=None, max_length=20_000)
+    context: str | None = Field(default=None, max_length=20_000)
+
+
 class VoiceBotStatusResponse(BaseModel):
     meeting_id: UUID
     status: str
@@ -133,6 +140,7 @@ class VoiceBotStatusResponse(BaseModel):
     suggestion_id: UUID | None = None
     approved_text_version: int | None = None
     message: str | None = None
+    generated_text: str | None = None
 
 
 class VoiceHostAction(BaseModel):

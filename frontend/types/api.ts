@@ -82,6 +82,8 @@ export type VoteChoice = "support" | "later" | "ignore";
 export type LiveSnapshotResponse = {
   meeting?: MeetingSummary;
   state?: Record<string, unknown>;
+  state_version?: number;
+  updated_at?: string | null;
   participants?: Array<Record<string, unknown>>;
   suggestions?: Array<Record<string, unknown>>;
   policy?: Record<string, unknown>;
