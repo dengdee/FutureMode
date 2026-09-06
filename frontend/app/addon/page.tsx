@@ -26,11 +26,20 @@ declare global {
 export default function AddonEntryPage() {
   const [message, setMessage] = useState("正在取得 Google Meet 會議 context…");
   const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [preview, setPreview] = useState(false);
 
   useEffect(() => {
-    const meetingId = new URLSearchParams(window.location.search).get("meetingId");
-    if (meetingId) {
-      setMeetingId(meetingId);
+    const params = new URLSearchParams(window.location.search);
+    const requestedMeetingId = params.get("meetingId");
+    const previewMode = params.get("preview") === "live";
+    if (requestedMeetingId) {
+      setMeetingId(requestedMeetingId);
+      setPreview(previewMode);
+      return;
+    }
+    if (previewMode) {
+      setPreview(true);
+      setMeetingId("preview-meeting");
       return;
     }
 
@@ -61,7 +70,7 @@ export default function AddonEntryPage() {
     };
   }, []);
 
-  if (meetingId) return <AddonShell meetingId={meetingId} />;
+  if (meetingId) return <AddonShell meetingId={meetingId} preview={preview} />;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] p-6 text-center text-sm text-[#787774]">
