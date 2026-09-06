@@ -14,10 +14,10 @@ import { listTeams } from "../../lib/api/teams";
 import type { MeetingSummary, Team } from "../../types/api";
 
 const statusLabel: Record<string, string> = {
-  draft: "待討論",
-  scheduled: "已排程",
+  draft: "待開始",
+  scheduled: "待開始",
   in_progress: "進行中",
-  completed: "已結束",
+  completed: "已完成",
   cancelled: "已取消",
 };
 const statusClass: Record<string, string> = {
@@ -167,6 +167,9 @@ export default function DashboardPage() {
                 >
                   開始會議
                 </Link>
+                {nextMeeting.status === "completed" ? (
+                  <Link href={`/meetings/${nextMeeting.id}/review`} className="rounded-lg border border-[#cde5df] px-4 py-2.5 text-sm font-semibold text-[#087e6d]">議後總結</Link>
+                ) : null}
               </div>
             </>
           ) : (
@@ -264,6 +267,9 @@ export default function DashboardPage() {
                   >
                     開始會議
                   </Link>
+                  {meeting.status === "completed" ? (
+                    <Link href={`/meetings/${meeting.id}/review`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d]">議後總結</Link>
+                  ) : null}
                 </div>
               </article>
             ))}

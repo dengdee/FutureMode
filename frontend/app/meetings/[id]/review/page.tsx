@@ -1,12 +1,12 @@
 "use client";
 
-import { IconChecklist, IconFileText, IconMessageCircle, IconPlus, IconScale, IconTrash } from "@tabler/icons-react";
+import { IconChecklist, IconFileText, IconMessageCircle, IconPlus, IconScale, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
-import { getMeeting } from "../../../../lib/api/meetings";
+import { createMeetingBrief, getMeeting } from "../../../../lib/api/meetings";
 import { createActionItem, createConsensus, confirmConsensus, createConsensusFeedback, deleteActionItem, listActionItems, listConsensus, listConsensusFeedback, listTranscripts, updateActionItem } from "../../../../lib/api/meeting-features";
 import { listTeamMembers } from "../../../../lib/api/teams";
-import type { ActionItem, Consensus, ConsensusFeedback, TeamMember, Transcript } from "../../../../types/api";
+import type { ActionItem, Consensus, ConsensusFeedback, MeetingBrief, TeamMember, Transcript } from "../../../../types/api";
 
 const actionStatus = { open: "待開始", in_progress: "進行中", done: "已完成", cancelled: "已取消" } as Record<string, string>;
 
@@ -17,6 +17,8 @@ function memberName(member: TeamMember) {
 export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const [id, setId] = useState("");
   const [title, setTitle] = useState("");
+  const [brief, setBrief] = useState<MeetingBrief | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
   const [consensus, setConsensus] = useState<Consensus[]>([]);
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -72,6 +74,20 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     } catch (cause) { setError(cause instanceof Error ? cause.message : "讀取共識回饋失敗。"); }
   }
 
+  async function generateBrief() {
+    if (!id || briefLoading) return;
+    setBriefLoading(true);
+    setError(null);
+    try {
+      setBrief(await createMeetingBrief(id));
+      setNotice("AI 議後總結已更新。" );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "產生議後總結失敗。" );
+    } finally {
+      setBriefLoading(false);
+    }
+  }
+
   async function submitFeedback(versionId: string, decision: "agree" | "revise" | "reject") {
     try {
       await createConsensusFeedback(id, versionId, { decision, comment: feedbackDrafts[versionId]?.trim() || undefined });
@@ -108,6 +124,16 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     {notice && <p role="status" className="mt-5 rounded-lg bg-[#e9f7f4] px-4 py-3 text-sm text-[#087e6d]">{notice}</p>}
     <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-6">
+        <section className="rounded-2xl border border-[#cde5df] bg-[#f1fbf8] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <IconSparkles size={19} className="text-[#0f9f8a]" />
+              <div><h2 className="font-semibold">議後總結</h2><p className="mt-1 text-sm text-[#787774]">AI 會整理本場會議的討論內容、決策與待辦。</p></div>
+            </div>
+            <button type="button" onClick={() => void generateBrief()} disabled={briefLoading} className="shrink-0 rounded-primary bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{briefLoading ? "整理中…" : brief ? "重新產生" : "產生總結"}</button>
+          </div>
+          {brief ? <div className="mt-5 rounded-xl border border-[#dceee9] bg-white p-4"><p className="whitespace-pre-wrap text-sm leading-6 text-[#3f3f3b]">{brief.summary}</p>{brief.agenda.length ? <div className="mt-4 border-t border-[#eef3f1] pt-3"><p className="text-xs font-semibold text-[#5f5f5b]">本場議程</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-[#5f5f5b]">{brief.agenda.map((item) => <li key={item.position}>{item.title}{item.description ? <span className="text-[#787774]">：{item.description}</span> : null}</li>)}</ol></div> : null}<p className="mt-3 text-xs text-[#787774]">更新於 {new Date(brief.generated_at).toLocaleString("zh-TW")}</p></div> : <p className="mt-5 rounded-xl border border-dashed border-[#bcded6] bg-white/70 p-4 text-sm text-[#787774]">尚未產生總結。按下「產生總結」後，AI 會整理這場會議的內容。</p>}
+        </section>
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><IconScale size={19} className="text-[#0f9f8a]" /><div><h2 className="font-semibold">決策與共識</h2><p className="mt-1 text-sm text-[#787774]">將會議結論整理成可回饋、可確認的版本。</p></div></div>{consensus.length ? <div className="mt-5 space-y-3">{consensus.map((item) => <article key={item.id} className="rounded-xl border border-[#e6e6e3] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><p className="text-sm leading-6">{item.content}</p><span className="rounded-full bg-[#f3f3f1] px-2.5 py-1 text-xs text-[#5f5f5b]">{item.status === "confirmed" ? "已確認" : "待確認"}</span></div><p className="mt-3 text-xs text-[#787774]">版本 {item.version}</p>{item.status !== "confirmed" && <><label className="mt-4 block text-xs font-medium text-[#5f5f5b]">補充回饋（選填）<input value={feedbackDrafts[item.id] ?? ""} onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [item.id]: event.target.value }))} className="control-primary mt-1" placeholder="例如：請補上時程風險" /></label><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void submitFeedback(item.id, "agree")} className="rounded-primary bg-[#e7f7ef] px-3 py-2 text-xs font-semibold text-[#087e6d]">同意</button><button type="button" onClick={() => void submitFeedback(item.id, "revise")} className="rounded-primary bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">要求修改</button><button type="button" onClick={() => void submitFeedback(item.id, "reject")} className="rounded-primary bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">不同意</button><button type="button" onClick={() => void confirmConsensus(id, item.id).then((updated) => { setConsensus((current) => current.map((entry) => entry.id === item.id ? updated : entry)); setNotice("此版本已確認。"); }).catch((cause) => setError(cause instanceof Error ? cause.message : "確認共識失敗。"))} className="ml-auto rounded-primary border border-[#cde5df] px-3 py-2 text-xs font-semibold text-[#087e6d]">確認此版本</button></div></>}<button type="button" onClick={() => void loadFeedback(item.id)} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#5f5f5b] underline"><IconMessageCircle size={14} />{openFeedback === item.id ? "收起回饋" : "查看回饋"}</button>{openFeedback === item.id && <div className="mt-3 space-y-2 rounded-lg bg-[#f7f7f5] p-3">{(feedback[item.id] ?? []).length ? feedback[item.id].map((entry) => <div key={entry.id} className="text-sm"><span className="mr-2 font-medium">{({ agree: "同意", revise: "要求修改", reject: "不同意" } as Record<string, string>)[entry.decision] ?? entry.decision}</span>{entry.comment && <span className="text-[#5f5f5b]">{entry.comment}</span>}</div>) : <p className="text-sm text-[#787774]">尚無回饋。</p>}</div>}</article>)}</div> : <p className="mt-4 rounded-xl border border-dashed border-[#d8d8d5] p-5 text-sm text-[#787774]">尚未產生共識版本。</p>}<form onSubmit={submitConsensus} className="mt-5 flex gap-2"><input value={consensusDraft} onChange={(event) => setConsensusDraft(event.target.value)} className="control-primary" placeholder="補充決策或共識草稿" /><button type="submit" className="inline-flex shrink-0 items-center gap-1 rounded-primary bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white"><IconPlus size={16} />新增</button></form></section>
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6"><div className="flex items-center gap-2"><IconFileText size={19} className="text-[#0f9f8a]" /><div><h2 className="font-semibold">逐字稿</h2><p className="mt-1 text-sm text-[#787774]">會議內容的原始紀錄。</p></div></div>{transcripts.length ? <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">{transcripts.map((item) => <p key={item.id} className="text-sm leading-6"><span className="mr-2 text-xs text-[#787774]">{item.speaker_label ?? "參與者"}</span>{item.text}</p>)}</div> : <p className="mt-4 text-sm text-[#787774]">尚無逐字稿資料。</p>}</section>
       </div>
