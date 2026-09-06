@@ -36,6 +36,7 @@ type BreadcrumbItem = { label: string; href?: string };
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(false);
   const { data: authSession } = authClient.useSession();
   const [apiProfileName, setApiProfileName] = useState<string | null>(null);
   const [teamOptions, setTeamOptions] = useState<Array<{ id: string; name: string }>>([]);
@@ -465,9 +466,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               return <Tooltip key={href} content={label}>{link}</Tooltip>;
             }
             return (
-              <div key={href} className={`group/team relative ${sidebarCollapsed ? "md:hidden" : ""}`}>
+              <div
+                key={href}
+                className={`group/team relative ${sidebarCollapsed ? "md:hidden" : ""}`}
+                onMouseEnter={() => setTeamMenuOpen(true)}
+                onMouseLeave={() => setTeamMenuOpen(false)}
+              >
                 {link}
-                <div className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-200 group-hover/team:grid-rows-[1fr] group-hover/team:opacity-100 group-focus-within/team:grid-rows-[1fr] group-focus-within/team:opacity-100">
+                <div className={`${teamMenuOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"} grid transition-[grid-template-rows,opacity] duration-200 group-focus-within/team:grid-rows-[1fr] group-focus-within/team:opacity-100`}>
                   <div className="min-h-0 overflow-hidden rounded-xl border border-[#e1e1de] bg-white p-2 shadow-lg">
                   <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9b9a97]">我的團隊（{teamOptions.length}）</p>
                   {teamOptions.length ? teamOptions.map((team) => (
