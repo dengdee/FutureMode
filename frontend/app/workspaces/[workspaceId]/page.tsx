@@ -22,10 +22,10 @@ function statusLabel(status: string) {
   return (
     (
       {
-        draft: "待討論",
-        scheduled: "已排程",
+        draft: "待開始",
+        scheduled: "待開始",
         in_progress: "進行中",
-        completed: "已結束",
+        completed: "已完成",
         cancelled: "已取消",
       } as Record<string, string>
     )[status] ?? status
@@ -261,13 +261,14 @@ export default function TeamOverviewPage() {
                           </p>
                         </div>
                       </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(meeting.status)}`}>{statusLabel(meeting.status)}</span>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${meetingStatusClass(meeting)}`}>{meetingStatusLabel(meeting)}</span>
                     </summary>
                     <div className="border-t border-[#ededeb] px-4 pb-4 pt-3 pl-14">
                       <div className="flex flex-wrap gap-2">
                         <Link href={`/meetings/${meeting.id}/prepare`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d] hover:bg-[#f0fbf8]">議前討論</Link>
                         {summaryReady[meeting.id] ? <Link href={`/meetings/${meeting.id}/pre-meeting-summary`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">議前整理</Link> : <span title="參與者填寫期限到後開放" className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]">議前整理</span>}
                         <Link href={`/meetings/${meeting.id}/start`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">開始會議</Link>
+                        {meeting.status === "completed" ? <Link href={`/meetings/${meeting.id}/review`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d]">議後總結</Link> : null}
                       </div>
                     </div>
                   </details>
