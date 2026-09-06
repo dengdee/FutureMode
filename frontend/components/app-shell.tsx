@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
 import { getCurrentUser } from "../lib/api/me";
-import { getMeeting } from "../lib/api/meetings";
+import { getMeeting, listMeetings } from "../lib/api/meetings";
 import { listTeamMembers, listTeams } from "../lib/api/teams";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -31,11 +31,18 @@ const navigation = [
   [IconSettings, "設定", "/settings"],
 ] as const;
 
+type BreadcrumbItem = { label: string; href?: string };
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { data: authSession } = authClient.useSession();
   const [apiProfileName, setApiProfileName] = useState<string | null>(null);
+  const [teamOptions, setTeamOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [hasTeamUpdates, setHasTeamUpdates] = useState(false);
+  const [hasMeetingUpdates, setHasMeetingUpdates] = useState(false);
+  const [latestTeamSignature, setLatestTeamSignature] = useState("");
+  const [latestMeetingSignature, setLatestMeetingSignature] = useState("");
   useEffect(() => {
     const refreshProfile = async (event?: Event) => {
       const updatedName =
@@ -45,10 +52,29 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (updatedName) setApiProfileName(updatedName);
       try {
         const currentUser = await getCurrentUser();
-        const teams = await listTeams();
+        const [teams, meetings] = await Promise.all([listTeams(), listMeetings()]);
+        setTeamOptions(teams.teams.map((team) => ({ id: team.id, name: team.name })));
         const memberLists = await Promise.all(
           teams.teams.map((team) => listTeamMembers(team.id)),
         );
+        const teamSignature = JSON.stringify(
+          teams.teams
+            .map((team, index) => [team.id, team.name, memberLists[index]?.members.length ?? 0])
+            .sort(([left], [right]) => String(left).localeCompare(String(right))),
+        );
+        const meetingSignature = JSON.stringify(
+          meetings
+            .map((meeting) => [meeting.id, meeting.status, meeting.scheduled_at])
+            .sort(([left], [right]) => String(left).localeCompare(String(right))),
+        );
+        setLatestTeamSignature(teamSignature);
+        setLatestMeetingSignature(meetingSignature);
+        const seenTeamSignature = window.localStorage.getItem("proximate:sidebar-team-seen");
+        const seenMeetingSignature = window.localStorage.getItem("proximate:sidebar-meeting-seen");
+        if (seenTeamSignature === null) window.localStorage.setItem("proximate:sidebar-team-seen", teamSignature);
+        else setHasTeamUpdates(seenTeamSignature !== teamSignature);
+        if (seenMeetingSignature === null) window.localStorage.setItem("proximate:sidebar-meeting-seen", meetingSignature);
+        else setHasMeetingUpdates(seenMeetingSignature !== meetingSignature);
         const currentMember = memberLists
           .flatMap((result) => result.members)
           .find((member) => member.external_id === currentUser.id);
@@ -66,8 +92,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     refreshProfile();
     window.addEventListener("proximate:profile-updated", refreshProfile);
-    return () =>
+    const refreshTimer = window.setInterval(() => void refreshProfile(), 30000);
+    return () => {
       window.removeEventListener("proximate:profile-updated", refreshProfile);
+      window.clearInterval(refreshTimer);
+    };
   }, [authSession?.user?.id]);
   const profileName =
     apiProfileName ??
@@ -116,7 +145,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isStartLiveRoute = meetingPath[3] === "start" && meetingPath[4] === "live";
   useEffect(() => {
     if (!meetingId || meetingId === "new") {
-      setMeetingTitle(null);
+      void Promise.resolve().then(() => setMeetingTitle(null));
       return;
     }
     let active = true;
@@ -133,7 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [meetingId]);
   useEffect(() => {
     if (!contextTeamId) {
-      setWorkspaceName(null);
+      void Promise.resolve().then(() => setWorkspaceName(null));
       return;
     }
     let active = true;
@@ -154,43 +183,63 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [contextTeamId]);
   const memoryScope = searchParams.get("scope");
-  const breadcrumbItems = meetingPhase
+  const breadcrumbItems: BreadcrumbItem[] = meetingPhase
     ? pathname === "/meetings/new"
       ? teamIdQuery
-        ? ["團隊", workspaceName ?? "團隊", meetingPhase]
-        : ["儀表板", meetingPhase]
+        ? [
+            { label: "團隊", href: "/workspaces" },
+            { label: workspaceName ?? "團隊", href: `/workspaces/${teamIdQuery}` },
+            { label: meetingPhase },
+          ]
+        : [{ label: "儀表板", href: "/dashboard" }, { label: meetingPhase }]
       : workspaceId
         ? [
-            "團隊",
-            workspaceName ?? "團隊",
-            "會議",
-            meetingTitle ?? "會議",
-            ...(isStartLiveRoute ? ["開始會議"] : []),
-            meetingPhase,
+            { label: "團隊", href: "/workspaces" },
+            { label: workspaceName ?? "團隊", href: `/workspaces/${workspaceId}` },
+            { label: "會議", href: `/workspaces/${workspaceId}` },
+            { label: meetingTitle ?? "會議", href: `/meetings/${meetingId}/prepare` },
+            { label: meetingPhase },
           ]
-        : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]
+        : [
+            { label: "團隊", href: "/workspaces" },
+            { label: "會議", href: "/dashboard" },
+            { label: meetingTitle ?? "會議", href: `/meetings/${meetingId}/prepare` },
+            ...(isStartLiveRoute ? [{ label: "開始會議", href: `/meetings/${meetingId}/start` }] : []),
+            { label: meetingPhase },
+          ]
     : workspaceId
       ? [
-          "團隊",
-          workspaceName ?? "團隊",
-          ...(workspacePath[3] === "members" ? ["成員與邀請"] : []),
+          { label: "團隊", href: "/workspaces" },
+          { label: workspaceName ?? "團隊", href: `/workspaces/${workspaceId}` },
+          ...(workspacePath[3] === "members" ? [{ label: "成員與邀請" }] : []),
           ...(workspacePath[3] === "memory"
             ? workspacePath[4] === "shared"
-              ? ["團隊記憶", "共用文件"]
-              : ["團隊記憶", "單次會議文件"]
+              ? [
+                  { label: "團隊記憶", href: `/workspaces/${workspaceId}/memory/shared` },
+                  { label: "共用文件" },
+                ]
+              : [
+                  { label: "團隊記憶", href: `/workspaces/${workspaceId}/memory/shared` },
+                  { label: "單次會議文件" },
+                ]
             : []),
         ]
-      : pathname === "/memory"
-        ? [
-            "團隊",
-            ...(teamIdQuery ? [workspaceName ?? "團隊"] : []),
-            memoryScope === "meeting"
-              ? "會議文件"
-              : memoryScope === "shared"
-                ? "共用文件"
-                : "團隊記憶",
-          ]
-        : [];
+    : pathname === "/memory"
+      ? [
+          { label: "團隊", href: "/workspaces" },
+          ...(teamIdQuery
+            ? [{ label: workspaceName ?? "團隊", href: `/workspaces/${teamIdQuery}` }]
+            : []),
+          {
+            label:
+              memoryScope === "meeting"
+                ? "會議文件"
+                : memoryScope === "shared"
+                  ? "共用文件"
+                  : "團隊記憶",
+          },
+        ]
+      : [];
   const breadcrumb =
     meetingPhase ??
     (pathname === "/memory"
@@ -324,6 +373,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push("/sign-in");
   }
 
+  function markTeamUpdatesSeen() {
+    setHasTeamUpdates(false);
+    setHasMeetingUpdates(false);
+    if (latestTeamSignature) window.localStorage.setItem("proximate:sidebar-team-seen", latestTeamSignature);
+    if (latestMeetingSignature) window.localStorage.setItem("proximate:sidebar-meeting-seen", latestMeetingSignature);
+  }
+
   return (
     <div
       ref={shellRef}
@@ -389,19 +445,38 @@ export function AppShell({ children }: { children: ReactNode }) {
               href === "/dashboard"
                 ? pathname === href
                 : pathname.startsWith(href);
+            const link = (
+              <Link
+                href={href}
+                onClick={() => {
+                  setSidebarOpen(false);
+                  if (label === "團隊") markTeamUpdatesSeen();
+                }}
+                className={`flex items-center gap-3 rounded-md px-3 py-2.5 ${sidebarCollapsed ? "md:justify-center md:px-2" : ""} ${isActive ? "bg-[#e9e9e7] font-medium" : "text-[#787774] hover:bg-[#e9e9e7] hover:text-[#1f1f1f]"}`}
+              >
+                <Icon size={20} stroke={1.8} className="shrink-0" />
+                <span className={sidebarCollapsed ? "md:hidden" : ""}>
+                  {label}
+                  {label === "團隊" && (hasTeamUpdates || hasMeetingUpdates) ? <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-[#f2a33a]" aria-label="有新的團隊內容" /> : null}
+                </span>
+              </Link>
+            );
+            if (label !== "團隊") {
+              return <Tooltip key={href} content={label}>{link}</Tooltip>;
+            }
             return (
-              <Tooltip key={href} content={label}>
-                <Link
-                  href={href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 ${sidebarCollapsed ? "md:justify-center md:px-2" : ""} ${isActive ? "bg-[#e9e9e7] font-medium" : "text-[#787774] hover:bg-[#e9e9e7] hover:text-[#1f1f1f]"}`}
-                >
-                  <Icon size={20} stroke={1.8} className="shrink-0" />
-                  <span className={sidebarCollapsed ? "md:hidden" : ""}>
-                    {label}
-                  </span>
-                </Link>
-              </Tooltip>
+              <div key={href} className={`group/team relative ${sidebarCollapsed ? "md:hidden" : ""}`}>
+                {link}
+                <div className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-200 group-hover/team:grid-rows-[1fr] group-hover/team:opacity-100 group-focus-within/team:grid-rows-[1fr] group-focus-within/team:opacity-100">
+                  <div className="min-h-0 overflow-hidden rounded-xl border border-[#e1e1de] bg-white p-2 shadow-lg">
+                  <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9b9a97]">我的團隊（{teamOptions.length}）</p>
+                  {teamOptions.length ? teamOptions.map((team) => (
+                    <Link key={team.id} href={`/workspaces/${team.id}`} onClick={() => { setSidebarOpen(false); markTeamUpdatesSeen(); }} className="block truncate rounded-lg px-3 py-2 text-sm text-[#5f5f5b] hover:bg-[#e7f7ef] hover:text-[#087e6d]">{team.name}</Link>
+                  )) : <p className="px-3 py-2 text-xs text-[#9b9a97]">目前沒有可選團隊</p>}
+                  <Link href="/teams" onClick={() => { setSidebarOpen(false); markTeamUpdatesSeen(); }} className="mt-1 block rounded-lg border-t border-[#ededeb] px-3 py-2 text-xs font-semibold text-[#087e6d] hover:bg-[#f7f7f5]">管理所有團隊</Link>
+                  </div>
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -467,15 +542,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                       className="text-[#b5b5b1]"
                     />
                   )}
-                  <span
-                    className={
-                      index === breadcrumbItems.length - 1
-                        ? "font-medium"
-                        : "text-[#9b9a97]"
-                    }
-                  >
-                    {item}
-                  </span>
+                  {item.href && index < breadcrumbItems.length - 1 ? (
+                    <Link
+                      href={item.href}
+                      className="text-[#9b9a97] transition hover:text-[#1f1f1f] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f9f8a]"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <span className={index === breadcrumbItems.length - 1 ? "font-medium" : "text-[#9b9a97]"}>
+                      {item.label}
+                    </span>
+                  )}
                 </span>
               ))
             ) : (
