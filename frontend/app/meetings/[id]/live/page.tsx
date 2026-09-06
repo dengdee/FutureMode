@@ -105,6 +105,9 @@ export default function LivePage() {
       try {
         const event = adapter.accept(JSON.parse(message.data));
         if (!event || event.meeting_id !== id) return;
+        if (event.cursor > 0 && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "ack", cursor: event.cursor }));
+        }
         const payload = event.payload as Record<string, unknown>;
         setLastUpdated(event.timestamp);
         if (
