@@ -352,6 +352,6 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
         ) from None
 
     finally:
-        # output_file.unlink(missing_ok=True)
+        output_file.unlink(missing_ok=True)
 
-        print("========== SPEAK DEBUG END ==========\n")
+        # print("========== SPEAK DEBUG END ==========\n")
