@@ -26,3 +26,10 @@ backend/**/*.py[cod]
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local video production assets (Remotion)
+video/
+video-backup*/
+*.mp4
+*.webm
+*.wav
