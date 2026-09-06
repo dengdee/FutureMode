@@ -578,18 +578,24 @@ async def speak_text_to_meeting(
         )
 
 
-@router.post(
-    "/speak",
-)
-async def speak(
-    request: SpeakRequest,
-) -> dict[str, str]:
+
+@router.post("/speak")
+async def speak(request: SpeakRequest) -> dict[str, str]:
+    print("[SPEAK] ===== START =====", flush=True)
+    print(f"[SPEAK] text={request.text!r}", flush=True)
 
     try:
-
-        await speak_text_to_meeting(
-            request.text
+        print(
+            f"[SPEAK] websocket exists={audio_manager.websocket is not None}",
+            flush=True,
         )
+
+        print("[SPEAK] calling speak_text_to_meeting()", flush=True)
+
+        await speak_text_to_meeting(request.text)
+
+        print("[SPEAK] audio sent successfully", flush=True)
+        print("[SPEAK] ===== SUCCESS =====", flush=True)
 
         return {
             "status": "sent",
@@ -597,6 +603,10 @@ async def speak(
         }
 
     except RuntimeError as exc:
+        print(
+            f"[SPEAK][RuntimeError] {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
         raise HTTPException(
             status_code=503,
@@ -604,13 +614,18 @@ async def speak(
         ) from None
 
     except Exception as exc:
+        print(
+            f"[SPEAK][Exception] {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                f"{type(exc).__name__}: {exc}"
-            ),
+            detail=f"{type(exc).__name__}: {exc}",
         ) from None
+
+    finally:
+        print("[SPEAK] ===== END =====", flush=True)
 
 
 # ============================================================
