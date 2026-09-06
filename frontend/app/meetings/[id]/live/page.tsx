@@ -98,6 +98,15 @@ export default function LivePage() {
       );
     }, 0);
     const socket = new WebSocket(socketUrl(id));
+    const fallbackTimer = window.setInterval(() => {
+      load().catch((cause) => {
+        if (!active) return;
+        setConnection((current) =>
+          current === "connected" ? "stale" : current,
+        );
+        setError(cause instanceof Error ? cause.message : "無法更新會議狀態。");
+      });
+    }, 15000);
     socket.onopen = () => active && setConnection("connected");
     socket.onerror = () => active && setConnection("reconnecting");
     socket.onclose = () => active && setConnection("offline");
@@ -108,7 +117,10 @@ export default function LivePage() {
         if (event.cursor > 0 && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: "ack", cursor: event.cursor }));
         }
-        const payload = event.payload as Record<string, unknown>;
+        const payload =
+          event.payload && typeof event.payload === "object"
+            ? (event.payload as Record<string, unknown>)
+            : {};
         setLastUpdated(event.timestamp);
         if (
           event.event_type === "voice_bot:status" ||
@@ -165,6 +177,7 @@ export default function LivePage() {
     return () => {
       active = false;
       window.clearTimeout(loadTimer);
+      window.clearInterval(fallbackTimer);
       socket.close();
     };
   }, [id]);
