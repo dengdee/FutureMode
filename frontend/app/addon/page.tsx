@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AddonShell } from "../../components/meeting-addon/addon-shell";
 
 const CLOUD_PROJECT_NUMBER = "446517015863";
 
@@ -24,11 +25,12 @@ declare global {
 
 export default function AddonEntryPage() {
   const [message, setMessage] = useState("正在取得 Google Meet 會議 context…");
+  const [meetingId, setMeetingId] = useState<string | null>(null);
 
   useEffect(() => {
     const meetingId = new URLSearchParams(window.location.search).get("meetingId");
     if (meetingId) {
-      window.location.replace(`/meetings/${encodeURIComponent(meetingId)}/addon`);
+      setMeetingId(meetingId);
       return;
     }
 
@@ -46,7 +48,7 @@ export default function AddonEntryPage() {
         const client = await session.createSidePanelClient();
         const info = await client.getMeetingInfo();
         if (!info.meetingId) throw new Error("Google Meet 未提供 meeting ID");
-        window.location.replace(`/meetings/${encodeURIComponent(info.meetingId)}/addon`);
+        setMeetingId(info.meetingId);
       } catch {
         if (!cancelled) {
           setMessage("無法取得會議 context，請從 Google Meet 的活動面板重新開啟 Proximate。");
@@ -58,6 +60,8 @@ export default function AddonEntryPage() {
       cancelled = true;
     };
   }, []);
+
+  if (meetingId) return <AddonShell meetingId={meetingId} />;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] p-6 text-center text-sm text-[#787774]">
