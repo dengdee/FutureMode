@@ -2,16 +2,12 @@
 
 import asyncio
 import hashlib
+import subprocess
+import tempfile
 import wave
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
-
-import subprocess
-import os
-import subprocess
-import edge_tts
-
 
 from fastapi import (
     APIRouter,
@@ -26,7 +22,6 @@ from pydantic import BaseModel, Field, HttpUrl
 
 from app.config import Settings, get_settings
 from app.integrations.meetingbaas import MeetingBaasClient, MeetingBaasError
-
 
 settings = get_settings()
 router = APIRouter(prefix="/meetbot", tags=["meetbot"])
@@ -201,6 +196,11 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
     temp_file = output_file.with_suffix(".mp3")
 
     try:
+        try:
+            import edge_tts
+        except ModuleNotFoundError:
+            raise RuntimeError("缺少 edge-tts，請先同步 backend 依賴") from None
+
         # print("[TTS] 開始 Edge TTS...")
 
         communicate = edge_tts.Communicate(
@@ -272,6 +272,19 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
         temp_file.unlink(missing_ok=True)
 
 
+async def speak_text_to_meeting(text: str) -> None:
+    """Generate a temporary 24 kHz mono WAV and stream it to the meeting input."""
+    if audio_manager.websocket is None:
+        raise RuntimeError("Meeting BaaS 尚未連接 /meetbot/ws/audio-in")
+    with tempfile.NamedTemporaryFile(prefix="proximate-tts-", suffix=".wav", delete=False) as temp:
+        output_file = Path(temp.name)
+    try:
+        await text_to_speech(text, output_file)
+        await audio_manager.send_wav(output_file)
+    finally:
+        output_file.unlink(missing_ok=True)
+
+
 @router.websocket("/ws/audio-in")
 async def meeting_audio_input(websocket: WebSocket) -> None:
     """Accept the provider's input-audio connection without logging its headers."""
@@ -295,35 +308,10 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
     # print("\n========== SPEAK DEBUG START ==========")
     # print(f"[1] 收到文字: {request.text}")
 
-    output_file = (
-        Path(__file__).resolve().parent.parent
-        / "audio"
-        / "tts_output.wav"
-    )
-
     try:
         # print("[2] 開始 TTS...")
 
-        await text_to_speech(
-            request.text,
-            output_file,
-        )
-
-        # print("[3] TTS 完成")
-
-        # print(
-        #     "[4] Meeting BaaS WebSocket:",
-        #     audio_manager.websocket is not None,
-        # )
-
-        if audio_manager.websocket is None:
-            raise RuntimeError(
-                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in"
-            )
-
-        # print("[5] 開始傳送 WAV 到 Meeting BaaS...")
-
-        await audio_manager.send_wav(output_file)
+        await speak_text_to_meeting(request.text)
 
         # print("[6] WAV 傳送完成")
         # print("========== SPEAK DEBUG SUCCESS ==========\n")

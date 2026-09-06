@@ -46,4 +46,4 @@ Prepare
 - 使用者看見的是「團隊」；既有 `/workspaces` 僅保留路由相容性，頁面文案不再以工作區作為產品名詞。
 - 使用者看見團隊名、會議名、成員顯示名稱和人類可讀的狀態，不看內部 UUID。
 - 建立會議成功後直接進入 Prepare；議程可以套用範本並持續手動編輯，直到後端提供可追溯的 AI 議程草稿契約。
-- Meet Add-on 是會中的窄版入口；`/live` 是 Add-on 不可用時的瀏覽器 fallback。
+- Meet Add-on 是會中的窄版入口；`/meetings/[id]/start/live` 是 Add-on 不可用時的瀏覽器 fallback。

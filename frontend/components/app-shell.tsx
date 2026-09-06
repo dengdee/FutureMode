@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tooltip } from "./ui/tooltip";
 import { authClient } from "../lib/auth/client";
 import { getCurrentUser } from "../lib/api/me";
+import { getMeeting } from "../lib/api/meetings";
 import { listTeamMembers, listTeams } from "../lib/api/teams";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -37,23 +38,44 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [apiProfileName, setApiProfileName] = useState<string | null>(null);
   useEffect(() => {
     const refreshProfile = async (event?: Event) => {
-      const updatedName = event instanceof CustomEvent && typeof event.detail === "string" ? event.detail : window.localStorage.getItem("proximate:profile-name");
+      const updatedName =
+        event instanceof CustomEvent && typeof event.detail === "string"
+          ? event.detail
+          : window.localStorage.getItem("proximate:profile-name");
       if (updatedName) setApiProfileName(updatedName);
       try {
         const currentUser = await getCurrentUser();
         const teams = await listTeams();
-        const memberLists = await Promise.all(teams.teams.map((team) => listTeamMembers(team.id)));
-        const currentMember = memberLists.flatMap((result) => result.members).find((member) => member.external_id === currentUser.id);
-        const currentName = currentMember?.display_name ?? currentUser.display_name ?? updatedName;
-        if (currentName) { window.localStorage.setItem("proximate:profile-name", currentName); setApiProfileName(currentName); }
-      } catch { /* Keep the authenticated or cached label if the profile lookup is unavailable. */ }
+        const memberLists = await Promise.all(
+          teams.teams.map((team) => listTeamMembers(team.id)),
+        );
+        const currentMember = memberLists
+          .flatMap((result) => result.members)
+          .find((member) => member.external_id === currentUser.id);
+        const currentName =
+          currentMember?.display_name ??
+          currentUser.display_name ??
+          updatedName;
+        if (currentName) {
+          window.localStorage.setItem("proximate:profile-name", currentName);
+          setApiProfileName(currentName);
+        }
+      } catch {
+        /* Keep the authenticated or cached label if the profile lookup is unavailable. */
+      }
     };
     refreshProfile();
     window.addEventListener("proximate:profile-updated", refreshProfile);
-    return () => window.removeEventListener("proximate:profile-updated", refreshProfile);
+    return () =>
+      window.removeEventListener("proximate:profile-updated", refreshProfile);
   }, [authSession?.user?.id]);
-  const profileName = apiProfileName ?? authSession?.user?.name ?? authSession?.user?.email ?? "Proximate";
-  const profileInitial = Array.from(profileName.trim())[0]?.toUpperCase() ?? "P";
+  const profileName =
+    apiProfileName ??
+    authSession?.user?.name ??
+    authSession?.user?.email ??
+    "Proximate";
+  const profileInitial =
+    Array.from(profileName.trim())[0]?.toUpperCase() ?? "P";
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const backdropRef = useRef<HTMLButtonElement>(null);
@@ -63,16 +85,128 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const meetingPhase = pathname.startsWith("/meetings/")
-    ? ({ new: "建立會議", prepare: "議前討論", "pre-meeting-summary": "議前整理", "audio-setup": "收音設定", addon: "Meet Add-on", live: "即時會議", review: "會後回顧" } as Record<string, string>)[pathname.split("/").at(-1) ?? ""]
+  const [meetingTitle, setMeetingTitle] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const meetingPath = pathname.split("/");
+  const isWorkspaceMeeting =
+    pathname.startsWith("/workspaces/") && meetingPath[3] === "meetings";
+  const isMeetingRoute =
+    pathname.startsWith("/meetings/") || isWorkspaceMeeting;
+  const meetingId = isWorkspaceMeeting ? meetingPath[4] : meetingPath[2];
+  const workspacePath = pathname.startsWith("/workspaces/")
+    ? pathname.split("/")
+    : [];
+  const workspaceId = workspacePath[2];
+  const teamIdQuery = searchParams.get("teamId");
+  const contextTeamId = workspaceId ?? teamIdQuery;
+  const meetingPhase = isMeetingRoute
+    ? (
+        {
+          new: "建立會議",
+          prepare: "議前討論",
+          "pre-meeting-summary": "議前整理",
+          start: "開始會議",
+          "audio-setup": "收音設定",
+          addon: "Meet Add-on",
+          live: "即時會議",
+          review: "會後回顧",
+        } as Record<string, string>
+      )[pathname.split("/").at(-1) ?? ""]
     : undefined;
+  const isStartLiveRoute = meetingPath[3] === "start" && meetingPath[4] === "live";
+  useEffect(() => {
+    if (!meetingId || meetingId === "new") {
+      setMeetingTitle(null);
+      return;
+    }
+    let active = true;
+    getMeeting(meetingId)
+      .then((meeting) => {
+        if (active) setMeetingTitle(meeting.title);
+      })
+      .catch(() => {
+        if (active) setMeetingTitle(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [meetingId]);
+  useEffect(() => {
+    if (!contextTeamId) {
+      setWorkspaceName(null);
+      return;
+    }
+    let active = true;
+    listTeams()
+      .then((result) => {
+        if (active) {
+          setWorkspaceName(
+            result.teams.find((team) => team.id === contextTeamId)?.name ??
+              null,
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setWorkspaceName(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [contextTeamId]);
   const memoryScope = searchParams.get("scope");
-  const breadcrumbGroup = meetingPhase
-    ? pathname === "/meetings/new" ? "團隊" : "會議"
-    : pathname === "/memory" ? "團隊" : undefined;
-  const breadcrumb = meetingPhase ?? (pathname === "/memory"
-    ? memoryScope === "meeting" ? "會議文件" : memoryScope === "shared" ? "共用文件" : "團隊記憶"
-    : ({ "/dashboard": "工作總覽", "/teams": "團隊", "/workspaces": "團隊", "/settings": "設定" } as Record<string, string>)[pathname] ?? "頁面");
+  const breadcrumbItems = meetingPhase
+    ? pathname === "/meetings/new"
+      ? teamIdQuery
+        ? ["團隊", workspaceName ?? "團隊", meetingPhase]
+        : ["儀表板", meetingPhase]
+      : workspaceId
+        ? [
+            "團隊",
+            workspaceName ?? "團隊",
+            "會議",
+            meetingTitle ?? "會議",
+            ...(isStartLiveRoute ? ["開始會議"] : []),
+            meetingPhase,
+          ]
+        : ["團隊", "會議", meetingTitle ?? "會議", meetingPhase]
+    : workspaceId
+      ? [
+          "團隊",
+          workspaceName ?? "團隊",
+          ...(workspacePath[3] === "members" ? ["成員與邀請"] : []),
+          ...(workspacePath[3] === "memory"
+            ? workspacePath[4] === "shared"
+              ? ["團隊記憶", "共用文件"]
+              : ["團隊記憶", "單次會議文件"]
+            : []),
+        ]
+      : pathname === "/memory"
+        ? [
+            "團隊",
+            ...(teamIdQuery ? [workspaceName ?? "團隊"] : []),
+            memoryScope === "meeting"
+              ? "會議文件"
+              : memoryScope === "shared"
+                ? "共用文件"
+                : "團隊記憶",
+          ]
+        : [];
+  const breadcrumb =
+    meetingPhase ??
+    (pathname === "/memory"
+      ? memoryScope === "meeting"
+        ? "會議文件"
+        : memoryScope === "shared"
+          ? "共用文件"
+          : "團隊記憶"
+      : ((
+          {
+            "/dashboard": "工作總覽",
+            "/teams": "團隊",
+            "/workspaces": "團隊",
+            "/settings": "設定",
+          } as Record<string, string>
+        )[pathname] ?? "頁面"));
 
   useGSAP(
     () => {
@@ -120,20 +254,35 @@ export function AppShell({ children }: { children: ReactNode }) {
     },
   );
 
-  useGSAP(() => {
-    const content = contentRef.current;
-    if (!content || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const sections = Array.from(content.children);
-    if (!sections.length) return;
-    gsap.set(sections, { autoAlpha: 0, y: 18 });
-    ScrollTrigger.batch(sections, {
-      scroller: content,
-      start: "top 88%",
-      once: true,
-      onEnter: (elements) => gsap.to(elements, { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.08, ease: "power2.out", overwrite: "auto" }),
-    });
-    ScrollTrigger.refresh();
-  }, { dependencies: [pathname], scope: shellRef, revertOnUpdate: true });
+  useGSAP(
+    () => {
+      const content = contentRef.current;
+      if (
+        !content ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      )
+        return;
+      const sections = Array.from(content.children);
+      if (!sections.length) return;
+      gsap.set(sections, { autoAlpha: 0, y: 18 });
+      ScrollTrigger.batch(sections, {
+        scroller: content,
+        start: "top 88%",
+        once: true,
+        onEnter: (elements) =>
+          gsap.to(elements, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.42,
+            stagger: 0.08,
+            ease: "power2.out",
+            overwrite: "auto",
+          }),
+      });
+      ScrollTrigger.refresh();
+    },
+    { dependencies: [pathname], scope: shellRef, revertOnUpdate: true },
+  );
 
   useGSAP(
     () => {
@@ -262,7 +411,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div
             className={`flex items-center justify-between gap-3 ${sidebarCollapsed ? "flex-col md:justify-center md:gap-3" : ""}`}
           >
-            <div className={`flex items-center gap-2 ${sidebarCollapsed ? "md:flex-col md:gap-2" : ""}`}>
+            <div
+              className={`flex items-center gap-2 ${sidebarCollapsed ? "md:flex-col md:gap-2" : ""}`}
+            >
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0f9f8a] text-xs font-semibold text-white"
                 title="Proximate"
@@ -270,7 +421,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {profileInitial}
               </span>
               <div className={sidebarCollapsed ? "md:hidden" : ""}>
-                <p className="max-w-28 truncate text-sm font-medium">{profileName}</p>
+                <p className="max-w-28 truncate text-sm font-medium">
+                  {profileName}
+                </p>
               </div>
             </div>
             <Tooltip content="登出">
@@ -301,8 +454,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </Tooltip>
           <div className="flex items-center gap-2 text-sm">
-            {breadcrumbGroup && <><span className="hidden text-[#9b9a97] md:inline">{breadcrumbGroup}</span><IconChevronRight size={15} stroke={1.8} className="hidden text-[#b5b5b1] md:inline" /></>}
-            <span className="font-medium">{breadcrumb}</span>
+            {breadcrumbItems.length > 0 ? (
+              breadcrumbItems.map((item, index) => (
+                <span
+                  key={`${item}-${index}`}
+                  className="inline-flex items-center gap-2"
+                >
+                  {index > 0 && (
+                    <IconChevronRight
+                      size={15}
+                      stroke={1.8}
+                      className="text-[#b5b5b1]"
+                    />
+                  )}
+                  <span
+                    className={
+                      index === breadcrumbItems.length - 1
+                        ? "font-medium"
+                        : "text-[#9b9a97]"
+                    }
+                  >
+                    {item}
+                  </span>
+                </span>
+              ))
+            ) : (
+              <span className="font-medium">{breadcrumb}</span>
+            )}
           </div>
         </header>
         <main

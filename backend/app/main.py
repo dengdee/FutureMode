@@ -1,5 +1,5 @@
-import logging
 import asyncio
+import logging
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -7,24 +7,27 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
+from redis.exceptions import RedisError
 
 from app.api.auth import router as auth_router
 from app.api.consensus import router as consensus_router
 from app.api.delegates import router as delegates_router
 from app.api.documents import router as documents_router
 from app.api.me import router as identity_router
+from app.api.meetbot import router as meetbot_router
+from app.api.voice import router as voice_router
 from app.api.meetings import router as meetings_router
 from app.api.personal import router as personal_router
+from app.api.preparation import router as preparation_router
 from app.api.suggestions import router as suggestions_router
 from app.api.teams import router as teams_router
 from app.api.transcripts import router as transcripts_router
 from app.config import get_settings
 from app.db.session import database_check
-from app.realtime.rooms import RoomRegistry
+from app.realtime.broker import RedisRealtimeBroker
 from app.realtime.events import EventJournal
 from app.realtime.persistence import PostgresEventJournal
-from app.realtime.broker import RedisRealtimeBroker
-from app.api.meetbot import router as meetbot_router
+from app.realtime.rooms import RoomRegistry
 from app.websocket.events import router as realtime_events_router
 
 settings = get_settings()
@@ -52,10 +55,15 @@ async def _relay_broker_events() -> None:
     broker = app.state.realtime_broker
     if broker is None:
         return
-    async for broker_event in broker.subscribe():
-        await app.state.room_registry.publish(
-            broker_event.event, recipient_user_id=broker_event.recipient_user_id
-        )
+    try:
+        async for broker_event in broker.subscribe():
+            await app.state.room_registry.publish(
+                broker_event.event, recipient_user_id=broker_event.recipient_user_id
+            )
+    except (RedisError, OSError) as exc:
+        # A configured but temporarily unavailable optional broker must not break
+        # local API/WebSocket tests or local-only realtime delivery.
+        logger.warning("realtime broker unavailable: %s", exc)
 
 
 @app.on_event("startup")
@@ -219,6 +227,7 @@ async def ready() -> dict[str, object]:
 
 
 app.include_router(meetbot_router)
+app.include_router(voice_router)
 app.include_router(identity_router)
 app.include_router(auth_router)
 app.include_router(teams_router)
@@ -227,6 +236,7 @@ app.include_router(consensus_router)
 app.include_router(delegates_router)
 app.include_router(documents_router)
 app.include_router(personal_router)
+app.include_router(preparation_router)
 app.include_router(suggestions_router)
 app.include_router(meetings_router)
 app.include_router(realtime_events_router)

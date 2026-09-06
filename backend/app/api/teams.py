@@ -23,15 +23,16 @@ def principal_name(principal: Principal) -> str | None:
 
 async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, str | None] | None:
     """Look up a registered Neon Auth account without exposing the auth directory to clients."""
+    normalized_email = email.strip().lower()
     try:
         result = await session.execute(
             text("""
-            SELECT id::text AS external_id, email
-            FROM neon_auth.users_sync
+            SELECT id::text AS external_id, email, name
+            FROM neon_auth."user"
             WHERE lower(email) = :email
             LIMIT 1
         """),
-            {"email": email.lower()},
+            {"email": normalized_email},
         )
     except SQLAlchemyError as exc:
         raise HTTPException(
@@ -43,7 +44,7 @@ async def find_neon_auth_user(session: AsyncSession, email: str) -> dict[str, st
     return {
         "external_id": str(row["external_id"]),
         "email": str(row["email"]).lower() if row["email"] else None,
-        "display_name": None,
+        "display_name": str(row["name"]) if row["name"] else None,
     }
 
 
@@ -122,13 +123,23 @@ async def create_invitation(
         neon_user = await find_neon_auth_user(session, payload.email)
         if neon_user is None:
             raise HTTPException(404, "recipient account not found")
-        recipient = User(
-            external_id=neon_user["external_id"] or "",
-            display_name=neon_user["display_name"],
-            email=neon_user["email"],
-        )
-        session.add(recipient)
-        await session.flush()
+        external_id = neon_user["external_id"]
+        if not external_id:
+            raise HTTPException(404, "recipient account not found")
+        recipient = await session.scalar(select(User).where(User.external_id == external_id))
+        if recipient is None:
+            recipient = User(
+                external_id=external_id,
+                display_name=neon_user["display_name"],
+                email=neon_user["email"],
+            )
+            session.add(recipient)
+            await session.flush()
+        else:
+            if not recipient.email:
+                recipient.email = neon_user["email"]
+            if not recipient.display_name and neon_user["display_name"]:
+                recipient.display_name = neon_user["display_name"]
     if await session.scalar(
         select(TeamMember).where(
             TeamMember.team_id == team_id,
@@ -148,6 +159,7 @@ async def create_invitation(
         return existing
     invitation = TeamInvitation(
         team_id=team_id,
+        email=recipient.email,
         recipient_user_id=recipient.id,
         recipient_name=recipient.display_name or "未設定名稱的帳號",
         role=payload.role,

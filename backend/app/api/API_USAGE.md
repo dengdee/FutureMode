@@ -64,10 +64,15 @@ Base URL：`http://localhost:8000`
 | PATCH | `/api/v1/meetings/{meeting_id}/suggestions/{suggestion_id}` | 修改建議狀態 |
 | GET | `/api/v1/meetings/{meeting_id}/suggestions/{suggestion_id}/votes` | 查詢投票 |
 | GET/POST | `/api/v1/meetings/{meeting_id}/personal/messages` | 查詢／建立個人訊息 |
+| GET/POST | `/api/v1/meetings/{meeting_id}/preparation/messages` | 查詢／建立議前 AI 對話；建立時由 Gemini 免費額度模型回覆 |
+| POST | `/api/v1/meetings/{meeting_id}/preparation/generate-document` | 將目前使用者的私人議前對話整理成可編輯的文件草稿 |
+| POST | `/api/v1/meetings/{meeting_id}/preparation/publish-to-rag` | 將議前文件草稿發布到 Team Memory，供會議中搜尋 |
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/preview` | 預覽個人貢獻 |
 | POST | `/api/v1/meetings/{meeting_id}/personal/contributions/publish` | 發布個人貢獻 |
 | GET/POST | `/api/v1/teams/{team_id}/documents` | 文件列表／建立文件紀錄 |
 | GET | `/api/v1/teams/{team_id}/memory/hybrid-search` | Team Memory 混合搜尋 |
+| GET | `/api/v1/meetings/{meeting_id}/memory/search` | 會議中查詢該會議已發布的議前 RAG |
+| GET | `/api/v1/meetings/{meeting_id}/memory/hybrid-search` | 會議中以 embedding＋全文檢索查詢議前 RAG |
 | GET | `/api/v1/documents/{document_id}` | 文件詳細資料 |
 | POST | `/api/v1/documents/{document_id}/upload` | 上傳文件並啟動 ingestion |
 | GET | `/api/v1/documents/{document_id}/chunks` | 文件切分內容 |
@@ -76,6 +81,11 @@ Base URL：`http://localhost:8000`
 | GET | `/api/v1/documents/{document_id}/download-url` | 取得下載 URL |
 | GET | `/api/v1/documents/{document_id}/storage-status` | 檢查 R2 檔案狀態 |
 | POST | `/api/v1/documents/{document_id}/embed` | 建立／重建 embedding |
+
+議前文件流程：先建立數筆 `preparation/messages`，再呼叫 `generate-document`。
+回應中的 `document_id` 傳給 `publish-to-rag`；發布後可透過
+`/api/v1/meetings/{meeting_id}/memory/search` 查詢。發布時會自動建立 embedding；若是
+一般文件，仍可另呼叫 `POST /api/v1/documents/{document_id}/embed`（需設定 embedding provider）。
 
 ## Meeting Bot 與即時事件
 
@@ -86,7 +96,29 @@ Base URL：`http://localhost:8000`
 | POST | `/meetbot/{bot_id}/leave` | Bot 離開會議 |
 | POST | `/meetbot/speak` | Bot 語音輸出 |
 | WebSocket | `/meetbot/ws/audio-in` | Bot 音訊輸入串流 |
+| POST | `/api/v1/meetings/{meeting_id}/voice-bot/generate-and-speak` | 核准後由 Gemini 產生發言稿，再用 Edge TTS 播放到會議 |
 | WebSocket | `/api/v1/meetings/{meeting_id}/events` | 會議即時事件串流 |
+
+### 會議中的 AI 語音發言流程
+
+1. 呼叫 `POST /api/v1/meetings/{meeting_id}/voice-bot/request` 建立發言請求。
+2. 由 Host 呼叫 `POST /api/v1/meetings/{meeting_id}/voice-bot/host-action`，`action` 設為 `approve`。
+3. 呼叫 `POST /api/v1/meetings/{meeting_id}/voice-bot/generate-and-speak`：
+
+```json
+{
+  "prompt": "請提醒大家目前已知的上線風險",
+  "context": "目前正在討論版本發布時程"
+}
+```
+
+後端會依序執行：Gemini 產生 120 字內的繁體中文發言稿、Edge TTS 轉成 24 kHz mono WAV，
+再透過 `/meetbot/ws/audio-in` 傳入會議。處理狀態會透過會議事件串流送出：
+`preparing_audio` → `speaking` → `completed`（失敗時為 `failed`）。
+
+需要設定 `GEMINI_API_KEY`（或 `LLM_API_KEY`）、`LLM_PROVIDER=gemini`，並在會議開始前建立
+Meeting BaaS 音訊連線；伺服器需安裝 `ffmpeg`。若沒有音訊連線，API 會回傳 503，發言稿仍會
+保存在 voice request 的 `approved_text` 欄位中。
 
 ## 常見錯誤
 
@@ -113,6 +145,6 @@ Base URL：`http://localhost:8000`
 
 登入後建議依序測試：`GET /api/v1/me`、`GET /api/v1/teams`、`GET /api/v1/meetings`、`GET /api/v1/me/invitations`。
 
-站內邀請以選定帳號的 `recipient_user_id` 配對已驗證身分，不依賴 Email claims 或 Email 驗證旗標，不寄送 Email。建立 body：`{"recipient_user_id":"<users/search 回傳的 id>","role":"member"}`。JWT 簽章、issuer、audience、有效期限仍會先驗證。舊 Email 邀請需由管理員取消後重新選擇帳號；資料庫需更新至 0021。完整流程與遷移方式見 [IN_APP_INVITATIONS.md](IN_APP_INVITATIONS.md)。
+站內邀請以已註冊的 Email 配對帳號，不會把帳號目錄或搜尋結果提供給前端，也不寄送 Email。建立 body：`{"email":"member@example.com","role":"member"}`。後端會在 Neon Auth 的 `neon_auth."user"` 目錄中驗證 Email，並以 `recipient_user_id` 綁定邀請；查無帳號時回傳 404，目錄服務無法使用時回傳 503。JWT 簽章、issuer、audience、有效期限仍會先驗證。資料庫需更新至 0021。完整流程與遷移方式見 [IN_APP_INVITATIONS.md](IN_APP_INVITATIONS.md)。
 
 session Cookie 必須實際送到後端；缺少 Cookie／Email 回傳 403，session 過期或帳號不符回傳 401，上游失敗回傳 503。session 回應即使為 200，Email 未驗證仍回傳 403。測試使用真實簽章 JWT 與模擬 Neon Auth 回應；實際登入仍需確認瀏覽器請求包含 Cookie。

@@ -121,6 +121,32 @@ class SuggestionVoteCreate(BaseModel):
     vote: str = Field(pattern="^(support|reject|abstain)$")
 
 
+class VoiceRequestCreate(BaseModel):
+    suggestion_id: UUID | None = None
+    approved_text: str | None = Field(default=None, max_length=20_000)
+
+
+class VoiceSpeakRequest(BaseModel):
+    """Optional context used when the approved voice request needs a fresh script."""
+
+    prompt: str | None = Field(default=None, max_length=20_000)
+    context: str | None = Field(default=None, max_length=20_000)
+
+
+class VoiceBotStatusResponse(BaseModel):
+    meeting_id: UUID
+    status: str
+    request_id: UUID | None = None
+    suggestion_id: UUID | None = None
+    approved_text_version: int | None = None
+    message: str | None = None
+    generated_text: str | None = None
+
+
+class VoiceHostAction(BaseModel):
+    action: str = Field(pattern="^(approve|reject|retry|pause|resume)$")
+
+
 class PersonalMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20_000)
 
@@ -137,6 +163,40 @@ class PersonalMessageSummary(BaseModel):
 class ContributionPublish(BaseModel):
     content: str = Field(min_length=1, max_length=20_000)
     source_message_id: UUID | None = None
+
+
+class PreparationMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+
+
+class PreparationMessageSummary(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    meeting_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
+class PreparationDocumentGenerateResponse(BaseModel):
+    meeting_id: UUID
+    document_id: UUID
+    name: str
+    content: str
+    status: str
+    generated_at: datetime
+
+
+class PreparationPublishRequest(BaseModel):
+    document_id: UUID
+
+
+class PreparationPublishResponse(BaseModel):
+    meeting_id: UUID
+    document_id: UUID
+    status: str
+    chunk_count: int
+    published_at: datetime
 
 
 class DelegateProfileCreate(BaseModel):

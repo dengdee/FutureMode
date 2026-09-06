@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconMailPlus,
   IconTrash,
   IconUserMinus,
@@ -137,20 +136,15 @@ export default function WorkspaceMembersPage() {
         eyebrow="Team"
         title={team ? `${team.name} 的成員` : "成員與邀請"}
         description="管理團隊中的角色，並以站內邀請加入新成員。"
+        backHref={`/workspaces/${workspaceId}`}
+        backLabel="返回團隊"
         actions={
           <>
             <Link
               href={`/workspaces/${workspaceId}`}
-              className="inline-flex items-center gap-2 rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
-            >
-              <IconArrowLeft size={17} />
-              返回團隊
-            </Link>
-            <Link
-              href={`/workspaces/${workspaceId}/meetings`}
               className="rounded-primary border border-[#d7e8e5] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
             >
-              查看團隊會議
+              返回團隊總覽
             </Link>
           </>
         }
@@ -259,7 +253,14 @@ export default function WorkspaceMembersPage() {
                 .filter((item) => item.status === "pending")
                 .map((item) => (
                   <div key={item.id} className="rounded-xl bg-[#f7f7f5] p-3">
-                    <p className="truncate text-sm font-medium">{item.email}</p>
+                    <p className="truncate text-sm font-medium">
+                      {item.recipient_name || item.email || "未設定名稱的帳號"}
+                    </p>
+                    {item.recipient_name && item.email && (
+                      <p className="mt-1 truncate text-xs text-[#787774]">
+                        {item.email}
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-[#787774]">
                       {roleLabel(item.role)} · 等待接受
                     </p>

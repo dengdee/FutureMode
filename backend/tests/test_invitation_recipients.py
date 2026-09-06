@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
-from app.api.teams import create_invitation
+from app.api.teams import create_invitation, find_neon_auth_user
 from app.auth.principal import Principal
 from app.models import Team, TeamInvitation, TeamMember, User
 from app.schemas.team import InvitationCreate
@@ -33,13 +33,35 @@ def test_email_is_required_and_normalized():
         InvitationCreate()
 
 
+def test_neon_auth_lookup_uses_verified_auth_user_table():
+    session = MagicMock()
+    result = MagicMock()
+    result.mappings.return_value.first.return_value = {
+        "external_id": "neon-user",
+        "email": "person@example.com",
+        "name": "小明",
+    }
+    session.execute = AsyncMock(return_value=result)
+
+    found = asyncio.run(find_neon_auth_user(session, " Person@Example.com "))
+
+    assert found == {
+        "external_id": "neon-user",
+        "email": "person@example.com",
+        "display_name": "小明",
+    }
+    query, params = session.execute.await_args.args
+    assert 'FROM neon_auth."user"' in str(query)
+    assert params == {"email": " person@example.com ".strip().lower()}
+
+
 def test_admin_invites_selected_account_without_email_claims():
     db, recipient, team = setup_creation()
     result = asyncio.run(create_invitation(team.id, InvitationCreate(
         email="person@example.com"), Principal("actor", {}), db))
     assert result.recipient_user_id == recipient.id
     assert result.recipient_name == "小明"
-    assert result.email is None
+    assert result.email == "person@example.com"
     assert result.role == "member"
     db.commit.assert_awaited_once()
 
@@ -74,7 +96,7 @@ def test_recipient_must_exist_and_not_already_be_member(missing, expected, monke
 def test_registered_neon_auth_user_is_synced_before_invitation(monkeypatch):
     db, _recipient, team = setup_creation()
     db.scalar.side_effect = [
-        User(id=uuid4(), external_id="actor"), TeamMember(role="admin"), team, None, None, None
+        User(id=uuid4(), external_id="actor"), TeamMember(role="admin"), team, None, None, None, None
     ]
     db.flush = AsyncMock()
 
@@ -91,6 +113,37 @@ def test_registered_neon_auth_user_is_synced_before_invitation(monkeypatch):
     assert synced_user.email == "person@example.com"
     assert result.recipient_user_id == synced_user.id
     db.flush.assert_awaited_once()
+
+
+def test_registered_neon_auth_user_updates_existing_local_profile(monkeypatch):
+    db, _recipient, team = setup_creation()
+    local_user = User(id=uuid4(), external_id="neon-user", display_name=None, email=None)
+    db.scalar.side_effect = [
+        User(id=uuid4(), external_id="actor"),
+        TeamMember(role="admin"),
+        team,
+        None,
+        local_user,
+        None,
+        None,
+    ]
+
+    async def neon_user(*_args):
+        return {"external_id": "neon-user", "email": "person@example.com", "display_name": "小明"}
+
+    monkeypatch.setattr("app.api.teams.find_neon_auth_user", neon_user)
+    result = asyncio.run(create_invitation(
+        team.id,
+        InvitationCreate(email="person@example.com"),
+        Principal("actor", {}),
+        db,
+    ))
+
+    assert local_user.email == "person@example.com"
+    assert local_user.display_name == "小明"
+    assert result.recipient_user_id == local_user.id
+    assert all(not isinstance(call.args[0], User) for call in db.add.call_args_list)
+    db.flush.assert_not_called()
 
 
 def test_duplicate_pending_recipient_returns_existing_invitation():
