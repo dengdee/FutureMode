@@ -8,6 +8,7 @@ import wave
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
+from fastapi import Request
 
 from fastapi import (
     APIRouter,
@@ -580,7 +581,10 @@ async def speak_text_to_meeting(
 
 
 @router.post("/speak")
-async def speak(request: SpeakRequest) -> dict[str, str]:
+async def speak(
+    request: Request,
+    body: SpeakRequest,
+) -> dict[str, str]:
     print("[SPEAK] ===== ROUTES =====", flush=True)
 
     for route in request.app.routes:
@@ -602,7 +606,7 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
 
     print("[SPEAK] ===== ROUTES END =====", flush=True)
     print("[SPEAK] ===== START =====", flush=True)
-    print(f"[SPEAK] text={request.text!r}", flush=True)
+    print(f"[SPEAK] text={body.text!r}", flush=True)
 
     try:
         print(
@@ -612,7 +616,7 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
 
         print("[SPEAK] calling speak_text_to_meeting()", flush=True)
 
-        await speak_text_to_meeting(request.text)
+        await speak_text_to_meeting(body.text)
 
         print("[SPEAK] audio sent successfully", flush=True)
         print("[SPEAK] ===== SUCCESS =====", flush=True)
