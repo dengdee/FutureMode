@@ -581,6 +581,26 @@ async def speak_text_to_meeting(
 
 @router.post("/speak")
 async def speak(request: SpeakRequest) -> dict[str, str]:
+    print("[SPEAK] ===== ROUTES =====", flush=True)
+
+    for route in request.app.routes:
+        print(
+            "[SPEAK][ROUTE]",
+            "path=", getattr(route, "path", None),
+            "type=", type(route).__name__,
+            flush=True,
+        )
+
+        if hasattr(route, "routes"):
+            for child in route.routes:
+                print(
+                    "   [SPEAK][CHILD]",
+                    "path=", getattr(child, "path", None),
+                    "type=", type(child).__name__,
+                    flush=True,
+                )
+
+    print("[SPEAK] ===== ROUTES END =====", flush=True)
     print("[SPEAK] ===== START =====", flush=True)
     print(f"[SPEAK] text={request.text!r}", flush=True)
 
