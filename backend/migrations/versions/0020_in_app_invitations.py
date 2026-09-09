@@ -3,7 +3,7 @@
 from alembic import op
 
 revision = "0020_in_app_invitations"
-down_revision = "0019_admin_member_roles"
+down_revision = ("0019_admin_member_roles", "0019_durable_meeting_events")
 branch_labels = None
 depends_on = None
 
