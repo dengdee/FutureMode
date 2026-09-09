@@ -94,6 +94,7 @@ export type MeetingSummary = {
   team_id: string;
   title: string;
   scheduled_at: string | null;
+  google_meeting_id: string | null;
   status: string;
   ai_intervention_level: string;
 };
@@ -102,12 +103,14 @@ export type MeetingCreateRequest = {
   team_id: string;
   title: string;
   scheduled_at?: string | null;
+  google_meeting_id?: string | null;
   ai_intervention_level?: string;
 };
 
 export type MeetingUpdateRequest = {
   title?: string | null;
   scheduled_at?: string | null;
+  google_meeting_id?: string | null;
   ai_intervention_level?: string | null;
 };
 export type MeetingBrief = {

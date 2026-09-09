@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { getLiveSnapshot } from "../../lib/api/addon";
+import { getMeetingByGoogleId } from "../../lib/api/meetings";
 import {
   previewContribution,
   publishContribution,
@@ -31,6 +32,7 @@ import { LiveStateTab } from "./live-state";
 
 type Tab = "brief" | "live" | "sidekick";
 type Status = "loading" | "connected" | "unauthorized" | "error";
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function AddonShell({
   meetingId,
@@ -55,12 +57,17 @@ export function AddonShell({
     preview ? previewSnapshot : null,
   );
   const [errorMessage, setErrorMessage] = useState("");
+  const [apiMeetingId, setApiMeetingId] = useState<string | null>(null);
   const loadContext = useCallback(async () => {
     if (preview) return;
     setStatus("loading");
     setErrorMessage("");
     try {
-      const snapshotResponse = await getLiveSnapshot(meetingId);
+      const appMeetingId = uuidPattern.test(meetingId)
+        ? meetingId
+        : (await getMeetingByGoogleId(meetingId)).id;
+      setApiMeetingId(appMeetingId);
+      const snapshotResponse = await getLiveSnapshot(appMeetingId);
       setMeeting(snapshotResponse.meeting ?? null);
       setSnapshot(snapshotResponse);
       setStatus("connected");
@@ -134,8 +141,13 @@ export function AddonShell({
             <LoadingState />
           ) : status === "unauthorized" ? (
             <StateMessage
-              title="需要重新開啟會議"
-              description="此 Add-on 沒有有效的會議權限，請從已登入的 Web App 重新開啟。"
+              title={uuidPattern.test(meetingId) ? "需要重新開啟會議" : "尚未綁定 Proximate 會議"}
+              description={uuidPattern.test(meetingId) ? "此 Add-on 沒有有效的會議權限，請先在同一個網站登入 Proximate，再重新開啟會議。" : `Google Meet 傳回會議代碼「${meetingId}」，但 Proximate API 需要會議 UUID。請從 Proximate 的「開始會議」進入，或先完成此 Meet 與 Proximate 會議的綁定。`}
+              action={
+                <a href={uuidPattern.test(meetingId) ? `/meetings/${meetingId}/start` : "/dashboard"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">
+                  開啟 Proximate Web App
+                </a>
+              }
             />
           ) : status === "error" ? (
             <StateMessage
@@ -155,7 +167,7 @@ export function AddonShell({
           ) : (
             <TabContent
               tab={tab}
-              meetingId={meetingId}
+              meetingId={apiMeetingId ?? meetingId}
               meeting={meeting}
               snapshot={snapshot}
             />
@@ -194,6 +206,7 @@ function previewMeeting(meetingId: string): MeetingSummary {
     team_id: "preview-team",
     title: "MVP 共識會議",
     scheduled_at: null,
+    google_meeting_id: null,
     status: "in_progress",
     ai_intervention_level: "medium",
   };

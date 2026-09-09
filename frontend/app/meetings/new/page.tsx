@@ -159,6 +159,7 @@ export default function NewMeetingPage() {
         team_id: teamId,
         title: title.trim(),
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        google_meeting_id: meetUrl.trim().match(/meet\.google\.com\/([a-z0-9-]+)/i)?.[1] ?? null,
         ai_intervention_level: level,
       });
       if (meetUrl.trim())
