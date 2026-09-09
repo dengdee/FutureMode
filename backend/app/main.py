@@ -240,3 +240,12 @@ app.include_router(preparation_router)
 app.include_router(suggestions_router)
 app.include_router(meetings_router)
 app.include_router(realtime_events_router)
+
+
+for route in app.routes:
+    print(
+        "[ROUTE]",
+        getattr(route, "path", None),
+        type(route).__name__,
+        flush=True,
+    )
