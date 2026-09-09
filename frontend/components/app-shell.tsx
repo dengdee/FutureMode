@@ -14,6 +14,7 @@ import {
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -404,8 +405,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link
               href="/dashboard"
               onClick={() => setSidebarOpen(false)}
-              className="text-base font-semibold tracking-tight"
+              className="inline-flex items-center gap-2 text-base font-semibold tracking-tight"
             >
+              <Image src="/logo.png" alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-lg object-contain" priority />
               Proximate
             </Link>
             <span className="mt-1 block text-xs text-[#9b9a97]">
