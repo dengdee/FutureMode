@@ -578,7 +578,21 @@ async def speak_text_to_meeting(
             missing_ok=True
         )
 
+def find_route(routes, target):
+    for route in routes:
+        path = getattr(route, "path", None)
 
+        if path == target:
+            return route
+
+        child_routes = getattr(route, "routes", None)
+
+        if child_routes:
+            found = find_route(child_routes, target)
+            if found:
+                return found
+
+    return None
 
 @router.post("/speak")
 async def speak(
@@ -587,24 +601,18 @@ async def speak(
 ) -> dict[str, str]:
     print("[SPEAK] ===== ROUTES =====", flush=True)
 
-    for route in request.app.routes:
-        print(
-            "[SPEAK][ROUTE]",
-            "path=", getattr(route, "path", None),
-            "type=", type(route).__name__,
-            flush=True,
-        )
+    ws_route = find_route(
+        request.app.routes,
+        "/meetbot/ws/audio-in",
+    )
 
-        if hasattr(route, "routes"):
-            for child in route.routes:
-                print(
-                    "   [SPEAK][CHILD]",
-                    "path=", getattr(child, "path", None),
-                    "type=", type(child).__name__,
-                    flush=True,
-                )
-
-    print("[SPEAK] ===== ROUTES END =====", flush=True)
+    print(
+        "[SPEAK] WS ROUTE =",
+        ws_route,
+        "TYPE =",
+        type(ws_route).__name__ if ws_route else None,
+        flush=True,
+    )
     print("[SPEAK] ===== START =====", flush=True)
     print(f"[SPEAK] text={body.text!r}", flush=True)
 
