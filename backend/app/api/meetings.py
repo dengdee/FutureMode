@@ -45,6 +45,7 @@ from app.schemas.meeting import (
 )
 from app.schemas.speech import TranscriptionResponse
 from app.services.speech import SpeechConfigurationError, transcribe_audio
+from app.services.llm import LLMConfigurationError, LLMProviderError, generate_meeting_summary
 
 router = APIRouter(prefix="/api/v1", tags=["meetings"])
 settings = get_settings()
@@ -473,6 +474,7 @@ async def create_meeting_brief(
     meeting_id: UUID,
     principal: Principal = Depends(get_current_principal),
     session: AsyncSession = Depends(database_session),
+    settings: Settings = Depends(get_settings),
 ) -> MeetingBrief:
     meeting = await authorized_meeting(meeting_id, principal, session)
     items = (await session.scalars(select(AgendaItem).where(
@@ -482,7 +484,24 @@ async def create_meeting_brief(
         {"position": item.position, "title": item.title, "description": item.description}
         for item in items
     ]
+    transcript_rows = (
+        await session.scalars(
+            select(Transcript)
+            .where(Transcript.meeting_id == meeting_id)
+            .order_by(Transcript.sequence)
+            .limit(200)
+        )
+    ).all()
+    transcript = "\n".join(
+        f"{row.speaker_label}: {row.text}" for row in transcript_rows
+    )
     summary = f"會議「{meeting.title}」共 {len(agenda)} 項議程。"
+    if transcript:
+        try:
+            summary = await generate_meeting_summary(transcript, settings)
+        except (LLMConfigurationError, LLMProviderError):
+            # A missing or exhausted free-tier key should not block Review.
+            pass
     return MeetingBrief(
         meeting_id=meeting_id,
         generated_at=datetime.now(UTC),

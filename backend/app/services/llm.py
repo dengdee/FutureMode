@@ -113,6 +113,19 @@ async def generate_meeting_observation(
     return await complete_preparation(messages, settings)
 
 
+async def generate_meeting_summary(transcript: str, settings: Settings) -> str:
+    """Summarize a completed meeting without inventing decisions."""
+    return await complete_preparation([{
+        "role": "user",
+        "content": (
+            "請將以下會議逐字稿整理成繁體中文會後摘要，限 500 字內。請依序包含："
+            "討論重點、已確認決策、未解問題、待辦事項（若逐字稿沒有就寫無）。"
+            "只使用逐字稿內容，不要捏造。不要 Markdown 標題。\n\n"
+            f"逐字稿：\n{transcript.strip()}"
+        ),
+    }], settings)
+
+
 async def _complete_gemini(messages: list[dict[str, str]], settings: Settings) -> str:
     api_key = settings.gemini_api_key or settings.llm_api_key
     if not api_key:
