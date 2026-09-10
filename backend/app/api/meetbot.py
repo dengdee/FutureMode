@@ -881,7 +881,6 @@ async def speak(
     finally:
         print("[SPEAK] ===== END =====", flush=True)
 
-
 # ============================================================
 # Meeting BaaS Audio Input WebSocket
 # ============================================================
@@ -894,52 +893,588 @@ async def meeting_audio_input(
     websocket: WebSocket,
 ) -> None:
 
-    await websocket.accept()
-
-    meeting_id = websocket.query_params.get("meeting_id")
-
-    await audio_manager.connect(
-        websocket,
-        meeting_id=meeting_id,
+    print(
+        "[WS] ==================================================",
+        flush=True,
     )
+    print(
+        "[WS] /meetbot/ws/audio-in HANDLER ENTER",
+        flush=True,
+    )
+
+    # --------------------------------------------------------
+    # Connection information
+    # --------------------------------------------------------
+
+    try:
+        print(
+            "[WS] client =", websocket.client,
+            flush=True,
+        )
+
+        print(
+            "[WS] headers =",
+            dict(websocket.headers),
+            flush=True,
+        )
+
+        print(
+            "[WS] query_params =",
+            dict(websocket.query_params),
+            flush=True,
+        )
+
+        print(
+            "[WS] path_params =",
+            dict(websocket.path_params),
+            flush=True,
+        )
+
+        print(
+            "[WS] url =",
+            websocket.url,
+            flush=True,
+        )
+
+        print(
+            "[WS] scope.type =",
+            websocket.scope.get("type"),
+            flush=True,
+        )
+
+        print(
+            "[WS] scope.path =",
+            websocket.scope.get("path"),
+            flush=True,
+        )
+
+        print(
+            "[WS] scope.raw_path =",
+            websocket.scope.get("raw_path"),
+            flush=True,
+        )
+
+        print(
+            "[WS] scope.query_string =",
+            websocket.scope.get("query_string"),
+            flush=True,
+        )
+
+        print(
+            "[WS] headers.authorization exists =",
+            "authorization" in websocket.headers,
+            flush=True,
+        )
+
+        print(
+            "[WS] sec-websocket-protocol =",
+            websocket.headers.get("sec-websocket-protocol"),
+            flush=True,
+        )
+
+        print(
+            "[WS] sec-websocket-version =",
+            websocket.headers.get("sec-websocket-version"),
+            flush=True,
+        )
+
+        print(
+            "[WS] sec-websocket-key exists =",
+            bool(websocket.headers.get("sec-websocket-key")),
+            flush=True,
+        )
+
+        print(
+            "[WS] user-agent =",
+            websocket.headers.get("user-agent"),
+            flush=True,
+        )
+
+        print(
+            "[WS] origin =",
+            websocket.headers.get("origin"),
+            flush=True,
+        )
+
+        print(
+            "[WS] host =",
+            websocket.headers.get("host"),
+            flush=True,
+        )
+
+        print(
+            "[WS] x-forwarded-for =",
+            websocket.headers.get("x-forwarded-for"),
+            flush=True,
+        )
+
+        print(
+            "[WS] x-forwarded-proto =",
+            websocket.headers.get("x-forwarded-proto"),
+            flush=True,
+        )
+
+    except Exception as exc:
+        print(
+            "[WS][DEBUG INFO ERROR]",
+            type(exc).__name__,
+            str(exc),
+            flush=True,
+        )
+
+    # --------------------------------------------------------
+    # Meeting ID
+    # --------------------------------------------------------
+
+    meeting_id = websocket.query_params.get(
+        "meeting_id"
+    )
+
+    print(
+        "[WS] meeting_id =",
+        repr(meeting_id),
+        flush=True,
+    )
+
+    if meeting_id is None:
+        print(
+            "[WS][WARNING] meeting_id is missing",
+            flush=True,
+        )
+
+    # --------------------------------------------------------
+    # Accept WebSocket
+    # --------------------------------------------------------
+
+    print(
+        "[WS] calling websocket.accept() ...",
+        flush=True,
+    )
+
+    try:
+
+        await websocket.accept()
+
+        print(
+            "[WS] websocket.accept() SUCCESS",
+            flush=True,
+        )
+
+    except Exception as exc:
+
+        print(
+            "[WS][ACCEPT ERROR]",
+            type(exc).__name__,
+            str(exc),
+            flush=True,
+        )
+
+        import traceback
+
+        traceback.print_exc()
+
+        print(
+            "[WS] ==================================================",
+            flush=True,
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # Connection state after accept
+    # --------------------------------------------------------
+
+    print(
+        "[WS] client_state =",
+        websocket.client_state,
+        flush=True,
+    )
+
+    print(
+        "[WS] application_state =",
+        websocket.application_state,
+        flush=True,
+    )
+
+    # --------------------------------------------------------
+    # Register WebSocket
+    # --------------------------------------------------------
+
+    print(
+        "[WS] registering websocket into AudioInputManager ...",
+        flush=True,
+    )
+
+    try:
+
+        await audio_manager.connect(
+            websocket,
+            meeting_id=meeting_id,
+        )
+
+        print(
+            "[WS] AudioInputManager.connect() SUCCESS",
+            flush=True,
+        )
+
+        print(
+            "[WS] audio_manager.websocket =",
+            audio_manager.websocket,
+            flush=True,
+        )
+
+        print(
+            "[WS] active websocket keys =",
+            list(audio_manager._websockets.keys()),
+            flush=True,
+        )
+
+    except Exception as exc:
+
+        print(
+            "[WS][MANAGER CONNECT ERROR]",
+            type(exc).__name__,
+            str(exc),
+            flush=True,
+        )
+
+        import traceback
+
+        traceback.print_exc()
+
+        try:
+            await websocket.close(
+                code=1011,
+                reason="AudioInputManager connection failed",
+            )
+        except Exception as close_exc:
+            print(
+                "[WS][CLOSE ERROR]",
+                type(close_exc).__name__,
+                str(close_exc),
+                flush=True,
+            )
+
+        return
+
+    # --------------------------------------------------------
+    # Main receive loop
+    # --------------------------------------------------------
+
+    print(
+        "[WS] ENTER receive loop",
+        flush=True,
+    )
+
+    message_count = 0
 
     try:
 
         while True:
 
+            print(
+                "[WS] waiting for next message ...",
+                flush=True,
+            )
+
             message = await websocket.receive()
 
-            # Meeting BaaS 可能會送：
-            # text / bytes / ping / close
-            #
-            # 目前只需要維持 connection，
-            # 所以不處理內容。
+            message_count += 1
+
+            print(
+                "[WS] MESSAGE RECEIVED",
+                f"count={message_count}",
+                flush=True,
+            )
+
+            print(
+                "[WS] message type =",
+                message.get("type"),
+                flush=True,
+            )
+
+            print(
+                "[WS] message keys =",
+                list(message.keys()),
+                flush=True,
+            )
+
+            # ------------------------------------------------
+            # Disconnect
+            # ------------------------------------------------
 
             if message.get("type") == "websocket.disconnect":
+
+                print(
+                    "[WS] !!! WEBSOCKET DISCONNECT !!!",
+                    flush=True,
+                )
+
+                print(
+                    "[WS] disconnect code =",
+                    message.get("code"),
+                    flush=True,
+                )
+
+                print(
+                    "[WS] disconnect reason =",
+                    message.get("reason"),
+                    flush=True,
+                )
+
                 break
+
+            # ------------------------------------------------
+            # Bytes
+            # ------------------------------------------------
+
+            bytes_frame = message.get("bytes")
+
+            if bytes_frame is not None:
+
+                print(
+                    "[WS] received BYTES frame",
+                    f"size={len(bytes_frame)}",
+                    flush=True,
+                )
+
+                # 目前不處理 Meeting BaaS 傳進來的 audio。
+                # 只維持 connection。
+
+            # ------------------------------------------------
+            # Text
+            # ------------------------------------------------
+
             text_frame = message.get("text")
-            if isinstance(text_frame, str):
+
+            if text_frame is not None:
+
+                print(
+                    "[WS] received TEXT frame",
+                    f"length={len(text_frame)}",
+                    flush=True,
+                )
+
+                print(
+                    "[WS] text preview =",
+                    repr(text_frame[:500]),
+                    flush=True,
+                )
+
                 try:
-                    event = json.loads(text_frame)
-                except json.JSONDecodeError:
-                    event = {}
-                if isinstance(event, dict):
-                    await _persist_provider_transcript(
-                        meeting_id, event, websocket.app.state.settings
+
+                    event = json.loads(
+                        text_frame
                     )
 
-    except WebSocketDisconnect:
+                    print(
+                        "[WS] JSON decode SUCCESS",
+                        flush=True,
+                    )
 
-        pass
+                    print(
+                        "[WS] JSON type =",
+                        type(event).__name__,
+                        flush=True,
+                    )
 
-    except Exception:
+                    if isinstance(event, dict):
 
-        # 避免 WebSocket 例外造成整個 request crash
-        pass
+                        print(
+                            "[WS] JSON keys =",
+                            list(event.keys()),
+                            flush=True,
+                        )
+
+                        print(
+                            "[WS] JSON event =",
+                            event,
+                            flush=True,
+                        )
+
+                        # ------------------------------------
+                        # Transcript persistence
+                        # ------------------------------------
+
+                        try:
+
+                            await _persist_provider_transcript(
+                                meeting_id,
+                                event,
+                                websocket.app.state.settings,
+                            )
+
+                            print(
+                                "[WS] transcript persistence finished",
+                                flush=True,
+                            )
+
+                        except Exception as exc:
+
+                            print(
+                                "[WS][TRANSCRIPT ERROR]",
+                                type(exc).__name__,
+                                str(exc),
+                                flush=True,
+                            )
+
+                            import traceback
+
+                            traceback.print_exc()
+
+                    else:
+
+                        print(
+                            "[WS] JSON is not dict; skip persistence",
+                            flush=True,
+                        )
+
+                except json.JSONDecodeError as exc:
+
+                    print(
+                        "[WS][JSON ERROR]",
+                        str(exc),
+                        flush=True,
+                    )
+
+                except Exception as exc:
+
+                    print(
+                        "[WS][TEXT PROCESSING ERROR]",
+                        type(exc).__name__,
+                        str(exc),
+                        flush=True,
+                    )
+
+                    import traceback
+
+                    traceback.print_exc()
+
+            # ------------------------------------------------
+            # Unknown message
+            # ------------------------------------------------
+
+            if (
+                message.get("bytes") is None
+                and message.get("text") is None
+                and message.get("type")
+                != "websocket.disconnect"
+            ):
+
+                print(
+                    "[WS][WARNING] Unknown WebSocket message:",
+                    message,
+                    flush=True,
+                )
+
+    except WebSocketDisconnect as exc:
+
+        print(
+            "[WS] WebSocketDisconnect exception",
+            flush=True,
+        )
+
+        print(
+            "[WS] code =",
+            getattr(exc, "code", None),
+            flush=True,
+        )
+
+        print(
+            "[WS] reason =",
+            getattr(exc, "reason", None),
+            flush=True,
+        )
+
+    except RuntimeError as exc:
+
+        print(
+            "[WS][RuntimeError]",
+            type(exc).__name__,
+            str(exc),
+            flush=True,
+        )
+
+        import traceback
+
+        traceback.print_exc()
+
+    except Exception as exc:
+
+        print(
+            "[WS][UNEXPECTED ERROR]",
+            type(exc).__name__,
+            str(exc),
+            flush=True,
+        )
+
+        import traceback
+
+        traceback.print_exc()
 
     finally:
 
-        await audio_manager.disconnect(
-            websocket,
-            meeting_id=meeting_id,
+        print(
+            "[WS] ==================================================",
+            flush=True,
+        )
+
+        print(
+            "[WS] CLEANUP",
+            flush=True,
+        )
+
+        print(
+            "[WS] total messages =",
+            message_count,
+            flush=True,
+        )
+
+        print(
+            "[WS] meeting_id =",
+            repr(meeting_id),
+            flush=True,
+        )
+
+        print(
+            "[WS] websocket state =",
+            websocket.client_state,
+            flush=True,
+        )
+
+        try:
+
+            await audio_manager.disconnect(
+                websocket,
+                meeting_id=meeting_id,
+            )
+
+            print(
+                "[WS] AudioInputManager.disconnect() SUCCESS",
+                flush=True,
+            )
+
+        except Exception as exc:
+
+            print(
+                "[WS][MANAGER DISCONNECT ERROR]",
+                type(exc).__name__,
+                str(exc),
+                flush=True,
+            )
+
+        print(
+            "[WS] active websocket keys after cleanup =",
+            list(audio_manager._websockets.keys()),
+            flush=True,
+        )
+
+        print(
+            "[WS] /meetbot/ws/audio-in HANDLER END",
+            flush=True,
+        )
+
+        print(
+            "[WS] ==================================================",
+            flush=True,
         )
