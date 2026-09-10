@@ -114,6 +114,10 @@ export default function LivePage() {
   useEffect(() => {
     let active = true;
     const adapter = new RealtimeEventAdapter();
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let reconnectAttempt = 0;
+    let lastCursor = 0;
     const loadTimer = window.setTimeout(() => {
       load().catch(
         (cause) =>
@@ -133,7 +137,88 @@ export default function LivePage() {
           setError(cause instanceof Error ? cause.message : "無法讀取 Meeting BaaS Bot 狀態。");
         }
       });
-    const socket = new WebSocket(socketUrl(id));
+    const connectSocket = () => {
+      if (!active) return;
+      const url = new URL(socketUrl(id));
+      if (lastCursor > 0) url.searchParams.set("after_cursor", String(lastCursor));
+      socket = new WebSocket(url.toString());
+      socket.onopen = () => {
+        if (!active) return;
+        reconnectAttempt = 0;
+        setConnection("connected");
+      };
+      socket.onerror = () => active && setConnection("reconnecting");
+      socket.onclose = () => {
+        if (!active) return;
+        setConnection("reconnecting");
+        const delay = Math.min(1000 * 2 ** reconnectAttempt, 15000);
+        reconnectAttempt += 1;
+        reconnectTimer = window.setTimeout(connectSocket, delay);
+      };
+      socket.onmessage = (message) => {
+        try {
+          const event = adapter.accept(JSON.parse(message.data));
+          if (!event || event.meeting_id !== id) return;
+          lastCursor = Math.max(lastCursor, event.cursor);
+          if (event.cursor > 0 && socket?.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "ack", cursor: event.cursor }));
+          }
+          const payload =
+            event.payload && typeof event.payload === "object"
+              ? (event.payload as Record<string, unknown>)
+              : {};
+          setLastUpdated(event.timestamp);
+          if (
+            event.event_type === "voice_bot:status" ||
+            payload.type === "voice_bot:status"
+          ) {
+            setVoiceStatus((current) => ({
+              meeting_id: id,
+              status:
+                typeof payload.status === "string"
+                  ? payload.status
+                  : (current?.status ?? "not_requested"),
+              request_id: current?.request_id ?? null,
+              approved_text_version: current?.approved_text_version ?? null,
+              message:
+                typeof payload.message === "string" ? payload.message : null,
+            }));
+          }
+          if (
+            event.event_type === "meeting_state:update" ||
+            event.event_type === "meeting_state:snapshot" ||
+            payload.type === "meeting_state:update" ||
+            payload.type === "meeting_state:snapshot"
+          ) {
+            const version =
+              typeof payload.state_version === "number" ? payload.state_version : 0;
+            const nextState =
+              payload.state && typeof payload.state === "object"
+                ? (payload.state as Record<string, unknown>)
+                : {};
+            setSnapshot((current) =>
+              !current || version >= current.state_version
+                ? { meeting_id: id, state_version: version, state: nextState, updated_at: event.timestamp }
+                : current,
+            );
+          }
+          if (payload.type === "transcript:new") {
+            void load();
+          }
+          if (
+            payload.type === "ai_suggestion:new" ||
+            payload.type === "ai_suggestion:updated" ||
+            event.event_type === "ai_suggestion:new" ||
+            event.event_type === "ai_suggestion:updated"
+          ) {
+            void listSuggestions(id).then(setSuggestions);
+          }
+        } catch {
+          /* Ignore malformed realtime events; REST refresh remains available. */
+        }
+      };
+    };
+    connectSocket();
     const fallbackTimer = window.setInterval(() => {
       load().catch((cause) => {
         if (!active) return;
@@ -143,78 +228,12 @@ export default function LivePage() {
         setError(cause instanceof Error ? cause.message : "無法更新會議狀態。");
       });
     }, 15000);
-    socket.onopen = () => active && setConnection("connected");
-    socket.onerror = () => active && setConnection("reconnecting");
-    socket.onclose = () => active && setConnection("offline");
-    socket.onmessage = (message) => {
-      try {
-        const event = adapter.accept(JSON.parse(message.data));
-        if (!event || event.meeting_id !== id) return;
-        if (event.cursor > 0 && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: "ack", cursor: event.cursor }));
-        }
-        const payload =
-          event.payload && typeof event.payload === "object"
-            ? (event.payload as Record<string, unknown>)
-            : {};
-        setLastUpdated(event.timestamp);
-        if (
-          event.event_type === "voice_bot:status" ||
-          payload.type === "voice_bot:status"
-        ) {
-          setVoiceStatus((current) => ({
-            meeting_id: id,
-            status:
-              typeof payload.status === "string"
-                ? payload.status
-                : (current?.status ?? "not_requested"),
-            request_id: current?.request_id ?? null,
-            approved_text_version: current?.approved_text_version ?? null,
-            message:
-              typeof payload.message === "string" ? payload.message : null,
-          }));
-        }
-        if (
-          event.event_type === "meeting_state:update" ||
-          event.event_type === "meeting_state:snapshot" ||
-          payload.type === "meeting_state:update" ||
-          payload.type === "meeting_state:snapshot"
-        ) {
-          const version =
-            typeof payload.state_version === "number"
-              ? payload.state_version
-              : 0;
-          const nextState =
-            payload.state && typeof payload.state === "object"
-              ? (payload.state as Record<string, unknown>)
-              : {};
-          setSnapshot((current) =>
-            !current || version >= current.state_version
-              ? {
-                  meeting_id: id,
-                  state_version: version,
-                  state: nextState,
-                  updated_at: event.timestamp,
-                }
-              : current,
-          );
-        }
-        if (
-          payload.type === "ai_suggestion:new" ||
-          payload.type === "ai_suggestion:updated" ||
-          event.event_type === "ai_suggestion:new" ||
-          event.event_type === "ai_suggestion:updated"
-        )
-          void listSuggestions(id).then(setSuggestions);
-      } catch {
-        /* Ignore malformed realtime events; REST refresh remains available. */
-      }
-    };
     return () => {
       active = false;
       window.clearTimeout(loadTimer);
       window.clearInterval(fallbackTimer);
-      socket.close();
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      socket?.close();
     };
   }, [id]);
   useEffect(() => {
