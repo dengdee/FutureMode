@@ -139,3 +139,28 @@ def test_join_scopes_provider_audio_url_to_meeting(monkeypatch) -> None:
         join_registry._responses.clear()
 
     assert response.status_code == 201
+
+
+def test_meeting_id_scopes_idempotency_across_clients(monkeypatch) -> None:
+    calls = 0
+
+    async def provider(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(201, json={"success": True, "data": {"bot_id": "bot-shared"}})
+
+    monkeypatch.setattr(settings, "meeting_baas_api_key", "test-key")
+    monkeypatch.setattr(settings, "meeting_baas_input_url", "wss://api.example.test/audio")
+    app.dependency_overrides[get_meeting_baas_client] = lambda: MeetingBaasClient(
+        settings, transport=httpx.MockTransport(provider)
+    )
+    try:
+        first = asyncio.run(post_join({"Idempotency-Key": "browser-a"}, meeting_id="meeting-shared"))
+        second = asyncio.run(post_join({"Idempotency-Key": "browser-b"}, meeting_id="meeting-shared"))
+    finally:
+        app.dependency_overrides.clear()
+        join_registry._responses.clear()
+
+    assert first.json()["bot_id"] == "bot-shared"
+    assert second.json()["bot_id"] == "bot-shared"
+    assert calls == 1

@@ -231,6 +231,11 @@ def _idempotency_key(
     meeting_id: str | None = None,
 ) -> str:
 
+    # A meeting has one shared Bot. Ignore per-browser idempotency keys when
+    # the caller supplies the persisted meeting id, so different participants
+    # cannot create duplicate provider bots by clicking at the same time.
+    if meeting_id and meeting_id.strip():
+        return f"meeting:{meeting_id.strip()}"
     if supplied_key and supplied_key.strip():
         return supplied_key.strip()
 
