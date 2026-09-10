@@ -8,13 +8,14 @@ import wave
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
-from fastapi import Request
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import (
     APIRouter,
     Depends,
     Header,
     HTTPException,
+    Request,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -43,6 +44,7 @@ router = APIRouter(
 
 class JoinMeetingRequest(BaseModel):
     meeting_url: HttpUrl
+    meeting_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class TextCardFallback(BaseModel):
@@ -73,6 +75,7 @@ class SpeakRequest(BaseModel):
         min_length=1,
         max_length=1000,
     )
+    meeting_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 # ============================================================
@@ -93,23 +96,38 @@ class AudioInputManager:
 
     def __init__(self) -> None:
         self.websocket: WebSocket | None = None
+        self._websockets: dict[str, WebSocket] = {}
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(self, websocket: WebSocket, meeting_id: str | None = None) -> None:
         async with self._lock:
+            key = meeting_id or "default"
+            previous = self._websockets.get(key)
+            self._websockets[key] = websocket
             self.websocket = websocket
+        if previous is not None and previous is not websocket:
+            try:
+                await previous.close(code=1000)
+            except Exception:
+                pass
 
-    async def disconnect(self, websocket: WebSocket) -> None:
+    async def disconnect(self, websocket: WebSocket, meeting_id: str | None = None) -> None:
         async with self._lock:
+            key = meeting_id or "default"
+            if self._websockets.get(key) is websocket:
+                self._websockets.pop(key, None)
             if self.websocket is websocket:
-                self.websocket = None
+                self.websocket = next(iter(self._websockets.values()), None)
 
-    async def send_wav(self, wav_path: Path) -> None:
-        websocket = self.websocket
+    async def send_wav(self, wav_path: Path, meeting_id: str | None = None) -> None:
+        async with self._lock:
+            websocket = self._websockets.get(meeting_id or "default")
+            if websocket is None and meeting_id is None:
+                websocket = self.websocket
 
         if websocket is None:
             raise RuntimeError(
-                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in"
+                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in；請先建立本場會議的音訊連線"
             )
 
         with wave.open(str(wav_path), "rb") as wav:
@@ -138,7 +156,11 @@ class AudioInputManager:
                 if not pcm_data:
                     break
 
-                await websocket.send_bytes(pcm_data)
+                try:
+                    await websocket.send_bytes(pcm_data)
+                except (WebSocketDisconnect, RuntimeError, OSError) as exc:
+                    await self.disconnect(websocket, meeting_id)
+                    raise RuntimeError("Meeting BaaS 音訊 WebSocket 已中斷") from exc
 
                 # 2400 samples / 24000 Hz = 100 ms
                 await asyncio.sleep(0.1)
@@ -206,14 +228,14 @@ def get_meeting_baas_client(
 def _idempotency_key(
     meeting_url: HttpUrl,
     supplied_key: str | None,
+    meeting_id: str | None = None,
 ) -> str:
 
     if supplied_key and supplied_key.strip():
         return supplied_key.strip()
 
-    return hashlib.sha256(
-        str(meeting_url).encode()
-    ).hexdigest()
+    scope = f"{meeting_url}|{meeting_id or ''}"
+    return hashlib.sha256(scope.encode()).hexdigest()
 
 
 def _provider_data(
@@ -226,6 +248,16 @@ def _provider_data(
         return data
 
     return response
+
+
+def _meeting_input_url(base_url: str | None, meeting_id: str | None) -> str | None:
+    """Attach an optional meeting scope without breaking existing provider URLs."""
+    if not base_url or not meeting_id:
+        return base_url
+    parts = urlsplit(base_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["meeting_id"] = meeting_id
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 # ============================================================
@@ -252,6 +284,7 @@ async def join_meeting(
     key = _idempotency_key(
         request.meeting_url,
         idempotency_key_header,
+        request.meeting_id,
     )
 
     payload: dict[str, Any] = {
@@ -260,7 +293,9 @@ async def join_meeting(
         "streaming_enabled": True,
         "streaming_config": {
             "output_url": None,
-            "input_url": client.settings.meeting_baas_input_url,
+            "input_url": _meeting_input_url(
+                client.settings.meeting_baas_input_url, request.meeting_id
+            ),
             "audio_frequency": 24000,
         },
     }
@@ -543,14 +578,8 @@ async def text_to_speech(
 
 async def speak_text_to_meeting(
     text: str,
+    meeting_id: str | None = None,
 ) -> None:
-
-    if audio_manager.websocket is None:
-
-        raise RuntimeError(
-            "Meeting BaaS 尚未連接 /meetbot/ws/audio-in"
-        )
-
     with tempfile.NamedTemporaryFile(
         prefix="proximate-tts-",
         suffix=".wav",
@@ -569,7 +598,8 @@ async def speak_text_to_meeting(
         )
 
         await audio_manager.send_wav(
-            output_file
+            output_file,
+            meeting_id=meeting_id,
         )
 
     finally:
@@ -624,7 +654,7 @@ async def speak(
 
         print("[SPEAK] calling speak_text_to_meeting()", flush=True)
 
-        await speak_text_to_meeting(body.text)
+        await speak_text_to_meeting(body.text, meeting_id=body.meeting_id)
 
         print("[SPEAK] audio sent successfully", flush=True)
         print("[SPEAK] ===== SUCCESS =====", flush=True)
@@ -674,8 +704,11 @@ async def meeting_audio_input(
 
     await websocket.accept()
 
+    meeting_id = websocket.query_params.get("meeting_id")
+
     await audio_manager.connect(
-        websocket
+        websocket,
+        meeting_id=meeting_id,
     )
 
     try:
@@ -705,5 +738,6 @@ async def meeting_audio_input(
     finally:
 
         await audio_manager.disconnect(
-            websocket
+            websocket,
+            meeting_id=meeting_id,
         )

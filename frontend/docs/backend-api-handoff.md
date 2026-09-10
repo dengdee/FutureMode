@@ -20,7 +20,7 @@
 | `POST /api/v1/meetings/{id}/brief` | 尚未建立 Brief API wrapper 與 Prepare／Add-on 顯示、重生成、錯誤狀態 |
 | `GET/PATCH /api/v1/meetings/{id}/state` | Live／Add-on 仍使用組合資料，尚未接 snapshot 版本與 CAS 更新 |
 | `WS /api/v1/meetings/{id}/events` | 尚未建立認證、cursor、重連、事件去重與 UI reducer |
-| `WS /meetbot/ws/audio-in` | Audio Setup 仍是批次 HTTP transcription，沒有串流 audio chunk |
+| `WS /meetbot/ws/audio-in?meeting_id={meeting_id}` | Meeting BaaS 音訊輸入；`/meetbot/speak` 可用同一 meeting scope 傳送 24 kHz mono PCM |
 | teams invitations GET／DELETE | 建立時可寄送，但沒有邀請清單、取消／重送 UI |
 | documents versions／detail／chunks | 目前只有「還原最新版本」，沒有版本選擇與詳細內容檢視 |
 | suggestion votes GET | wrapper 已有，Live／Review 尚未呈現逐人投票明細 |

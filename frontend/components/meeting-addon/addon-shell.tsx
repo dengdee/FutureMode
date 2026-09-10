@@ -207,6 +207,7 @@ function previewMeeting(meetingId: string): MeetingSummary {
     title: "MVP 共識會議",
     scheduled_at: null,
     google_meeting_id: null,
+    google_meeting_url: null,
     status: "in_progress",
     ai_intervention_level: "medium",
   };

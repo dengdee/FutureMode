@@ -3,16 +3,57 @@ import asyncio
 import httpx
 from httpx import ASGITransport, AsyncClient
 
-from app.api.meetbot import get_meeting_baas_client, join_registry
+from app.api.meetbot import (
+    AudioInputManager,
+    _meeting_input_url,
+    get_meeting_baas_client,
+    join_registry,
+)
 from app.integrations.meetingbaas import MeetingBaasClient
 from app.main import app, settings
 
 
-async def post_join(headers: dict[str, str] | None = None) -> httpx.Response:
+def test_meeting_input_url_adds_scope_without_dropping_existing_query() -> None:
+    assert _meeting_input_url(
+        "wss://example.test/meetbot/ws/audio-in?format=pcm", "meeting-1"
+    ) == "wss://example.test/meetbot/ws/audio-in?format=pcm&meeting_id=meeting-1"
+    assert _meeting_input_url(None, "meeting-1") is None
+
+
+def test_audio_manager_scopes_reconnections_and_cleans_up() -> None:
+    async def run() -> None:
+        manager = AudioInputManager()
+
+        class Socket:
+            def __init__(self) -> None:
+                self.closed = False
+
+            async def close(self, **_: object) -> None:
+                self.closed = True
+
+        first = Socket()
+        second = Socket()
+        await manager.connect(first, meeting_id="meeting-1")
+        await manager.connect(second, meeting_id="meeting-1")
+        assert first.closed is True
+        await manager.disconnect(second, meeting_id="meeting-1")
+        assert manager.websocket is None
+
+    asyncio.run(run())
+
+
+async def post_join(
+    headers: dict[str, str] | None = None,
+    *,
+    meeting_id: str | None = None,
+) -> httpx.Response:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         return await client.post(
             "/meetbot/join",
-            json={"meeting_url": "https://meet.google.com/abc-defg-hij"},
+            json={
+                "meeting_url": "https://meet.google.com/abc-defg-hij",
+                **({"meeting_id": meeting_id} if meeting_id else {}),
+            },
             headers=headers,
         )
 
@@ -69,3 +110,23 @@ def test_provider_failure_falls_back_to_text_card_without_provider_detail(monkey
     assert response.json()["status"] == "text_card"
     assert response.json()["text_card"]["reason"] == "voice_bot_unavailable"
     assert "secret provider detail" not in response.text
+
+
+def test_join_scopes_provider_audio_url_to_meeting(monkeypatch) -> None:
+    async def provider(request: httpx.Request) -> httpx.Response:
+        payload = request.read()
+        assert b"meeting_id=meeting-42" in payload
+        return httpx.Response(201, json={"success": True, "data": {"bot_id": "bot-42"}})
+
+    monkeypatch.setattr(settings, "meeting_baas_api_key", "test-key")
+    monkeypatch.setattr(settings, "meeting_baas_input_url", "wss://api.example.test/audio")
+    app.dependency_overrides[get_meeting_baas_client] = lambda: MeetingBaasClient(
+        settings, transport=httpx.MockTransport(provider)
+    )
+    try:
+        response = asyncio.run(post_join({"Idempotency-Key": "scope-42"}, meeting_id="meeting-42"))
+    finally:
+        app.dependency_overrides.clear()
+        join_registry._responses.clear()
+
+    assert response.status_code == 201

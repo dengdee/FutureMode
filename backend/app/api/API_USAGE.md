@@ -30,8 +30,8 @@ Base URL：`http://localhost:8000`
 
 | Method | Endpoint | 用途 |
 |---|---|---|
-| GET/POST | `/api/v1/meetings` | 查詢／建立會議 |
-| GET/PATCH | `/api/v1/meetings/{meeting_id}` | 查詢／修改會議 |
+| GET/POST | `/api/v1/meetings` | 查詢／建立會議；建立時可帶 `google_meeting_url` 與 `google_meeting_id` |
+| GET/PATCH | `/api/v1/meetings/{meeting_id}` | 查詢／修改會議（含持久化 Meet URL） |
 | POST | `/api/v1/meetings/{meeting_id}/start` | 開始會議 |
 | POST | `/api/v1/meetings/{meeting_id}/end` | 結束會議 |
 | POST | `/api/v1/meetings/{meeting_id}/cancel` | 取消會議 |
@@ -91,11 +91,11 @@ Base URL：`http://localhost:8000`
 
 | Method | Endpoint | 用途 |
 |---|---|---|
-| POST | `/meetbot/join` | Bot 加入會議 |
+| POST | `/meetbot/join` | Bot 加入會議；可帶 `meeting_id` 將音訊 WebSocket 綁定到指定會議 |
 | GET | `/meetbot/{bot_id}` | 查詢 Bot 狀態 |
 | POST | `/meetbot/{bot_id}/leave` | Bot 離開會議 |
-| POST | `/meetbot/speak` | Bot 語音輸出 |
-| WebSocket | `/meetbot/ws/audio-in` | Bot 音訊輸入串流 |
+| POST | `/meetbot/speak` | Bot 語音輸出；可帶 `meeting_id` |
+| WebSocket | `/meetbot/ws/audio-in?meeting_id={meeting_id}` | Bot 音訊輸入串流 |
 | POST | `/api/v1/meetings/{meeting_id}/voice-bot/generate-and-speak` | 核准後由 Gemini 產生發言稿，再用 Edge TTS 播放到會議 |
 | WebSocket | `/api/v1/meetings/{meeting_id}/events` | 會議即時事件串流 |
 

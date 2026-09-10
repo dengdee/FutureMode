@@ -20,11 +20,13 @@ export default function StartMeetingPage() {
 
   useEffect(() => {
     getMeeting(id)
-      .then(setMeeting)
+      .then((current) => {
+        setMeeting(current);
+        setMeetUrl(current.google_meeting_url ?? "");
+      })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "無法讀取會議。"))
       .finally(() => setLoading(false));
     setDeadline(localStorage.getItem(`proximate:prep-deadline:${id}`) ?? "");
-    setMeetUrl(localStorage.getItem(`proximate:meeting-url:${id}`) ?? "");
   }, [id]);
 
   function enterLive() { router.push(`/meetings/${id}/start/live`); }

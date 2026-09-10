@@ -204,7 +204,7 @@ async def generate_and_speak(
     voice_request.status = "speaking"
     try:
         await session.commit()
-        await speak_text_to_meeting(generated_text)
+        await speak_text_to_meeting(generated_text, meeting_id=str(meeting_id))
     except RuntimeError as exc:
         await session.rollback()
         voice_request.status = "failed"

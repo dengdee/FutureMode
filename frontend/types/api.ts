@@ -22,6 +22,7 @@ export type ReadyResponse = {
 
 export type JoinMeetingRequest = {
   meeting_url: string;
+  meeting_id?: string;
 };
 
 export type MeetingBotResponse = Record<string, unknown>;
@@ -95,6 +96,7 @@ export type MeetingSummary = {
   title: string;
   scheduled_at: string | null;
   google_meeting_id: string | null;
+  google_meeting_url: string | null;
   status: string;
   ai_intervention_level: string;
 };
@@ -104,6 +106,7 @@ export type MeetingCreateRequest = {
   title: string;
   scheduled_at?: string | null;
   google_meeting_id?: string | null;
+  google_meeting_url?: string | null;
   ai_intervention_level?: string;
 };
 
@@ -111,6 +114,7 @@ export type MeetingUpdateRequest = {
   title?: string | null;
   scheduled_at?: string | null;
   google_meeting_id?: string | null;
+  google_meeting_url?: string | null;
   ai_intervention_level?: string | null;
 };
 export type MeetingBrief = {

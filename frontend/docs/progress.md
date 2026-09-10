@@ -19,7 +19,7 @@
 
 ## 已有後端資料，但仍缺少完整前端產品流程
 
-- Audio WebSocket：目前 Audio Setup 是批次轉錄，尚未把瀏覽器音訊切 chunk、送 `/meetbot/ws/audio-in`、斷線重連與權限狀態整合成 Capture 流程。
+- Audio WebSocket：Meeting BaaS 的 `/meetbot/ws/audio-in` 已支援 `meeting_id` scope 與重連清理；瀏覽器 Audio Setup 仍採批次 `/transcription`，尚未把瀏覽器音訊切 chunk 送入該 provider socket。
 - 即時事件：Live 有基本 WebSocket 訂閱及較新版本覆蓋保護，但沒有 cursor replay、事件 ID 去重、指數退避重連或跨分頁同步。
 - Meeting BaaS Bot：後端 join／status／leave／speak 雖有 wrapper，尚未有可安全操作的 meeting-scoped Host 控制頁；因回應 schema、授權與投票政策尚未固定，前端不應假裝已可正式發言。
 - Brief：Prepare 可呼叫 `/brief`，但目前後端只以正式 Agenda 組成摘要；尚未依已授權的 Team Memory 文件、歷史決策產出 AI 議程建議或來源引用。

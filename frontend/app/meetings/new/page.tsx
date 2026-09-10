@@ -160,13 +160,9 @@ export default function NewMeetingPage() {
         title: title.trim(),
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         google_meeting_id: meetUrl.trim().match(/meet\.google\.com\/([a-z0-9-]+)/i)?.[1] ?? null,
+        google_meeting_url: meetUrl.trim() || null,
         ai_intervention_level: level,
       });
-      if (meetUrl.trim())
-        localStorage.setItem(
-          `proximate:meeting-url:${meeting.id}`,
-          meetUrl.trim(),
-        );
       localStorage.setItem(
         `proximate:prep-deadline:${meeting.id}`,
         prepDeadline,
