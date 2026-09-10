@@ -35,6 +35,7 @@ from app.integrations.meetingbaas import (
 )
 from app.models import BotSession, Transcript
 import edge_tts
+import miniaudio
 
 settings = get_settings()
 
@@ -669,7 +670,7 @@ class SpeakRequest(BaseModel):
 async def text_to_speech(text: str, output_file: Path) -> Path:
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    temp_file = output_file.with_suffix(".mp3")
+    mp3_file = output_file.with_suffix(".mp3")
 
     try:
         print("[TTS] 開始 Edge TTS...")
@@ -679,82 +680,70 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
             voice="zh-TW-HsiaoChenNeural",
         )
 
-        await communicate.save(str(temp_file))
+        await communicate.save(str(mp3_file))
 
         print("[TTS] Edge TTS 完成")
 
-        if not temp_file.exists():
+        if not mp3_file.exists():
             raise RuntimeError("Edge TTS 沒有產生 MP3")
 
-        print(
-            f"[TTS] MP3 大小: {temp_file.stat().st_size} bytes"
-        )
+        mp3_size = mp3_file.stat().st_size
 
-        if temp_file.stat().st_size == 0:
+        print(f"[TTS] MP3 大小: {mp3_size} bytes")
+
+        if mp3_size == 0:
             raise RuntimeError("Edge TTS 回傳空音訊")
 
-        print("[TTS] 開始 FFmpeg 轉換 WAV...")
-        print(f"[TTS] MP3: {temp_file}")
-        print(f"[TTS] WAV: {output_file}")
+        print("[TTS] 開始 miniaudio 解碼...")
 
-        await asyncio.to_thread(
-            subprocess.run,
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(temp_file),
-                "-ar",
-                "24000",
-                "-ac",
-                "1",
-                "-sample_fmt",
-                "s16",
-                str(output_file),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        def decode_mp3() -> bytes:
+            decoded = miniaudio.decode_file(
+                str(mp3_file),
+                output_format=miniaudio.SampleFormat.SIGNED16,
+                nchannels=1,
+                sample_rate=24000,
+            )
 
-        print("[TTS] FFmpeg 完成")
+            return bytes(decoded.samples)
 
-        if not output_file.exists():
-            raise RuntimeError("FFmpeg 沒有產生 WAV")
+        pcm_data = await asyncio.to_thread(decode_mp3)
+
+        if not pcm_data:
+            raise RuntimeError("miniaudio 沒有產生 PCM 音訊")
 
         print(
-            f"[TTS] WAV 大小: {output_file.stat().st_size} bytes"
+            f"[TTS] PCM 大小: {len(pcm_data)} bytes"
+        )
+
+        # 建立 WAV header
+        import wave
+
+        def write_wav() -> None:
+            with wave.open(str(output_file), "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)  # signed 16-bit
+                wav.setframerate(24000)
+                wav.writeframes(pcm_data)
+
+        await asyncio.to_thread(write_wav)
+
+        if not output_file.exists():
+            raise RuntimeError("沒有產生 WAV")
+
+        print(
+            f"[TTS] WAV 完成: {output_file.stat().st_size} bytes"
         )
 
         return output_file
 
-    except FileNotFoundError:
-        print("[TTS ERROR] 找不到 ffmpeg")
-        raise RuntimeError(
-            "找不到 ffmpeg，Vercel 環境沒有可用的 ffmpeg"
-        ) from None
-
-    except subprocess.CalledProcessError as exc:
-        print("[TTS ERROR] FFmpeg 執行失敗")
-        print(f"[TTS ERROR] return code: {exc.returncode}")
-        print(f"[TTS ERROR] stderr: {exc.stderr}")
-
-        raise RuntimeError(
-            f"ffmpeg 轉換失敗: {exc.stderr}"
-        ) from None
-
     except Exception as exc:
-        print(
-            f"[TTS ERROR] {type(exc).__name__}: {exc}"
-        )
-
         raise RuntimeError(
-            f"Edge TTS 失敗: {type(exc).__name__}: {exc}"
-        ) from None
+            f"TTS 音訊轉換失敗: {type(exc).__name__}: {exc}"
+        ) from exc
 
     finally:
-        temp_file.unlink(missing_ok=True)
-
+        mp3_file.unlink(missing_ok=True)
+        
 @router.websocket("/ws/audio-in")
 async def meeting_audio_input(websocket: WebSocket) -> None:
     print("\n========== WEBSOCKET DEBUG START ==========")
