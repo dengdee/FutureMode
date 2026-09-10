@@ -13,6 +13,7 @@ import { getMeeting } from "../../../../lib/api/meetings";
 import { searchMeetingMemory } from "../../../../lib/api/documents";
 import {
   getMeetingBotStatus,
+  getMeetingBotStatusForMeeting,
   joinMeetingBot,
   leaveMeetingBot,
 } from "../../../../lib/api/meetbot";
@@ -118,6 +119,18 @@ export default function LivePage() {
           setError(cause instanceof Error ? cause.message : "無法讀取會議狀態。"),
       );
     }, 0);
+    getMeetingBotStatusForMeeting(id)
+      .then((response) => {
+        if (!active) return;
+        setBotId(response.bot_id);
+        setBotStatus(response.status);
+      })
+      .catch((cause) => {
+        // A missing persisted Bot is expected before the first join.
+        if (active && cause?.status !== 404) {
+          setError(cause instanceof Error ? cause.message : "無法讀取 Meeting BaaS Bot 狀態。");
+        }
+      });
     const socket = new WebSocket(socketUrl(id));
     const fallbackTimer = window.setInterval(() => {
       load().catch((cause) => {

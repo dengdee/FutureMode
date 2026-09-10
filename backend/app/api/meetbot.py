@@ -21,12 +21,16 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, Field, HttpUrl
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings, get_settings
+from app.db.session import get_session
 from app.integrations.meetingbaas import (
     MeetingBaasClient,
     MeetingBaasError,
 )
+from app.models import BotSession
 
 
 settings = get_settings()
@@ -265,6 +269,61 @@ def _meeting_input_url(base_url: str | None, meeting_id: str | None) -> str | No
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
+def _meeting_uuid(meeting_id: str | None):
+    if not meeting_id:
+        return None
+    try:
+        from uuid import UUID
+
+        return UUID(meeting_id)
+    except ValueError:
+        return None
+
+
+async def _find_bot_session(meeting_id: str, settings: Settings) -> BotSession | None:
+    meeting_uuid = _meeting_uuid(meeting_id)
+    if meeting_uuid is None or not settings.database_url:
+        return None
+    try:
+        async for session in get_session(settings):
+            return await session.scalar(
+                select(BotSession).where(BotSession.meeting_id == meeting_uuid)
+            )
+    except (SQLAlchemyError, OSError):
+        return None
+    return None
+
+
+async def _save_bot_session(
+    meeting_id: str, bot_id: str, status: str, meeting_url: str, settings: Settings
+) -> None:
+    meeting_uuid = _meeting_uuid(meeting_id)
+    if meeting_uuid is None or not settings.database_url:
+        return
+    try:
+        async for session in get_session(settings):
+            existing = await session.scalar(
+                select(BotSession).where(BotSession.meeting_id == meeting_uuid)
+            )
+            if existing is None:
+                session.add(
+                    BotSession(
+                        meeting_id=meeting_uuid,
+                        provider_bot_id=bot_id,
+                        status=status,
+                        meeting_url=meeting_url,
+                    )
+                )
+            else:
+                existing.provider_bot_id = bot_id
+                existing.status = status
+                existing.meeting_url = meeting_url
+            await session.commit()
+            return
+    except SQLAlchemyError:
+        return
+
+
 # ============================================================
 # Join Meeting
 # ============================================================
@@ -291,6 +350,15 @@ async def join_meeting(
         idempotency_key_header,
         request.meeting_id,
     )
+
+    if request.meeting_id:
+        existing = await _find_bot_session(request.meeting_id, client.settings)
+        if existing and existing.provider_bot_id:
+            return JoinMeetingResponse(
+                bot_id=existing.provider_bot_id,
+                status=existing.status,
+                idempotency_key=key,
+            )
 
     payload: dict[str, Any] = {
         "meeting_url": str(request.meeting_url),
@@ -355,16 +423,56 @@ async def join_meeting(
                 ),
             )
 
-        return JoinMeetingResponse(
+        response = JoinMeetingResponse(
             bot_id=bot_id,
             status="pending",
             idempotency_key=key,
         )
+        if request.meeting_id:
+            await _save_bot_session(
+                request.meeting_id,
+                bot_id,
+                "pending",
+                str(request.meeting_url),
+                client.settings,
+            )
+        return response
 
     return await join_registry.get_or_create(
         key,
         create,
     )
+
+
+@router.get("/meeting/{meeting_id}", response_model=BotStatusResponse)
+async def get_meeting_bot_status(
+    meeting_id: str,
+    client: MeetingBaasClient = Depends(get_meeting_baas_client),
+) -> BotStatusResponse:
+    """Return the persisted provider Bot for a meeting after a page refresh."""
+    existing = await _find_bot_session(meeting_id, client.settings)
+    if existing is None or not existing.provider_bot_id:
+        raise HTTPException(status_code=404, detail="meeting bot not found")
+    try:
+        provider_response = await client.get_bot(existing.provider_bot_id)
+        provider = _provider_data(provider_response)
+        provider_status = provider.get("status")
+        status_value = provider_status if isinstance(provider_status, str) else existing.status
+    except MeetingBaasError:
+        status_value = existing.status
+    if status_value != existing.status:
+        try:
+            async for session in get_session(client.settings):
+                row = await session.scalar(
+                    select(BotSession).where(BotSession.meeting_id == existing.meeting_id)
+                )
+                if row:
+                    row.status = status_value
+                    await session.commit()
+                break
+        except SQLAlchemyError:
+            pass
+    return BotStatusResponse(bot_id=existing.provider_bot_id, status=status_value)
 
 
 # ============================================================
