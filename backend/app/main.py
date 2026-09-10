@@ -218,7 +218,13 @@ async def ready() -> dict[str, object]:
         "checks": {
             "api": "ok",
             "database": db_status,
-            "meeting_baas": "configured" if settings.meeting_baas_api_key else "not_configured",
+            "meeting_baas": (
+                "configured"
+                if settings.meeting_baas_api_key and settings.meeting_baas_input_url
+                else "incomplete"
+                if settings.meeting_baas_api_key
+                else "not_configured"
+            ),
             "realtime_broker": "configured"
             if settings.realtime_broker_configured
             else "not_configured",

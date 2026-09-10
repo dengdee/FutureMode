@@ -71,6 +71,7 @@ def test_join_uses_stable_schema_and_does_not_create_duplicate_bot(monkeypatch) 
         )
 
     monkeypatch.setattr(settings, "meeting_baas_api_key", "test-key")
+    monkeypatch.setattr(settings, "meeting_baas_input_url", "wss://api.example.test/audio")
     app.dependency_overrides[get_meeting_baas_client] = lambda: MeetingBaasClient(
         settings, transport=httpx.MockTransport(provider)
     )
@@ -110,6 +111,14 @@ def test_provider_failure_falls_back_to_text_card_without_provider_detail(monkey
     assert response.json()["status"] == "text_card"
     assert response.json()["text_card"]["reason"] == "voice_bot_unavailable"
     assert "secret provider detail" not in response.text
+
+
+def test_join_reports_missing_audio_input_configuration(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "meeting_baas_api_key", "test-key")
+    monkeypatch.setattr(settings, "meeting_baas_input_url", None)
+    response = asyncio.run(post_join({"Idempotency-Key": "missing-input-1"}))
+    assert response.status_code == 201
+    assert response.json()["text_card"]["reason"] == "audio_input_not_configured"
 
 
 def test_join_scopes_provider_audio_url_to_meeting(monkeypatch) -> None:

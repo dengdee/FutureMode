@@ -301,6 +301,21 @@ async def join_meeting(
     }
 
     async def create() -> JoinMeetingResponse:
+        if not client.settings.meeting_baas_api_key:
+            return JoinMeetingResponse(
+                status="text_card",
+                idempotency_key=key,
+                text_card=TextCardFallback(reason="meeting_baas_not_configured"),
+            )
+        if not client.settings.meeting_baas_input_url:
+            # A bot can still join without an input stream, but it cannot receive
+            # generated speech. Report this explicitly instead of failing later
+            # with a generic WebSocket/503 error when Voice Bot speaks.
+            return JoinMeetingResponse(
+                status="text_card",
+                idempotency_key=key,
+                text_card=TextCardFallback(reason="audio_input_not_configured"),
+            )
 
         try:
             provider_bot = await client.create_bot(
