@@ -635,6 +635,7 @@ async def transcribe_meeting_audio(
 async def backup_meeting_transcripts(
     meeting_id: UUID,
     payload: TranscriptBackupRequest,
+    request: Request,
     webhook_secret: str | None = Header(default=None, alias="X-Meeting-BaaS-Secret"),
     session: AsyncSession = Depends(database_session),
 ) -> dict[str, object]:
@@ -670,4 +671,23 @@ async def backup_meeting_transcripts(
     except IntegrityError:
         await session.rollback()
         raise HTTPException(status_code=409, detail="transcript sequence conflict") from None
+    for segment in segments:
+        await publish_realtime_event(
+            request.app.state.event_journal,
+            request.app.state.room_registry,
+            MeetingEvent(
+                event_id=uuid4(),
+                meeting_id=meeting_id,
+                timestamp=datetime.now(UTC),
+                schema_version=1,
+                payload={
+                    "type": "transcript:new",
+                    "transcript_id": str(segment.id),
+                    "sequence": segment.sequence,
+                    "speaker_label": segment.speaker_label,
+                    "text": segment.text,
+                },
+            ),
+            broker=getattr(request.app.state, "realtime_broker", None),
+        )
     return {"meeting_id": str(meeting_id), "created": len(segments)}
