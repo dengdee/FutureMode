@@ -25,3 +25,15 @@ def test_suggestion_votes_require_authentication() -> None:
 
     response = asyncio.run(request())
     assert response.status_code == 401
+
+
+def test_voice_observe_requires_authentication() -> None:
+    async def request():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post(
+                "/api/v1/meetings/00000000-0000-0000-0000-000000000000/voice-bot/observe",
+                json={"prompt": "找出風險"},
+            )
+
+    response = asyncio.run(request())
+    assert response.status_code == 401

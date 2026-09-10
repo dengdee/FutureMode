@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,18 +12,37 @@ from app.api.meetbot import speak_text_to_meeting
 from app.api.meetings import authorized_meeting, database_session, find_user_id
 from app.auth.principal import Principal, get_current_principal
 from app.config import Settings, get_settings
-from app.models import VoiceRequest
+from app.models import AISuggestion, Document, DocumentChunk, Transcript, VoiceRequest
 from app.realtime.gateway import publish_realtime_event
 from app.schemas.events import MeetingEvent
 from app.schemas.meeting import (
     VoiceBotStatusResponse,
     VoiceHostAction,
+    VoiceObserveRequest,
+    VoiceObserveResponse,
     VoiceRequestCreate,
     VoiceSpeakRequest,
 )
-from app.services.llm import LLMConfigurationError, LLMProviderError, generate_meeting_speech
+from app.services.llm import (
+    LLMConfigurationError,
+    LLMProviderError,
+    generate_meeting_observation,
+    generate_meeting_speech,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["voice-bot"])
+
+
+def _parse_observation(raw: str) -> tuple[str, str]:
+    title = "AI 觀察"
+    content = raw.strip()
+    for line in raw.splitlines():
+        value = line.strip()
+        if value.startswith("標題："):
+            title = value.removeprefix("標題：").strip() or title
+        elif value.startswith("內容："):
+            content = value.removeprefix("內容：").strip() or content
+    return title[:255], content[:20_000]
 
 
 async def _latest_request(meeting_id: UUID, session: AsyncSession) -> VoiceRequest | None:
@@ -236,3 +255,111 @@ async def generate_and_speak(
     )
     await _publish(request, meeting_id, completed)
     return completed
+
+
+@router.post(
+    "/meetings/{meeting_id}/voice-bot/observe",
+    response_model=VoiceObserveResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def observe_meeting(
+    meeting_id: UUID,
+    payload: VoiceObserveRequest,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+    settings: Settings = Depends(get_settings),
+) -> VoiceObserveResponse:
+    """Turn current transcript + published preparation memory into a reviewable suggestion."""
+    await authorized_meeting(meeting_id, principal, session)
+    transcript = payload.transcript
+    if not transcript:
+        rows = (
+            await session.scalars(
+                select(Transcript)
+                .where(Transcript.meeting_id == meeting_id)
+                .order_by(Transcript.sequence.desc())
+                .limit(20)
+            )
+        ).all()
+        transcript = "\n".join(
+            f"{row.speaker_label}: {row.text}" for row in reversed(rows)
+        )
+    if not transcript.strip():
+        raise HTTPException(status_code=409, detail="meeting transcript is empty")
+
+    memory_rows = (
+        await session.execute(
+            select(DocumentChunk, Document)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(
+                Document.source_type == "preparation",
+                Document.status.in_({"ready", "embedded"}),
+                Document.metadata_json.contains({"meeting_id": str(meeting_id)}),
+            )
+            .order_by(DocumentChunk.position)
+            .limit(8)
+        )
+    ).all()
+    memory = "\n".join(chunk.content for chunk, _document in memory_rows)
+    try:
+        raw = await generate_meeting_observation(
+            transcript, memory, payload.prompt, settings
+        )
+    except LLMConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except LLMProviderError:
+        raise HTTPException(status_code=502, detail="LLM provider unavailable") from None
+    title, content = _parse_observation(raw)
+    latest_version = await session.scalar(
+        select(func.coalesce(func.max(AISuggestion.state_version), 0)).where(
+            AISuggestion.meeting_id == meeting_id
+        )
+    )
+    suggestion = AISuggestion(
+        meeting_id=meeting_id,
+        state_version=int(latest_version or 0) + 1,
+        title=title,
+        content=content,
+        status="pending",
+        confidence=0.7 if memory_rows else 0.5,
+        suggestion_metadata={
+            "source": "meeting_observation",
+            "transcript_chars": len(transcript),
+            "memory_chunk_ids": [str(chunk.id) for chunk, _document in memory_rows],
+        },
+    )
+    session.add(suggestion)
+    try:
+        await session.commit()
+        await session.refresh(suggestion)
+    except SQLAlchemyError:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail="database is unavailable") from None
+    await publish_realtime_event(
+        request.app.state.event_journal,
+        request.app.state.room_registry,
+        MeetingEvent(
+            event_id=uuid4(),
+            meeting_id=meeting_id,
+            timestamp=datetime.now(UTC),
+            schema_version=1,
+            payload={
+                "type": "ai_suggestion:new",
+                "suggestion_id": str(suggestion.id),
+                "title": title,
+            },
+        ),
+        broker=request.app.state.realtime_broker,
+    )
+    return VoiceObserveResponse(
+        meeting_id=meeting_id,
+        suggestion_id=suggestion.id,
+        title=title,
+        content=content,
+        confidence=suggestion.confidence,
+        citations=[
+            {"document_id": str(document.id), "chunk_id": str(chunk.id)}
+            for chunk, document in memory_rows
+        ],
+    )

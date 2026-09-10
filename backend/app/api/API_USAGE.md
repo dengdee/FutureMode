@@ -97,6 +97,7 @@ Base URL：`http://localhost:8000`
 | POST | `/meetbot/speak` | Bot 語音輸出；可帶 `meeting_id` |
 | WebSocket | `/meetbot/ws/audio-in?meeting_id={meeting_id}` | Bot 音訊輸入串流 |
 | POST | `/api/v1/meetings/{meeting_id}/voice-bot/generate-and-speak` | 核准後由 Gemini 產生發言稿，再用 Edge TTS 播放到會議 |
+| POST | `/api/v1/meetings/{meeting_id}/voice-bot/observe` | 以最新逐字稿與議前 RAG 產生一張待投票的 AI 觀察卡 |
 | WebSocket | `/api/v1/meetings/{meeting_id}/events` | 會議即時事件串流 |
 
 ### 會議中的 AI 語音發言流程
@@ -119,6 +120,12 @@ Base URL：`http://localhost:8000`
 需要設定 `GEMINI_API_KEY`（或 `LLM_API_KEY`）、`LLM_PROVIDER=gemini`，並在會議開始前建立
 Meeting BaaS 音訊連線；伺服器需安裝 `ffmpeg`。若沒有音訊連線，API 會回傳 503，發言稿仍會
 保存在 voice request 的 `approved_text` 欄位中。
+
+### Bot 會中觀察與議前 RAG
+
+`voice-bot/observe` 會讀取本場最新 20 段逐字稿，以及已發布到 RAG 的議前文件，
+產生 `ai_suggestions` 待處理卡片並送出 `ai_suggestion:new` 即時事件。成員仍需投票、
+Host 核准後才會進入 `generate-and-speak`，因此 Bot 不會未經同意自行插話。
 
 ## 常見錯誤
 

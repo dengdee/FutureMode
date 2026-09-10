@@ -2,10 +2,12 @@
 
 import asyncio
 import hashlib
+import json
 import subprocess
 import tempfile
 import wave
 from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -21,7 +23,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings, get_settings
@@ -30,8 +32,7 @@ from app.integrations.meetingbaas import (
     MeetingBaasClient,
     MeetingBaasError,
 )
-from app.models import BotSession
-
+from app.models import BotSession, Transcript
 
 settings = get_settings()
 
@@ -300,6 +301,7 @@ async def _save_bot_session(
     meeting_uuid = _meeting_uuid(meeting_id)
     if meeting_uuid is None or not settings.database_url:
         return
+
     try:
         async for session in get_session(settings):
             existing = await session.scalar(
@@ -318,6 +320,44 @@ async def _save_bot_session(
                 existing.provider_bot_id = bot_id
                 existing.status = status
                 existing.meeting_url = meeting_url
+            await session.commit()
+            return
+    except SQLAlchemyError:
+        return
+
+
+async def _persist_provider_transcript(
+    meeting_id: str | None, payload: dict[str, Any], settings: Settings
+) -> None:
+    """Persist transcript events emitted by Meeting BaaS when they use JSON frames."""
+    meeting_uuid = _meeting_uuid(meeting_id)
+    if meeting_uuid is None or not settings.database_url:
+        return
+    text_value = payload.get("text") or payload.get("transcript") or payload.get("content")
+    if not isinstance(text_value, str) or not text_value.strip():
+        return
+    speaker = payload.get("speaker") or payload.get("speaker_label") or "Meeting participant"
+    if not isinstance(speaker, str):
+        speaker = "Meeting participant"
+    now = datetime.now(UTC)
+    try:
+        async for session in get_session(settings):
+            latest = await session.scalar(
+                select(func.max(Transcript.sequence)).where(Transcript.meeting_id == meeting_uuid)
+            )
+            confidence = payload.get("confidence")
+            session.add(
+                Transcript(
+                    meeting_id=meeting_uuid,
+                    speaker_label=speaker[:255],
+                    sequence=int(latest or 0) + 1,
+                    started_at=now,
+                    ended_at=now,
+                    text=text_value.strip()[:20_000],
+                    source="meeting_baas",
+                    confidence=confidence if isinstance(confidence, (int, float)) else None,
+                )
+            )
             await session.commit()
             return
     except SQLAlchemyError:
@@ -853,6 +893,16 @@ async def meeting_audio_input(
 
             if message.get("type") == "websocket.disconnect":
                 break
+            text_frame = message.get("text")
+            if isinstance(text_frame, str):
+                try:
+                    event = json.loads(text_frame)
+                except json.JSONDecodeError:
+                    event = {}
+                if isinstance(event, dict):
+                    await _persist_provider_transcript(
+                        meeting_id, event, websocket.app.state.settings
+                    )
 
     except WebSocketDisconnect:
 

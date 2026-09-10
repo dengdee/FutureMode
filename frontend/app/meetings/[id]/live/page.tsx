@@ -24,6 +24,7 @@ import {
 import {
   generateAndSpeakVoiceBot,
   getVoiceBotStatus,
+  observeMeetingVoiceBot,
   type VoiceBotStatusResponse,
 } from "../../../../lib/api/voice";
 import type {
@@ -55,6 +56,7 @@ export default function LivePage() {
     null,
   );
   const [speaking, setSpeaking] = useState(false);
+  const [observing, setObserving] = useState(false);
   const [memoryQuery, setMemoryQuery] = useState("");
   const [memoryResults, setMemoryResults] = useState<DocumentSearchResult[]>([]);
   const [memoryLoading, setMemoryLoading] = useState(false);
@@ -267,6 +269,24 @@ export default function LivePage() {
       setSpeaking(false);
     }
   }
+  async function observeMeeting() {
+    setObserving(true);
+    setError("");
+    try {
+      const transcript = textValue(
+        state.latest_transcript ?? state.latestTranscript ?? state.transcript,
+      );
+      await observeMeetingVoiceBot(id, {
+        prompt: `針對目前議題「${currentTopic}」找出值得團隊釐清的風險、反例或下一步。`,
+        transcript: transcript ?? undefined,
+      });
+      setSuggestions(await listSuggestions(id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "AI 觀察產生失敗。");
+    } finally {
+      setObserving(false);
+    }
+  }
   async function searchMeetingMemoryNow(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = memoryQuery.trim();
@@ -432,6 +452,14 @@ export default function LivePage() {
                 AI 先提出文字卡，由成員決定支持、稍後或忽略；不會自行插話。
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => void observeMeeting()}
+              disabled={observing}
+              className="mt-4 rounded-lg border border-[#0f9f8a] px-3 py-2 text-sm font-semibold text-[#087e6d] disabled:opacity-50"
+            >
+              {observing ? "AI 正在整理…" : "根據最新內容提出觀察"}
+            </button>
             <div className="mt-5 space-y-3">
               {suggestions.map((suggestion) => (
                 <article

@@ -90,6 +90,29 @@ async def generate_meeting_speech(
     return await complete_preparation(messages, settings)
 
 
+async def generate_meeting_observation(
+    transcript: str,
+    memory: str | None,
+    prompt: str | None,
+    settings: Settings,
+) -> str:
+    """Create a concise, reviewable AI observation from live meeting context."""
+    context = memory.strip() if memory else "（沒有找到相關議前記憶）"
+    request = prompt.strip() if prompt else "找出一個值得團隊現在釐清的風險、反例或下一步"
+    messages = [{
+        "role": "user",
+        "content": (
+            "你是會議中的 AI 觀察員。請根據逐字稿與議前記憶，提出一個值得團隊注意的"
+            "觀察。輸出兩行純文字：第一行以『標題：』開頭（不超過 40 字），第二行以"
+            "『內容：』開頭（不超過 160 字）。只使用提供的內容，不要捏造；若證據不足，"
+            "請明確寫『需要確認』。不要 Markdown、不要免責聲明。\n\n"
+            f"觀察目的：{request}\n\n即時逐字稿：{transcript.strip() or '（尚無逐字稿）'}"
+            f"\n\n議前記憶：{context}"
+        ),
+    }]
+    return await complete_preparation(messages, settings)
+
+
 async def _complete_gemini(messages: list[dict[str, str]], settings: Settings) -> str:
     api_key = settings.gemini_api_key or settings.llm_api_key
     if not api_key:

@@ -139,6 +139,22 @@ class VoiceSpeakRequest(BaseModel):
     context: str | None = Field(default=None, max_length=20_000)
 
 
+class VoiceObserveRequest(BaseModel):
+    """Ask the meeting agent to inspect the latest transcript and memory."""
+
+    prompt: str | None = Field(default=None, max_length=2_000)
+    transcript: str | None = Field(default=None, max_length=20_000)
+
+
+class VoiceObserveResponse(BaseModel):
+    meeting_id: UUID
+    suggestion_id: UUID
+    title: str
+    content: str
+    confidence: float | None = None
+    citations: list[dict[str, str]] = Field(default_factory=list)
+
+
 class VoiceBotStatusResponse(BaseModel):
     meeting_id: UUID
     status: str

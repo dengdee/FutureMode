@@ -31,3 +31,21 @@ export function generateAndSpeakVoiceBot(
     http.post(`/api/v1/meetings/${meetingId}/voice-bot/generate-and-speak`, payload ?? {}),
   );
 }
+
+export type VoiceObservationResponse = {
+  meeting_id: string;
+  suggestion_id: string;
+  title: string;
+  content: string;
+  confidence: number | null;
+  citations: Array<{ document_id: string; chunk_id: string }>;
+};
+
+export function observeMeetingVoiceBot(
+  meetingId: string,
+  payload?: { prompt?: string; transcript?: string },
+) {
+  return request<VoiceObservationResponse>(() =>
+    http.post(`/api/v1/meetings/${meetingId}/voice-bot/observe`, payload ?? {}),
+  );
+}
