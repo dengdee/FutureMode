@@ -22,7 +22,6 @@ dependencies = [
     "google-cloud-texttospeech>=2.37.0",
     "edge-tts>=7.2.8",
     "imageio-ffmpeg",
-    "elevenlabs>=2.66.0",
     "python-dotenv>=1.2.3",
     "miniaudio>=1.71",
 ]

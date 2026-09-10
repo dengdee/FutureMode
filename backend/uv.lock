@@ -311,23 +311,6 @@ wheels = [
 ]
 
 [[package]]
-name = "elevenlabs"
-version = "2.66.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-core" },
-    { name = "requests" },
-    { name = "typing-extensions" },
-    { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/e2/191439b42753b350cd41be78e2ee32015793215546fd8c1f4c3ad6642805/elevenlabs-2.66.0.tar.gz", hash = "sha256:6372efd76710e82013a388585a6b8a1aada2f8c91046ee0105afe67565cea291", size = 805355, upload-time = "2026-09-02T13:21:25.711Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/a0/2f063e96602914ec3e4acaa680a51d08a57a96546da6caf4b1dc83d5b63d/elevenlabs-2.66.0-py3-none-any.whl", hash = "sha256:c7bcc1b616887d2e2482e07a2c91640897fc9b7e24d930940abe7336485ba706", size = 2126871, upload-time = "2026-09-02T13:21:23.718Z" },
-]
-
-[[package]]
 name = "fastapi"
 version = "0.141.1"
 source = { registry = "https://pypi.org/simple" }
@@ -754,7 +737,6 @@ dependencies = [
     { name = "asyncpg" },
     { name = "boto3" },
     { name = "edge-tts" },
-    { name = "elevenlabs" },
     { name = "fastapi" },
     { name = "google-cloud-texttospeech" },
     { name = "httpx" },
@@ -786,7 +768,6 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30,<1.0" },
     { name = "boto3", specifier = ">=1.35,<2.0" },
     { name = "edge-tts", specifier = ">=7.2.8" },
-    { name = "elevenlabs", specifier = ">=2.66.0" },
     { name = "fastapi", specifier = ">=0.116,<1.0" },
     { name = "google-cloud-texttospeech", specifier = ">=2.37.0" },
     { name = "httpx", specifier = ">=0.28.1" },
