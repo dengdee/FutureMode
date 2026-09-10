@@ -12,6 +12,10 @@ import {
 import { getMeeting } from "../../../../lib/api/meetings";
 import { searchMeetingMemory } from "../../../../lib/api/documents";
 import {
+  joinMeetingBot,
+  leaveMeetingBot,
+} from "../../../../lib/api/meetbot";
+import {
   getMeetingState,
   RealtimeEventAdapter,
 } from "../../../../lib/api/realtime";
@@ -52,6 +56,9 @@ export default function LivePage() {
   const [memoryQuery, setMemoryQuery] = useState("");
   const [memoryResults, setMemoryResults] = useState<DocumentSearchResult[]>([]);
   const [memoryLoading, setMemoryLoading] = useState(false);
+  const [botId, setBotId] = useState<string | null>(null);
+  const [botStatus, setBotStatus] = useState<string | null>(null);
+  const [botLoading, setBotLoading] = useState(false);
   const [connection, setConnection] = useState<
     "connecting" | "connected" | "reconnecting" | "stale" | "offline"
   >("connecting");
@@ -238,6 +245,43 @@ export default function LivePage() {
       setMemoryLoading(false);
     }
   }
+  async function startMeetingBot() {
+    if (!meeting?.google_meeting_url || botLoading) return;
+    setBotLoading(true);
+    setError("");
+    try {
+      const response = await joinMeetingBot({
+        meeting_url: meeting.google_meeting_url,
+        meeting_id: id,
+      });
+      setBotId(response.bot_id ?? null);
+      setBotStatus(response.status);
+      if (response.text_card) {
+        setError(
+          response.text_card.reason === "audio_input_not_configured"
+            ? "Meeting BaaS 尚未設定音訊輸入 URL，目前只能使用文字卡。"
+            : "Meeting BaaS 目前無法加入，請稍後重試。",
+        );
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Meeting BaaS Bot 啟動失敗。");
+    } finally {
+      setBotLoading(false);
+    }
+  }
+  async function stopMeetingBot() {
+    if (!botId || botLoading) return;
+    setBotLoading(true);
+    try {
+      await leaveMeetingBot(botId);
+      setBotStatus("leaving");
+      setBotId(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Meeting BaaS Bot 離開失敗。");
+    } finally {
+      setBotLoading(false);
+    }
+  }
   return (
     <AppShell>
       <MeetingWorkspaceHeader phase="live" title={meeting?.title} />
@@ -415,6 +459,25 @@ export default function LivePage() {
           <VoiceBotStatus
             value={voiceStatus?.status ?? state.voice_bot ?? state.voiceBot}
           />
+          <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
+            <h2 className="font-semibold">Meeting BaaS Bot</h2>
+            <p className="mt-2 text-sm text-[#787774]">
+              {botStatus
+                ? `目前狀態：${botStatus}`
+                : meeting?.google_meeting_url
+                  ? "尚未加入這場 Google Meet。"
+                  : "這場會議尚未設定 Google Meet 連結。"}
+            </p>
+            {botId ? (
+              <button type="button" onClick={() => void stopMeetingBot()} disabled={botLoading} className="mt-4 w-full rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">
+                {botLoading ? "處理中…" : "讓 Bot 離開會議"}
+              </button>
+            ) : (
+              <button type="button" onClick={() => void startMeetingBot()} disabled={botLoading || !meeting?.google_meeting_url} className="mt-4 w-full rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                {botLoading ? "正在加入…" : "讓 Bot 加入會議"}
+              </button>
+            )}
+          </section>
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
             <h2 className="font-semibold">AI 語音發言</h2>
             <p className="mt-2 text-sm leading-6 text-[#787774]">
