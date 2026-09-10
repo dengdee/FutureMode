@@ -201,9 +201,20 @@ export default function LivePage() {
     setSpeaking(true);
     setError("");
     try {
+      const transcriptContext = textValue(
+        state.latest_transcript ?? state.latestTranscript ?? state.transcript,
+      );
+      const ragContext = memoryResults.length
+        ? memoryResults
+            .map((result, index) => `[議前記憶 ${index + 1}] ${result.content}`)
+            .join("\n")
+        : null;
+      const context = [transcriptContext && `[即時逐字稿] ${transcriptContext}`, ragContext]
+        .filter(Boolean)
+        .join("\n");
       const response = await generateAndSpeakVoiceBot(id, {
         prompt: `請針對目前議題「${currentTopic}」提出最重要的觀察與下一步。`,
-        context: textValue(state.latest_transcript ?? state.latestTranscript ?? state.transcript) ?? undefined,
+        context: context || undefined,
       });
       setVoiceStatus(response);
     } catch (cause) {
