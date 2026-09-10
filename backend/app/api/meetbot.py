@@ -535,38 +535,47 @@ async def leave_meeting(
 # Speak
 # ============================================================
 
-
 async def speak_text_to_meeting(
     text: str,
-    meeting_id: str | None = None,
+    meeting_id: str,
+    settings: Settings,
 ) -> None:
-    with tempfile.NamedTemporaryFile(
-        prefix="proximate-tts-",
-        suffix=".wav",
-        delete=False,
-    ) as temp:
-
-        output_file = Path(
-            temp.name
-        )
+    render_speak_url = (
+        f"{settings.websocket_service_url.rstrip('/')}/speak"
+    )
 
     try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                connect=10,
+                read=60,
+                write=10,
+                pool=10,
+            )
+        ) as http_client:
+            response = await http_client.post(
+                render_speak_url,
+                json={
+                    "text": text,
+                    "meeting_id": meeting_id,
+                },
+            )
 
-        await text_to_speech(
-            text,
-            output_file,
-        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"Render speak service error: "
+                f"{response.text}"
+            )
 
-        await audio_manager.send_wav(
-            output_file,
-            meeting_id=meeting_id,
-        )
+    except httpx.TimeoutException:
+        raise RuntimeError(
+            "Render speak service timeout"
+        ) from None
 
-    finally:
-
-        output_file.unlink(
-            missing_ok=True
-        )
+    except httpx.RequestError as exc:
+        raise RuntimeError(
+            f"Render speak service unavailable: {exc}"
+        ) from exc
 
 
 async def text_to_speech(text: str, output_file: Path) -> Path:
