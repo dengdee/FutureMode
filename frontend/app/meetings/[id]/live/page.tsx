@@ -12,6 +12,7 @@ import {
 import { getMeeting } from "../../../../lib/api/meetings";
 import { searchMeetingMemory } from "../../../../lib/api/documents";
 import {
+  getMeetingBotStatus,
   joinMeetingBot,
   leaveMeetingBot,
 } from "../../../../lib/api/meetbot";
@@ -193,6 +194,21 @@ export default function LivePage() {
       socket.close();
     };
   }, [id]);
+  useEffect(() => {
+    if (!botId) return;
+    let active = true;
+    const refreshBotStatus = () => {
+      getMeetingBotStatus(botId)
+        .then((response) => active && setBotStatus(response.status))
+        .catch(() => undefined);
+    };
+    refreshBotStatus();
+    const timer = window.setInterval(refreshBotStatus, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [botId]);
   async function vote(
     suggestionId: string,
     value: "support" | "reject" | "abstain",
