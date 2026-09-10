@@ -25,6 +25,25 @@ def test_health() -> None:
     assert response.headers["x-request-id"]
 
 
+async def request_meetbot_preflight():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        return await client.options(
+            "/meetbot/join",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "idempotency-key,content-type",
+            },
+        )
+
+
+def test_meetbot_preflight_allows_idempotency_header() -> None:
+    response = asyncio.run(request_meetbot_preflight())
+    assert response.status_code == 200
+    assert "idempotency-key" in response.headers["access-control-allow-headers"].lower()
+
+
 def test_ready_reports_unconfigured_dependencies(monkeypatch) -> None:
     monkeypatch.setattr(settings, "database_url", None)
     response = asyncio.run(request("/ready"))
