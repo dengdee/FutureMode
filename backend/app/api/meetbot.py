@@ -33,6 +33,7 @@ from app.integrations.meetingbaas import (
     MeetingBaasError,
 )
 from app.models import BotSession, Transcript
+import edge_tts
 
 settings = get_settings()
 
@@ -426,12 +427,17 @@ async def join_meeting(
         "streaming_enabled": True,
         "streaming_config": {
             "output_url": None,
-            "input_url": _meeting_input_url(
-                client.settings.meeting_baas_input_url, request.meeting_id
-            ),
+            "input_url": client.settings.meeting_baas_input_url,
             "audio_frequency": 24000,
         },
     }
+    print("\n========== MEETING BAAS CREATE DEBUG ==========")
+    print("[MEETBOT] meeting_url =", payload["meeting_url"])
+    print("[MEETBOT] bot_name =", payload["bot_name"])
+    print("[MEETBOT] streaming_enabled =", payload["streaming_enabled"])
+    print("[MEETBOT] input_url =", payload["streaming_config"]["input_url"])
+    print("[MEETBOT] audio_frequency =", payload["streaming_config"]["audio_frequency"])
+    print("===============================================\n")
 
     async def create() -> JoinMeetingResponse:
         if not client.settings.meeting_baas_api_key:
@@ -455,6 +461,9 @@ async def join_meeting(
                 payload,
                 idempotency_key=key,
             )
+            print("\n========== MEETING BAAS RESPONSE DEBUG ==========")
+            print(json.dumps(provider_bot, indent=2, ensure_ascii=False))
+            print("==================================================\n")
 
         except MeetingBaasError:
 
@@ -615,153 +624,6 @@ async def leave_meeting(
     )
 
 
-# ============================================================
-# Text To Speech
-# ============================================================
-
-
-async def text_to_speech(
-    text: str,
-    output_file: Path,
-) -> Path:
-
-    output_file.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    temp_file = output_file.with_suffix(
-        ".mp3"
-    )
-
-    try:
-
-        # ----------------------------------------------------
-        # Edge TTS
-        # ----------------------------------------------------
-
-        try:
-
-            import edge_tts
-
-        except ModuleNotFoundError:
-
-            raise RuntimeError(
-                "缺少 edge-tts，請先安裝 backend 依賴"
-            ) from None
-
-        communicate = edge_tts.Communicate(
-            text=text,
-            voice="zh-TW-HsiaoChenNeural",
-        )
-
-        await communicate.save(
-            str(temp_file)
-        )
-
-        if not temp_file.exists():
-
-            raise RuntimeError(
-                "Edge TTS 沒有產生 MP3"
-            )
-
-        if temp_file.stat().st_size == 0:
-
-            raise RuntimeError(
-                "Edge TTS 回傳空音訊"
-            )
-
-        # ----------------------------------------------------
-        # FFmpeg
-        #
-        # 不直接依賴 Vercel 系統 PATH 裡的 ffmpeg。
-        # 使用 imageio-ffmpeg 提供的 binary。
-        # ----------------------------------------------------
-
-        try:
-
-            import imageio_ffmpeg
-
-            ffmpeg_path = (
-                imageio_ffmpeg.get_ffmpeg_exe()
-            )
-
-        except ModuleNotFoundError:
-
-            raise RuntimeError(
-                "缺少 imageio-ffmpeg，請先安裝 backend 依賴"
-            ) from None
-
-        await asyncio.to_thread(
-            subprocess.run,
-            [
-                ffmpeg_path,
-                "-y",
-                "-i",
-                str(temp_file),
-                "-ar",
-                "24000",
-                "-ac",
-                "1",
-                "-sample_fmt",
-                "s16",
-                "-f",
-                "wav",
-                str(output_file),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-
-        if not output_file.exists():
-
-            raise RuntimeError(
-                "FFmpeg 沒有產生 WAV"
-            )
-
-        if output_file.stat().st_size == 0:
-
-            raise RuntimeError(
-                "FFmpeg 產生空 WAV"
-            )
-
-        return output_file
-
-    except FileNotFoundError:
-
-        raise RuntimeError(
-            "找不到 FFmpeg executable"
-        ) from None
-
-    except subprocess.CalledProcessError as exc:
-
-        stderr = (
-            exc.stderr
-            if isinstance(exc.stderr, str)
-            else ""
-        )
-
-        raise RuntimeError(
-            f"FFmpeg 轉換失敗: {stderr}"
-        ) from None
-
-    except Exception as exc:
-
-        if isinstance(exc, RuntimeError):
-            raise
-
-        raise RuntimeError(
-            f"Edge TTS 失敗: "
-            f"{type(exc).__name__}: {exc}"
-        ) from None
-
-    finally:
-
-        temp_file.unlink(
-            missing_ok=True
-        )
-
 
 # ============================================================
 # Speak
@@ -800,56 +662,176 @@ async def speak_text_to_meeting(
             missing_ok=True
         )
 
-def find_route(routes, target):
-    for route in routes:
-        path = getattr(route, "path", None)
+class SpeakRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1000)
 
-        if path == target:
-            return route
+async def text_to_speech(text: str, output_file: Path) -> Path:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        child_routes = getattr(route, "routes", None)
-
-        if child_routes:
-            found = find_route(child_routes, target)
-            if found:
-                return found
-
-    return None
-
-@router.post("/speak")
-async def speak(
-    request: Request,
-    body: SpeakRequest,
-) -> dict[str, str]:
-    print("[SPEAK] ===== ROUTES =====", flush=True)
-
-    ws_route = find_route(
-        request.app.routes,
-        "/meetbot/ws/audio-in",
-    )
-
-    print(
-        "[SPEAK] WS ROUTE =",
-        ws_route,
-        "TYPE =",
-        type(ws_route).__name__ if ws_route else None,
-        flush=True,
-    )
-    print("[SPEAK] ===== START =====", flush=True)
-    print(f"[SPEAK] text={body.text!r}", flush=True)
+    temp_file = output_file.with_suffix(".mp3")
 
     try:
-        print(
-            f"[SPEAK] websocket exists={audio_manager.websocket is not None}",
-            flush=True,
+        print("[TTS] 開始 Edge TTS...")
+
+        communicate = edge_tts.Communicate(
+            text=text,
+            voice="zh-TW-HsiaoChenNeural",
         )
 
-        print("[SPEAK] calling speak_text_to_meeting()", flush=True)
+        await communicate.save(str(temp_file))
 
-        await speak_text_to_meeting(body.text, meeting_id=body.meeting_id)
+        print("[TTS] Edge TTS 完成")
 
-        print("[SPEAK] audio sent successfully", flush=True)
-        print("[SPEAK] ===== SUCCESS =====", flush=True)
+        if not temp_file.exists():
+            raise RuntimeError("Edge TTS 沒有產生 MP3")
+
+        print(
+            f"[TTS] MP3 大小: {temp_file.stat().st_size} bytes"
+        )
+
+        if temp_file.stat().st_size == 0:
+            raise RuntimeError("Edge TTS 回傳空音訊")
+
+        print("[TTS] 開始 FFmpeg 轉換 WAV...")
+
+        await asyncio.to_thread(
+            subprocess.run,
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(temp_file),
+                "-ar",
+                "24000",
+                "-ac",
+                "1",
+                "-sample_fmt",
+                "s16",
+                str(output_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        if not output_file.exists():
+            raise RuntimeError("FFmpeg 沒有產生 WAV")
+
+        # print(
+        #     f"[TTS] WAV 大小: {output_file.stat().st_size} bytes"
+        # )
+
+        return output_file
+
+    except FileNotFoundError:
+        raise RuntimeError(
+            "找不到 ffmpeg，請確認 ffmpeg 已安裝並加入 PATH"
+        ) from None
+
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"ffmpeg 轉換失敗: {exc.stderr}"
+        ) from None
+
+    except Exception as exc:
+        raise RuntimeError(
+            f"Edge TTS 失敗: {type(exc).__name__}: {exc}"
+        ) from None
+
+    finally:
+        temp_file.unlink(missing_ok=True)
+
+@router.websocket("/ws/audio-in")
+async def meeting_audio_input(websocket: WebSocket) -> None:
+    print("\n========== WEBSOCKET DEBUG START ==========")
+    print("[WS] 收到 WebSocket 連線請求")
+
+    try:
+        await websocket.accept()
+        print("[WS] WebSocket ACCEPT 成功")
+
+        audio_manager.websocket = websocket
+        print("[WS] audio_manager.websocket = websocket")
+        print("[WS] WebSocket 狀態: CONNECTED")
+
+        while True:
+            message = await websocket.receive()
+
+            print(
+                f"[WS] 收到訊息 type={message.get('type')}"
+            )
+
+            if message.get("type") == "websocket.receive":
+                if message.get("bytes") is not None:
+                    print(
+                        f"[WS] 收到 binary audio: "
+                        f"{len(message['bytes'])} bytes"
+                    )
+
+                elif message.get("text") is not None:
+                    print(
+                        f"[WS] 收到 text: "
+                        f"{message['text']}"
+                    )
+
+    except WebSocketDisconnect as exc:
+        print(
+            f"[WS] WebSocket 斷線 "
+            f"code={exc.code}"
+        )
+
+    except Exception as exc:
+        print(
+            f"[WS] WebSocket ERROR: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    finally:
+        if audio_manager.websocket is websocket:
+            audio_manager.websocket = None
+
+        print("[WS] audio_manager.websocket = None")
+        print("[WS] WebSocket CLOSED")
+        print("========== WEBSOCKET DEBUG END ==========\n")
+
+
+@router.post("/speak")
+async def speak(request: SpeakRequest) -> dict[str, str]:
+    print("\n========== SPEAK DEBUG START ==========")
+    print(f"[1] 收到文字: {request.text}")
+
+    output_file = (
+        Path(__file__).resolve().parent.parent
+        / "audio"
+        / "tts_output.wav"
+    )
+
+    try:
+        print("[2] 開始 TTS...")
+
+        await text_to_speech(
+            request.text,
+            output_file,
+        )
+
+        print("[3] TTS 完成")
+
+        print(
+            "[4] Meeting BaaS WebSocket:",
+            audio_manager.websocket is not None,
+        )
+
+        if audio_manager.websocket is None:
+            raise RuntimeError(
+                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in"
+            )
+
+        # print("[5] 開始傳送 WAV 到 Meeting BaaS...")
+
+        await audio_manager.send_wav(output_file)
+
+        print("[6] WAV 傳送完成")
+        print("========== SPEAK DEBUG SUCCESS ==========\n")
 
         return {
             "status": "sent",
@@ -857,10 +839,7 @@ async def speak(
         }
 
     except RuntimeError as exc:
-        print(
-            f"[SPEAK][RuntimeError] {type(exc).__name__}: {exc}",
-            flush=True,
-        )
+        # print(f"[ERROR] {exc}")
 
         raise HTTPException(
             status_code=503,
@@ -869,8 +848,7 @@ async def speak(
 
     except Exception as exc:
         print(
-            f"[SPEAK][Exception] {type(exc).__name__}: {exc}",
-            flush=True,
+            f"[ERROR] {type(exc).__name__}: {exc}"
         )
 
         raise HTTPException(
@@ -879,602 +857,6 @@ async def speak(
         ) from None
 
     finally:
-        print("[SPEAK] ===== END =====", flush=True)
+        # output_file.unlink(missing_ok=True)
 
-# ============================================================
-# Meeting BaaS Audio Input WebSocket
-# ============================================================
-
-
-@router.websocket(
-    "/ws/audio-in"
-)
-async def meeting_audio_input(
-    websocket: WebSocket,
-) -> None:
-
-    print(
-        "[WS] ==================================================",
-        flush=True,
-    )
-    print(
-        "[WS] /meetbot/ws/audio-in HANDLER ENTER",
-        flush=True,
-    )
-
-    # --------------------------------------------------------
-    # Connection information
-    # --------------------------------------------------------
-
-    try:
-        print(
-            "[WS] client =", websocket.client,
-            flush=True,
-        )
-
-        print(
-            "[WS] headers =",
-            dict(websocket.headers),
-            flush=True,
-        )
-
-        print(
-            "[WS] query_params =",
-            dict(websocket.query_params),
-            flush=True,
-        )
-
-        print(
-            "[WS] path_params =",
-            dict(websocket.path_params),
-            flush=True,
-        )
-
-        print(
-            "[WS] url =",
-            websocket.url,
-            flush=True,
-        )
-
-        print(
-            "[WS] scope.type =",
-            websocket.scope.get("type"),
-            flush=True,
-        )
-
-        print(
-            "[WS] scope.path =",
-            websocket.scope.get("path"),
-            flush=True,
-        )
-
-        print(
-            "[WS] scope.raw_path =",
-            websocket.scope.get("raw_path"),
-            flush=True,
-        )
-
-        print(
-            "[WS] scope.query_string =",
-            websocket.scope.get("query_string"),
-            flush=True,
-        )
-
-        print(
-            "[WS] headers.authorization exists =",
-            "authorization" in websocket.headers,
-            flush=True,
-        )
-
-        print(
-            "[WS] sec-websocket-protocol =",
-            websocket.headers.get("sec-websocket-protocol"),
-            flush=True,
-        )
-
-        print(
-            "[WS] sec-websocket-version =",
-            websocket.headers.get("sec-websocket-version"),
-            flush=True,
-        )
-
-        print(
-            "[WS] sec-websocket-key exists =",
-            bool(websocket.headers.get("sec-websocket-key")),
-            flush=True,
-        )
-
-        print(
-            "[WS] user-agent =",
-            websocket.headers.get("user-agent"),
-            flush=True,
-        )
-
-        print(
-            "[WS] origin =",
-            websocket.headers.get("origin"),
-            flush=True,
-        )
-
-        print(
-            "[WS] host =",
-            websocket.headers.get("host"),
-            flush=True,
-        )
-
-        print(
-            "[WS] x-forwarded-for =",
-            websocket.headers.get("x-forwarded-for"),
-            flush=True,
-        )
-
-        print(
-            "[WS] x-forwarded-proto =",
-            websocket.headers.get("x-forwarded-proto"),
-            flush=True,
-        )
-
-    except Exception as exc:
-        print(
-            "[WS][DEBUG INFO ERROR]",
-            type(exc).__name__,
-            str(exc),
-            flush=True,
-        )
-
-    # --------------------------------------------------------
-    # Meeting ID
-    # --------------------------------------------------------
-
-    meeting_id = websocket.query_params.get(
-        "meeting_id"
-    )
-
-    print(
-        "[WS] meeting_id =",
-        repr(meeting_id),
-        flush=True,
-    )
-
-    if meeting_id is None:
-        print(
-            "[WS][WARNING] meeting_id is missing",
-            flush=True,
-        )
-
-    # --------------------------------------------------------
-    # Accept WebSocket
-    # --------------------------------------------------------
-
-    print(
-        "[WS] calling websocket.accept() ...",
-        flush=True,
-    )
-
-    try:
-
-        await websocket.accept()
-
-        print(
-            "[WS] websocket.accept() SUCCESS",
-            flush=True,
-        )
-
-    except Exception as exc:
-
-        print(
-            "[WS][ACCEPT ERROR]",
-            type(exc).__name__,
-            str(exc),
-            flush=True,
-        )
-
-        import traceback
-
-        traceback.print_exc()
-
-        print(
-            "[WS] ==================================================",
-            flush=True,
-        )
-
-        return
-
-    # --------------------------------------------------------
-    # Connection state after accept
-    # --------------------------------------------------------
-
-    print(
-        "[WS] client_state =",
-        websocket.client_state,
-        flush=True,
-    )
-
-    print(
-        "[WS] application_state =",
-        websocket.application_state,
-        flush=True,
-    )
-
-    # --------------------------------------------------------
-    # Register WebSocket
-    # --------------------------------------------------------
-
-    print(
-        "[WS] registering websocket into AudioInputManager ...",
-        flush=True,
-    )
-
-    try:
-
-        await audio_manager.connect(
-            websocket,
-            meeting_id=meeting_id,
-        )
-
-        print(
-            "[WS] AudioInputManager.connect() SUCCESS",
-            flush=True,
-        )
-
-        print(
-            "[WS] audio_manager.websocket =",
-            audio_manager.websocket,
-            flush=True,
-        )
-
-        print(
-            "[WS] active websocket keys =",
-            list(audio_manager._websockets.keys()),
-            flush=True,
-        )
-
-    except Exception as exc:
-
-        print(
-            "[WS][MANAGER CONNECT ERROR]",
-            type(exc).__name__,
-            str(exc),
-            flush=True,
-        )
-
-        import traceback
-
-        traceback.print_exc()
-
-        try:
-            await websocket.close(
-                code=1011,
-                reason="AudioInputManager connection failed",
-            )
-        except Exception as close_exc:
-            print(
-                "[WS][CLOSE ERROR]",
-                type(close_exc).__name__,
-                str(close_exc),
-                flush=True,
-            )
-
-        return
-
-    # --------------------------------------------------------
-    # Main receive loop
-    # --------------------------------------------------------
-
-    print(
-        "[WS] ENTER receive loop",
-        flush=True,
-    )
-
-    message_count = 0
-
-    try:
-
-        while True:
-
-            print(
-                "[WS] waiting for next message ...",
-                flush=True,
-            )
-
-            message = await websocket.receive()
-
-            message_count += 1
-
-            print(
-                "[WS] MESSAGE RECEIVED",
-                f"count={message_count}",
-                flush=True,
-            )
-
-            print(
-                "[WS] message type =",
-                message.get("type"),
-                flush=True,
-            )
-
-            print(
-                "[WS] message keys =",
-                list(message.keys()),
-                flush=True,
-            )
-
-            # ------------------------------------------------
-            # Disconnect
-            # ------------------------------------------------
-
-            if message.get("type") == "websocket.disconnect":
-
-                print(
-                    "[WS] !!! WEBSOCKET DISCONNECT !!!",
-                    flush=True,
-                )
-
-                print(
-                    "[WS] disconnect code =",
-                    message.get("code"),
-                    flush=True,
-                )
-
-                print(
-                    "[WS] disconnect reason =",
-                    message.get("reason"),
-                    flush=True,
-                )
-
-                break
-
-            # ------------------------------------------------
-            # Bytes
-            # ------------------------------------------------
-
-            bytes_frame = message.get("bytes")
-
-            if bytes_frame is not None:
-
-                print(
-                    "[WS] received BYTES frame",
-                    f"size={len(bytes_frame)}",
-                    flush=True,
-                )
-
-                # 目前不處理 Meeting BaaS 傳進來的 audio。
-                # 只維持 connection。
-
-            # ------------------------------------------------
-            # Text
-            # ------------------------------------------------
-
-            text_frame = message.get("text")
-
-            if text_frame is not None:
-
-                print(
-                    "[WS] received TEXT frame",
-                    f"length={len(text_frame)}",
-                    flush=True,
-                )
-
-                print(
-                    "[WS] text preview =",
-                    repr(text_frame[:500]),
-                    flush=True,
-                )
-
-                try:
-
-                    event = json.loads(
-                        text_frame
-                    )
-
-                    print(
-                        "[WS] JSON decode SUCCESS",
-                        flush=True,
-                    )
-
-                    print(
-                        "[WS] JSON type =",
-                        type(event).__name__,
-                        flush=True,
-                    )
-
-                    if isinstance(event, dict):
-
-                        print(
-                            "[WS] JSON keys =",
-                            list(event.keys()),
-                            flush=True,
-                        )
-
-                        print(
-                            "[WS] JSON event =",
-                            event,
-                            flush=True,
-                        )
-
-                        # ------------------------------------
-                        # Transcript persistence
-                        # ------------------------------------
-
-                        try:
-
-                            await _persist_provider_transcript(
-                                meeting_id,
-                                event,
-                                websocket.app.state.settings,
-                            )
-
-                            print(
-                                "[WS] transcript persistence finished",
-                                flush=True,
-                            )
-
-                        except Exception as exc:
-
-                            print(
-                                "[WS][TRANSCRIPT ERROR]",
-                                type(exc).__name__,
-                                str(exc),
-                                flush=True,
-                            )
-
-                            import traceback
-
-                            traceback.print_exc()
-
-                    else:
-
-                        print(
-                            "[WS] JSON is not dict; skip persistence",
-                            flush=True,
-                        )
-
-                except json.JSONDecodeError as exc:
-
-                    print(
-                        "[WS][JSON ERROR]",
-                        str(exc),
-                        flush=True,
-                    )
-
-                except Exception as exc:
-
-                    print(
-                        "[WS][TEXT PROCESSING ERROR]",
-                        type(exc).__name__,
-                        str(exc),
-                        flush=True,
-                    )
-
-                    import traceback
-
-                    traceback.print_exc()
-
-            # ------------------------------------------------
-            # Unknown message
-            # ------------------------------------------------
-
-            if (
-                message.get("bytes") is None
-                and message.get("text") is None
-                and message.get("type")
-                != "websocket.disconnect"
-            ):
-
-                print(
-                    "[WS][WARNING] Unknown WebSocket message:",
-                    message,
-                    flush=True,
-                )
-
-    except WebSocketDisconnect as exc:
-
-        print(
-            "[WS] WebSocketDisconnect exception",
-            flush=True,
-        )
-
-        print(
-            "[WS] code =",
-            getattr(exc, "code", None),
-            flush=True,
-        )
-
-        print(
-            "[WS] reason =",
-            getattr(exc, "reason", None),
-            flush=True,
-        )
-
-    except RuntimeError as exc:
-
-        print(
-            "[WS][RuntimeError]",
-            type(exc).__name__,
-            str(exc),
-            flush=True,
-        )
-
-        import traceback
-
-        traceback.print_exc()
-
-    except Exception as exc:
-
-        print(
-            "[WS][UNEXPECTED ERROR]",
-            type(exc).__name__,
-            str(exc),
-            flush=True,
-        )
-
-        import traceback
-
-        traceback.print_exc()
-
-    finally:
-
-        print(
-            "[WS] ==================================================",
-            flush=True,
-        )
-
-        print(
-            "[WS] CLEANUP",
-            flush=True,
-        )
-
-        print(
-            "[WS] total messages =",
-            message_count,
-            flush=True,
-        )
-
-        print(
-            "[WS] meeting_id =",
-            repr(meeting_id),
-            flush=True,
-        )
-
-        print(
-            "[WS] websocket state =",
-            websocket.client_state,
-            flush=True,
-        )
-
-        try:
-
-            await audio_manager.disconnect(
-                websocket,
-                meeting_id=meeting_id,
-            )
-
-            print(
-                "[WS] AudioInputManager.disconnect() SUCCESS",
-                flush=True,
-            )
-
-        except Exception as exc:
-
-            print(
-                "[WS][MANAGER DISCONNECT ERROR]",
-                type(exc).__name__,
-                str(exc),
-                flush=True,
-            )
-
-        print(
-            "[WS] active websocket keys after cleanup =",
-            list(audio_manager._websockets.keys()),
-            flush=True,
-        )
-
-        print(
-            "[WS] /meetbot/ws/audio-in HANDLER END",
-            flush=True,
-        )
-
-        print(
-            "[WS] ==================================================",
-            flush=True,
-        )
+        print("========== SPEAK DEBUG END ==========\n")
