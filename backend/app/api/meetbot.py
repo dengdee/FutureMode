@@ -694,6 +694,8 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
             raise RuntimeError("Edge TTS 回傳空音訊")
 
         print("[TTS] 開始 FFmpeg 轉換 WAV...")
+        print(f"[TTS] MP3: {temp_file}")
+        print(f"[TTS] WAV: {output_file}")
 
         await asyncio.to_thread(
             subprocess.run,
@@ -715,26 +717,37 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
             text=True,
         )
 
+        print("[TTS] FFmpeg 完成")
+
         if not output_file.exists():
             raise RuntimeError("FFmpeg 沒有產生 WAV")
 
-        # print(
-        #     f"[TTS] WAV 大小: {output_file.stat().st_size} bytes"
-        # )
+        print(
+            f"[TTS] WAV 大小: {output_file.stat().st_size} bytes"
+        )
 
         return output_file
 
     except FileNotFoundError:
+        print("[TTS ERROR] 找不到 ffmpeg")
         raise RuntimeError(
-            "找不到 ffmpeg，請確認 ffmpeg 已安裝並加入 PATH"
+            "找不到 ffmpeg，Vercel 環境沒有可用的 ffmpeg"
         ) from None
 
     except subprocess.CalledProcessError as exc:
+        print("[TTS ERROR] FFmpeg 執行失敗")
+        print(f"[TTS ERROR] return code: {exc.returncode}")
+        print(f"[TTS ERROR] stderr: {exc.stderr}")
+
         raise RuntimeError(
             f"ffmpeg 轉換失敗: {exc.stderr}"
         ) from None
 
     except Exception as exc:
+        print(
+            f"[TTS ERROR] {type(exc).__name__}: {exc}"
+        )
+
         raise RuntimeError(
             f"Edge TTS 失敗: {type(exc).__name__}: {exc}"
         ) from None
@@ -843,7 +856,7 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
         }
 
     except RuntimeError as exc:
-        # print(f"[ERROR] {exc}")
+        print(f"[ERROR] {exc}")
 
         raise HTTPException(
             status_code=503,
