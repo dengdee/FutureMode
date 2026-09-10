@@ -364,6 +364,23 @@ async def _persist_provider_transcript(
         return
 
 
+async def _mark_bot_status(bot_id: str, status: str, settings: Settings) -> None:
+    """Keep the local BotSession aligned with provider lifecycle changes."""
+    if not settings.database_url:
+        return
+    try:
+        async for session in get_session(settings):
+            existing = await session.scalar(
+                select(BotSession).where(BotSession.provider_bot_id == bot_id)
+            )
+            if existing is not None:
+                existing.status = status
+                await session.commit()
+            return
+    except SQLAlchemyError:
+        return
+
+
 # ============================================================
 # Join Meeting
 # ============================================================
@@ -493,6 +510,8 @@ async def get_meeting_bot_status(
     existing = await _find_bot_session(meeting_id, client.settings)
     if existing is None or not existing.provider_bot_id:
         raise HTTPException(status_code=404, detail="meeting bot not found")
+    if existing.status in {"left", "ended", "failed"}:
+        raise HTTPException(status_code=404, detail="meeting bot is no longer active")
     try:
         provider_response = await client.get_bot(existing.provider_bot_id)
         provider = _provider_data(provider_response)
@@ -585,6 +604,8 @@ async def leave_meeting(
             status_code=exc.status_code,
             detail=exc.code,
         ) from None
+
+    await _mark_bot_status(bot_id, "left", client.settings)
 
     return LeaveMeetingResponse(
         bot_id=bot_id
