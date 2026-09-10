@@ -88,17 +88,25 @@ export default function LivePage() {
   );
 
   async function load() {
-    const [meetingData, suggestionData, stateData, voiceData] =
-      await Promise.all([
-        getMeeting(id),
-        listSuggestions(id),
-        getMeetingState(id),
-        getVoiceBotStatus(id),
-      ]);
-    setMeeting(meetingData);
-    setSuggestions(suggestionData);
-    setSnapshot(stateData);
-    setVoiceStatus(voiceData);
+    const results = await Promise.allSettled([
+      getMeeting(id),
+      listSuggestions(id),
+      getMeetingState(id),
+      getVoiceBotStatus(id),
+    ]);
+    const [meetingResult, suggestionsResult, stateResult, voiceResult] = results;
+    const failures: string[] = [];
+    if (meetingResult.status === "fulfilled") setMeeting(meetingResult.value);
+    else failures.push("會議資料");
+    if (suggestionsResult.status === "fulfilled") setSuggestions(suggestionsResult.value);
+    else failures.push("AI 建議");
+    if (stateResult.status === "fulfilled") setSnapshot(stateResult.value);
+    else failures.push("會議狀態");
+    if (voiceResult.status === "fulfilled") setVoiceStatus(voiceResult.value);
+    else failures.push("Voice Bot 狀態");
+    if (failures.length) {
+      throw new Error(`無法載入：${failures.join("、")}。請確認後端服務與登入狀態。`);
+    }
   }
   useEffect(() => {
     let active = true;
