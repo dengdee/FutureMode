@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+import tempfile
 
 from fastapi import (
     APIRouter,
@@ -800,11 +801,14 @@ async def speak(request: SpeakRequest) -> dict[str, str]:
     print("\n========== SPEAK DEBUG START ==========")
     print(f"[1] 收到文字: {request.text}")
 
-    output_file = (
-        Path(__file__).resolve().parent.parent
-        / "audio"
-        / "tts_output.wav"
-    )
+    # Vercel 只能可靠寫入 /tmp
+    with tempfile.NamedTemporaryFile(
+        prefix="proximate-tts-",
+        suffix=".wav",
+        dir="/tmp",
+        delete=False,
+    ) as temp:
+        output_file = Path(temp.name)
 
     try:
         print("[2] 開始 TTS...")
