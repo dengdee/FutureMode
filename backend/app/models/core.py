@@ -134,6 +134,7 @@ class Meeting(Base):
         PostgresUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
+    google_meeting_id: Mapped[str | None] = mapped_column(String(128), unique=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(
         String(32), default=MeetingStatus.DRAFT.value, nullable=False

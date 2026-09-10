@@ -85,6 +85,7 @@ async def create_meeting(
             host_user_id=user_id,
             title=payload.title,
             scheduled_at=payload.scheduled_at,
+            google_meeting_id=payload.google_meeting_id,
             ai_intervention_level=payload.ai_intervention_level,
         )
         session.add(meeting)
@@ -114,6 +115,24 @@ async def list_meetings(
         return list((await session.scalars(query)).all())
     except SQLAlchemyError:
         raise HTTPException(status_code=503, detail="database is unavailable") from None
+
+
+@router.get("/meetings/by-google-id/{google_meeting_id}", response_model=MeetingSummary)
+async def get_meeting_by_google_id(
+    google_meeting_id: str,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> Meeting:
+    query = (
+        select(Meeting)
+        .join(TeamMember, TeamMember.team_id == Meeting.team_id)
+        .join(User, User.id == TeamMember.user_id)
+        .where(Meeting.google_meeting_id == google_meeting_id, User.external_id == principal.subject)
+    )
+    meeting = await session.scalar(query)
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="Google Meet 尚未綁定 Proximate 會議")
+    return meeting
 
 
 async def authorized_meeting(

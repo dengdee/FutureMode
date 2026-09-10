@@ -8,6 +8,7 @@ import wave
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
+from fastapi import Request
 
 from fastapi import (
     APIRouter,
@@ -577,19 +578,56 @@ async def speak_text_to_meeting(
             missing_ok=True
         )
 
+def find_route(routes, target):
+    for route in routes:
+        path = getattr(route, "path", None)
 
-@router.post(
-    "/speak",
-)
+        if path == target:
+            return route
+
+        child_routes = getattr(route, "routes", None)
+
+        if child_routes:
+            found = find_route(child_routes, target)
+            if found:
+                return found
+
+    return None
+
+@router.post("/speak")
 async def speak(
-    request: SpeakRequest,
+    request: Request,
+    body: SpeakRequest,
 ) -> dict[str, str]:
+    print("[SPEAK] ===== ROUTES =====", flush=True)
+
+    ws_route = find_route(
+        request.app.routes,
+        "/meetbot/ws/audio-in",
+    )
+
+    print(
+        "[SPEAK] WS ROUTE =",
+        ws_route,
+        "TYPE =",
+        type(ws_route).__name__ if ws_route else None,
+        flush=True,
+    )
+    print("[SPEAK] ===== START =====", flush=True)
+    print(f"[SPEAK] text={body.text!r}", flush=True)
 
     try:
-
-        await speak_text_to_meeting(
-            request.text
+        print(
+            f"[SPEAK] websocket exists={audio_manager.websocket is not None}",
+            flush=True,
         )
+
+        print("[SPEAK] calling speak_text_to_meeting()", flush=True)
+
+        await speak_text_to_meeting(body.text)
+
+        print("[SPEAK] audio sent successfully", flush=True)
+        print("[SPEAK] ===== SUCCESS =====", flush=True)
 
         return {
             "status": "sent",
@@ -597,6 +635,10 @@ async def speak(
         }
 
     except RuntimeError as exc:
+        print(
+            f"[SPEAK][RuntimeError] {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
         raise HTTPException(
             status_code=503,
@@ -604,13 +646,18 @@ async def speak(
         ) from None
 
     except Exception as exc:
+        print(
+            f"[SPEAK][Exception] {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                f"{type(exc).__name__}: {exc}"
-            ),
+            detail=f"{type(exc).__name__}: {exc}",
         ) from None
+
+    finally:
+        print("[SPEAK] ===== END =====", flush=True)
 
 
 # ============================================================
