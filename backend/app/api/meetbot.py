@@ -1,26 +1,19 @@
 """Compatibility routes for the Meeting BaaS voice-bot integration."""
 
+import tempfile
+import wave
+from pathlib import Path
 import asyncio
 import hashlib
 import json
-import subprocess
-import tempfile
-import wave
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-import tempfile
-
 from fastapi import (
     APIRouter,
     Depends,
     Header,
     HTTPException,
-    Request,
-    WebSocket,
-    WebSocketDisconnect,
     status,
 )
 from pydantic import BaseModel, Field, HttpUrl
@@ -36,6 +29,7 @@ from app.integrations.meetingbaas import (
 from app.models import BotSession, Transcript
 import edge_tts
 import miniaudio
+import httpx
 
 settings = get_settings()
 
@@ -84,97 +78,6 @@ class SpeakRequest(BaseModel):
         max_length=1000,
     )
     meeting_id: str | None = Field(default=None, min_length=1, max_length=64)
-
-
-# ============================================================
-# Audio Input Manager
-# ============================================================
-
-
-class AudioInputManager:
-    """
-    Holds the active Meeting BaaS input WebSocket.
-
-    NOTE:
-    This is process-local memory.
-
-    It is suitable for the current single-bot PoC,
-    but it is NOT a durable multi-instance solution for Vercel.
-    """
-
-    def __init__(self) -> None:
-        self.websocket: WebSocket | None = None
-        self._websockets: dict[str, WebSocket] = {}
-        self._lock = asyncio.Lock()
-
-    async def connect(self, websocket: WebSocket, meeting_id: str | None = None) -> None:
-        async with self._lock:
-            key = meeting_id or "default"
-            previous = self._websockets.get(key)
-            self._websockets[key] = websocket
-            self.websocket = websocket
-        if previous is not None and previous is not websocket:
-            try:
-                await previous.close(code=1000)
-            except Exception:
-                pass
-
-    async def disconnect(self, websocket: WebSocket, meeting_id: str | None = None) -> None:
-        async with self._lock:
-            key = meeting_id or "default"
-            if self._websockets.get(key) is websocket:
-                self._websockets.pop(key, None)
-            if self.websocket is websocket:
-                self.websocket = next(iter(self._websockets.values()), None)
-
-    async def send_wav(self, wav_path: Path, meeting_id: str | None = None) -> None:
-        async with self._lock:
-            websocket = self._websockets.get(meeting_id or "default")
-            if websocket is None and meeting_id is None:
-                websocket = self.websocket
-
-        if websocket is None:
-            raise RuntimeError(
-                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in；請先建立本場會議的音訊連線"
-            )
-
-        with wave.open(str(wav_path), "rb") as wav:
-            channels = wav.getnchannels()
-            sample_width = wav.getsampwidth()
-            sample_rate = wav.getframerate()
-
-            if channels != 1:
-                raise ValueError(
-                    f"語音檔必須為 mono，目前 channels={channels}"
-                )
-
-            if sample_width != 2:
-                raise ValueError(
-                    f"語音檔必須為 16-bit PCM，目前 sample_width={sample_width}"
-                )
-
-            if sample_rate != 24000:
-                raise ValueError(
-                    f"語音檔必須為 24 kHz，目前 sample_rate={sample_rate}"
-                )
-
-            while True:
-                pcm_data = wav.readframes(2400)
-
-                if not pcm_data:
-                    break
-
-                try:
-                    await websocket.send_bytes(pcm_data)
-                except (WebSocketDisconnect, RuntimeError, OSError) as exc:
-                    await self.disconnect(websocket, meeting_id)
-                    raise RuntimeError("Meeting BaaS 音訊 WebSocket 已中斷") from exc
-
-                # 2400 samples / 24000 Hz = 100 ms
-                await asyncio.sleep(0.1)
-
-
-audio_manager = AudioInputManager()
 
 
 # ============================================================
@@ -263,14 +166,6 @@ def _provider_data(
     return response
 
 
-def _meeting_input_url(base_url: str | None, meeting_id: str | None) -> str | None:
-    """Attach an optional meeting scope without breaking existing provider URLs."""
-    if not base_url or not meeting_id:
-        return base_url
-    parts = urlsplit(base_url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["meeting_id"] = meeting_id
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 def _meeting_uuid(meeting_id: str | None):
@@ -743,126 +638,61 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
 
     finally:
         mp3_file.unlink(missing_ok=True)
-        
-@router.websocket("/ws/audio-in")
-async def meeting_audio_input(websocket: WebSocket) -> None:
-    print("\n========== WEBSOCKET DEBUG START ==========")
-    print("[WS] 收到 WebSocket 連線請求")
-
-    try:
-        await websocket.accept()
-        print("[WS] WebSocket ACCEPT 成功")
-
-        audio_manager.websocket = websocket
-        print("[WS] audio_manager.websocket = websocket")
-        print("[WS] WebSocket 狀態: CONNECTED")
-
-        while True:
-            message = await websocket.receive()
-
-            print(
-                f"[WS] 收到訊息 type={message.get('type')}"
-            )
-
-            if message.get("type") == "websocket.receive":
-                if message.get("bytes") is not None:
-                    print(
-                        f"[WS] 收到 binary audio: "
-                        f"{len(message['bytes'])} bytes"
-                    )
-
-                elif message.get("text") is not None:
-                    print(
-                        f"[WS] 收到 text: "
-                        f"{message['text']}"
-                    )
-
-    except WebSocketDisconnect as exc:
-        print(
-            f"[WS] WebSocket 斷線 "
-            f"code={exc.code}"
-        )
-
-    except Exception as exc:
-        print(
-            f"[WS] WebSocket ERROR: "
-            f"{type(exc).__name__}: {exc}"
-        )
-
-    finally:
-        if audio_manager.websocket is websocket:
-            audio_manager.websocket = None
-
-        print("[WS] audio_manager.websocket = None")
-        print("[WS] WebSocket CLOSED")
-        print("========== WEBSOCKET DEBUG END ==========\n")
-
-
+    
 @router.post("/speak")
-async def speak(request: SpeakRequest) -> dict[str, str]:
+async def speak(
+    request: SpeakRequest,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    render_speak_url = f"{settings.websocket_service_url.rstrip('/')}/speak"
+
     print("\n========== SPEAK DEBUG START ==========")
     print(f"[1] 收到文字: {request.text}")
-
-    # Vercel 只能可靠寫入 /tmp
-    with tempfile.NamedTemporaryFile(
-        prefix="proximate-tts-",
-        suffix=".wav",
-        dir="/tmp",
-        delete=False,
-    ) as temp:
-        output_file = Path(temp.name)
+    print(f"[2] Render Speak URL: {render_speak_url}")
 
     try:
-        print("[2] 開始 TTS...")
-
-        await text_to_speech(
-            request.text,
-            output_file,
-        )
-
-        print("[3] TTS 完成")
-
-        print(
-            "[4] Meeting BaaS WebSocket:",
-            audio_manager.websocket is not None,
-        )
-
-        if audio_manager.websocket is None:
-            raise RuntimeError(
-                "Meeting BaaS 尚未連接 /meetbot/ws/audio-in"
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                connect=10,
+                read=60,
+                write=10,
+                pool=10,
+            )
+        ) as http_client:
+            response = await http_client.post(
+                render_speak_url,
+                json={"text": request.text},
             )
 
-        # print("[5] 開始傳送 WAV 到 Meeting BaaS...")
+        if response.status_code >= 400:
+            print(
+                f"[ERROR] Render /speak "
+                f"status={response.status_code} "
+                f"body={response.text}"
+            )
 
-        await audio_manager.send_wav(output_file)
+            raise HTTPException(
+                status_code=503,
+                detail=f"Render speak service error: {response.text}",
+            )
 
-        print("[6] WAV 傳送完成")
+        print("[3] Render TTS / WebSocket 傳送成功")
         print("========== SPEAK DEBUG SUCCESS ==========\n")
 
-        return {
-            "status": "sent",
-            "message": "Audio sent to meeting",
-        }
+        return response.json()
 
-    except RuntimeError as exc:
-        print(f"[ERROR] {exc}")
+    except httpx.TimeoutException as exc:
+        print(f"[ERROR] Render /speak timeout: {exc}")
+
+        raise HTTPException(
+            status_code=504,
+            detail="Render speak service timeout",
+        ) from None
+
+    except httpx.RequestError as exc:
+        print(f"[ERROR] Render /speak request failed: {exc}")
 
         raise HTTPException(
             status_code=503,
-            detail=str(exc),
+            detail=f"Render speak service unavailable: {exc}",
         ) from None
-
-    except Exception as exc:
-        print(
-            f"[ERROR] {type(exc).__name__}: {exc}"
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"{type(exc).__name__}: {exc}",
-        ) from None
-
-    finally:
-        # output_file.unlink(missing_ok=True)
-
-        print("========== SPEAK DEBUG END ==========\n")

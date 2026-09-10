@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     neon_auth_audience: str | None = None
     neon_auth_jwks_url: str | None = None
 
+    websocket_service_url: str = "https://futuremode.onrender.com"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
