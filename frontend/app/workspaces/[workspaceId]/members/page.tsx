@@ -152,7 +152,7 @@ export default function WorkspaceMembersPage() {
       <div className="mt-8">
         <TeamSubnav teamId={workspaceId} active="members" />
       </div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-6 space-y-6">
         <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
           <div className="flex items-center gap-2">
             <IconUsersGroup className="text-[#0f9f8a]" size={20} />

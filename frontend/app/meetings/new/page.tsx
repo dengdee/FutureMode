@@ -159,6 +159,7 @@ export default function NewMeetingPage() {
         team_id: teamId,
         title: title.trim(),
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        google_meeting_id: meetUrl.trim().match(/meet\.google\.com\/([a-z0-9-]+)/i)?.[1] ?? null,
         ai_intervention_level: level,
       });
       if (meetUrl.trim())
@@ -253,7 +254,7 @@ export default function NewMeetingPage() {
                 className={fieldClass}
               />
               <span className="mt-1 block text-xs font-normal text-[#787774]">
-                期限到後才開放 AI 的議前準備。
+                期限到後才開放 AI 的議前整理。
               </span>
             </label>
           </div>

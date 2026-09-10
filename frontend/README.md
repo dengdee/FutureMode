@@ -84,7 +84,7 @@
 2. API 正式部署採用 **Vercel**；FastAPI WebSocket 長連線必須先完成 staging 壓力與斷線重連驗證。
 3. Dashboard 正式路由為 **`/dashboard`**；產品首頁為 `/`，不與工作總覽混用。
 4. Google Meet Add-on 入口固定為 **`/meetings/[id]/addon`**。
-5. 建立瀏覽器 fallback **`/meetings/[id]/live`**，供無法使用 Add-on 或開發期測試時承載 Live UI。
+5. 建立瀏覽器 fallback **`/meetings/[id]/start/live`**，供無法使用 Add-on 或開發期測試時承載 Live UI。
 6. Member 可以修改自己的投票；「稍後」與「忽略」可重新投票。
 7. Audio Setup 開始後必須持續收音；Capture Page 保持開啟並顯示連線狀態。背景分頁與裝置休眠仍須實測。
 8. 優先採用 `ProductPlanning.md` 已列出的前端套件；未經指定不引入額外套件。
@@ -147,20 +147,20 @@ backend/
 /meetings/[id]/prepare    # Meeting Workspace：會前
 /meetings/[id]/audio-setup# 技術性收音設定，不列入主導覽
 /meetings/[id]/addon      # Google Meet Add-on 窄版 iframe，不列入主導覽
-/meetings/[id]/live       # Add-on 不可用時的瀏覽器 fallback／開發期測試頁
+/meetings/[id]/start/live # 開始會議中的瀏覽器 fallback／開發期測試頁
 /meetings/[id]/review     # Meeting Workspace：會後
 /memory                   # Team Memory
 /settings                 # 登入者帳號資訊；團隊管理在 /workspaces
 ```
 
 > [!NOTE]
-> `/meetings/[id]/live` 是瀏覽器 fallback 與開發期測試頁；一般使用者優先在 Google Meet 的 `/meetings/[id]/addon` 查看 Live State。兩者共用同一套 Live components 與資料 adapter，不維護兩套產品邏輯。
+> `/meetings/[id]/start/live` 是瀏覽器 fallback 與開發期測試頁；一般使用者優先在 Google Meet 的 `/meetings/[id]/addon` 查看 Live State。兩者共用同一套 Live components 與資料 adapter，不維護兩套產品邏輯。
 
 ### Add-on 身分與畫面同步
 
 Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 Web App 的 Neon Auth session，呼叫目前已提供的 meeting、suggestions、vote 與 Personal Sidekick REST；後端已有 state／events 路由，但前端尚未完成 meeting access-token handoff 與 WebSocket adapter，因此不假造 token 或事件流程。
 
-同一個使用者的 Web App、瀏覽器 `/live` fallback 與 Meet Add-on 會看到相同的公共 Meeting State，也會看到自己的 Personal Sidekick 對話；其他成員看不到該私人內容。資料與功能元件共用，但版面不必完全相同：Add-on 是窄版 iframe，Web App 是完整工作區。
+同一個使用者的 Web App、瀏覽器 `/meetings/[id]/start/live` fallback 與 Meet Add-on 會看到相同的公共 Meeting State，也會看到自己的 Personal Sidekick 對話；其他成員看不到該私人內容。資料與功能元件共用，但版面不必完全相同：Add-on 是窄版 iframe，Web App 是完整工作區。
 
 ## 開發原則
 
@@ -197,7 +197,7 @@ Meet Add-on 不在 iframe 內重新執行登入。現階段 Add-on 直接沿用 
 - **目標**：建立四個主入口與技術路由的檔案骨架，避免日後頁面架構分散。
 - **使用者情境**：登入後可從固定導覽前往 Dashboard、Meetings、Memory、Settings；進入會議後保留會議上下文。
 - **功能內容**：已完成 App Shell、桌面收合側欄、手機 Drawer 導覽、頁面 title、麵包屑／返回 Meetings、所有規劃 route 的靜態 UI，以及 route-level `loading`、`error`、`not-found` 邊界。
-- **頁面／路由**：`/dashboard`、`/meetings/new`、`/meetings/[id]/prepare`、`/meetings/[id]/review`、`/memory`、`/settings`；`/sign-in`、`/meetings/[id]/audio-setup`、`/meetings/[id]/addon`、`/meetings/[id]/live` 只建立技術性或會議上下文殼。
+- **頁面／路由**：`/dashboard`、`/meetings/new`、`/meetings/[id]/prepare`、`/meetings/[id]/review`、`/memory`、`/settings`；`/sign-in`、`/meetings/[id]/audio-setup`、`/meetings/[id]/addon`、`/meetings/[id]/start/live` 只建立技術性或會議上下文殼。
 - **元件規劃**：`AppShell`、`MainNav`、`MobileNav`、`PageHeader`、`MeetingWorkspaceHeader`、共用狀態畫面。
 - **狀態管理**：目前路徑與暫存 navigation state；不建立全域 store。
 - **資料來源**：靜態 route metadata 與展示內容；不在本步假造 API 回應。

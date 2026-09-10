@@ -7,9 +7,24 @@ type TeamSubnavProps = {
 };
 
 const items = [
-  { id: "overview", label: "團隊總覽", icon: IconHome2, href: (id: string) => `/workspaces/${id}` },
-  { id: "members", label: "成員與邀請", icon: IconUsersGroup, href: (id: string) => `/workspaces/${id}/members` },
-  { id: "memory", label: "團隊記憶", icon: IconFileText, href: (id: string) => `/workspaces/${id}/memory/shared` },
+  {
+    id: "overview",
+    label: "團隊總覽",
+    icon: IconHome2,
+    href: (id: string) => `/workspaces/${id}`,
+  },
+  {
+    id: "members",
+    label: "成員與邀請",
+    icon: IconUsersGroup,
+    href: (id: string) => `/workspaces/${id}/members`,
+  },
+  {
+    id: "memory",
+    label: "團隊歷史文件",
+    icon: IconFileText,
+    href: (id: string) => `/workspaces/${id}/memory/shared`,
+  },
 ] as const;
 
 export function TeamSubnav({ teamId, active }: TeamSubnavProps) {

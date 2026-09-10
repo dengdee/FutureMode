@@ -1,7 +1,6 @@
 "use client";
 
-import { IconExternalLink, IconRefresh, IconWifi } from "@tabler/icons-react";
-import Link from "next/link";
+import { IconRefresh, IconWifi } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
@@ -54,6 +53,12 @@ export default function LivePage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState("");
   const state = snapshot?.state ?? {};
+  const meetingInProgress = Boolean(
+    meeting &&
+      meeting.status !== "completed" &&
+      meeting.status !== "cancelled" &&
+      (!meeting.scheduled_at || new Date(meeting.scheduled_at).getTime() <= Date.now()),
+  );
   const currentTopic =
     typeof state.current_topic === "string"
       ? state.current_topic
@@ -93,6 +98,15 @@ export default function LivePage() {
       );
     }, 0);
     const socket = new WebSocket(socketUrl(id));
+    const fallbackTimer = window.setInterval(() => {
+      load().catch((cause) => {
+        if (!active) return;
+        setConnection((current) =>
+          current === "connected" ? "stale" : current,
+        );
+        setError(cause instanceof Error ? cause.message : "無法更新會議狀態。");
+      });
+    }, 15000);
     socket.onopen = () => active && setConnection("connected");
     socket.onerror = () => active && setConnection("reconnecting");
     socket.onclose = () => active && setConnection("offline");
@@ -100,7 +114,13 @@ export default function LivePage() {
       try {
         const event = adapter.accept(JSON.parse(message.data));
         if (!event || event.meeting_id !== id) return;
-        const payload = event.payload as Record<string, unknown>;
+        if (event.cursor > 0 && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "ack", cursor: event.cursor }));
+        }
+        const payload =
+          event.payload && typeof event.payload === "object"
+            ? (event.payload as Record<string, unknown>)
+            : {};
         setLastUpdated(event.timestamp);
         if (
           event.event_type === "voice_bot:status" ||
@@ -157,6 +177,7 @@ export default function LivePage() {
     return () => {
       active = false;
       window.clearTimeout(loadTimer);
+      window.clearInterval(fallbackTimer);
       socket.close();
     };
   }, [id]);
@@ -319,7 +340,7 @@ export default function LivePage() {
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
             <h2 className="font-semibold">會議狀態</h2>
             <p className="mt-2 text-sm text-[#787774]">
-              {meeting?.status === "in_progress"
+              {meetingInProgress
                 ? "會議進行中"
                 : "尚未開始或已結束"}
             </p>
@@ -343,19 +364,6 @@ export default function LivePage() {
             >
               {speaking ? "正在準備並播放…" : "生成文字並發言"}
             </button>
-          </section>
-          <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5">
-            <h2 className="font-semibold">收音與 Meet</h2>
-            <p className="mt-2 text-sm leading-6 text-[#787774]">
-              保持 Capture Page 開啟以送出你的授權音訊。若 Meet Add-on
-              不可用，可在此瀏覽器頁查看公共會議狀態。
-            </p>
-            <Link
-              href={`/meetings/${id}/audio-setup`}
-              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#087e6d]"
-            >
-              開啟收音設定 <IconExternalLink size={16} />
-            </Link>
           </section>
         </aside>
       </div>

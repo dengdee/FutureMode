@@ -240,3 +240,4 @@ app.include_router(preparation_router)
 app.include_router(suggestions_router)
 app.include_router(meetings_router)
 app.include_router(realtime_events_router)
+

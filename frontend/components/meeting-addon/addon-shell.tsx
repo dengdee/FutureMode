@@ -4,7 +4,6 @@ import {
   IconAlertTriangle,
   IconCircleCheck,
   IconLoader2,
-  IconLock,
   IconRefresh,
 } from "@tabler/icons-react";
 import {
@@ -15,17 +14,25 @@ import {
   type ReactNode,
 } from "react";
 import { getLiveSnapshot } from "../../lib/api/addon";
+import { getMeetingByGoogleId } from "../../lib/api/meetings";
 import {
-  createPersonalMessage,
-  listPersonalMessages,
   previewContribution,
   publishContribution,
 } from "../../lib/api/meeting-features";
-import type { LiveSnapshotResponse, MeetingSummary } from "../../types/api";
-import { HostControlsTab, LiveStateTab } from "./live-state";
+import {
+  createPreparationMessage,
+  listPreparationMessages,
+} from "../../lib/api/preparation";
+import type {
+  LiveSnapshotResponse,
+  MeetingSummary,
+  PreparationMessage,
+} from "../../types/api";
+import { LiveStateTab } from "./live-state";
 
-type Tab = "brief" | "live" | "sidekick" | "host";
+type Tab = "brief" | "live" | "sidekick";
 type Status = "loading" | "connected" | "unauthorized" | "error";
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function AddonShell({
   meetingId,
@@ -50,17 +57,17 @@ export function AddonShell({
     preview ? previewSnapshot : null,
   );
   const [errorMessage, setErrorMessage] = useState("");
-  const isHost =
-    preview ||
-    snapshot?.policy?.is_host === true ||
-    snapshot?.policy?.isHost === true;
-
+  const [apiMeetingId, setApiMeetingId] = useState<string | null>(null);
   const loadContext = useCallback(async () => {
     if (preview) return;
     setStatus("loading");
     setErrorMessage("");
     try {
-      const snapshotResponse = await getLiveSnapshot(meetingId);
+      const appMeetingId = uuidPattern.test(meetingId)
+        ? meetingId
+        : (await getMeetingByGoogleId(meetingId)).id;
+      setApiMeetingId(appMeetingId);
+      const snapshotResponse = await getLiveSnapshot(appMeetingId);
       setMeeting(snapshotResponse.meeting ?? null);
       setSnapshot(snapshotResponse);
       setStatus("connected");
@@ -78,13 +85,14 @@ export function AddonShell({
   useEffect(() => {
     if (preview) return;
     void Promise.resolve().then(loadContext);
+    const timer = window.setInterval(() => void loadContext(), 5000);
+    return () => window.clearInterval(timer);
   }, [loadContext, preview]);
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "brief", label: "Brief" },
     { id: "live", label: "Live State" },
     { id: "sidekick", label: "Sidekick" },
-    ...(isHost ? [{ id: "host" as const, label: "Host" }] : []),
   ];
 
   return (
@@ -133,8 +141,13 @@ export function AddonShell({
             <LoadingState />
           ) : status === "unauthorized" ? (
             <StateMessage
-              title="需要重新開啟會議"
-              description="此 Add-on 沒有有效的會議權限，請從已登入的 Web App 重新開啟。"
+              title={uuidPattern.test(meetingId) ? "需要重新開啟會議" : "尚未綁定 Proximate 會議"}
+              description={uuidPattern.test(meetingId) ? "此 Add-on 沒有有效的會議權限，請先在同一個網站登入 Proximate，再重新開啟會議。" : `Google Meet 傳回會議代碼「${meetingId}」，但 Proximate API 需要會議 UUID。請從 Proximate 的「開始會議」進入，或先完成此 Meet 與 Proximate 會議的綁定。`}
+              action={
+                <a href={uuidPattern.test(meetingId) ? `/meetings/${meetingId}/start` : "/dashboard"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">
+                  開啟 Proximate Web App
+                </a>
+              }
             />
           ) : status === "error" ? (
             <StateMessage
@@ -154,7 +167,7 @@ export function AddonShell({
           ) : (
             <TabContent
               tab={tab}
-              meetingId={meetingId}
+              meetingId={apiMeetingId ?? meetingId}
               meeting={meeting}
               snapshot={snapshot}
             />
@@ -193,6 +206,7 @@ function previewMeeting(meetingId: string): MeetingSummary {
     team_id: "preview-team",
     title: "MVP 共識會議",
     scheduled_at: null,
+    google_meeting_id: null,
     status: "in_progress",
     ai_intervention_level: "medium",
   };
@@ -265,33 +279,31 @@ function TabContent({
         snapshot={snapshot}
       />
     );
-  if (tab === "host")
-    return <HostControlsTab meetingId={meetingId} snapshot={snapshot} />;
   return <SidekickTab meetingId={meetingId} />;
 }
 
 function SidekickTab({ meetingId }: { meetingId: string }) {
-  const [messages, setMessages] = useState<
-    Array<{ id: string; content: string; role: string }>
-  >([]);
+  const [messages, setMessages] = useState<PreparationMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [preview, setPreview] = useState("");
   const [notice, setNotice] = useState("");
+  const [sending, setSending] = useState(false);
   useEffect(() => {
-    if (meetingId)
-      listPersonalMessages(meetingId)
-        .then((items) => setMessages(items))
-        .catch(() => undefined);
+    listPreparationMessages(meetingId).then(setMessages).catch(() => undefined);
   }, [meetingId]);
   async function send() {
-    if (!draft.trim()) return;
+    const content = draft.trim();
+    if (!content || sending) return;
+    setSending(true);
     try {
-      const item = await createPersonalMessage(meetingId, draft.trim());
-      setMessages((current) => [...current, item]);
+      const response = await createPreparationMessage(meetingId, content);
+      setMessages((current) => [...current, ...response.filter((item) => !current.some((existing) => existing.id === item.id))]);
       setDraft("");
-      setNotice("訊息已儲存");
+      setNotice("");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "訊息送出失敗");
+    } finally {
+      setSending(false);
     }
   }
   async function previewAndPublish() {
@@ -304,71 +316,8 @@ function SidekickTab({ meetingId }: { meetingId: string }) {
       setNotice(error instanceof Error ? error.message : "預覽失敗");
     }
   }
-  return (
-    <section>
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold">Personal Sidekick</h2>
-        <IconLock size={14} className="text-[#8b8b87]" />
-      </div>
-      <p className="mt-2 text-xs text-[#787774]">
-        僅你可見，可將內容預覽後發布到會議。
-      </p>
-      <div className="mt-4 space-y-2">
-        {messages.map((message) => (
-          <div key={message.id} className="rounded-lg bg-[#f7f7f5] p-3 text-sm">
-            {message.content}
-          </div>
-        ))}
-      </div>
-      <textarea
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        className="control-primary mt-4 min-h-24 w-full"
-        placeholder="輸入你的觀點或問題"
-      />
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => void send()}
-          className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white"
-        >
-          儲存訊息
-        </button>
-        <button
-          type="button"
-          onClick={() => void previewAndPublish()}
-          className="rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold"
-        >
-          預覽發布
-        </button>
-      </div>
-      {preview && (
-        <div className="mt-4 rounded-xl border border-[#b9e9cc] bg-[#effbf4] p-3 text-sm">
-          <p className="text-xs font-semibold text-[#087f5b]">公開內容預覽</p>
-          <p className="mt-2">{preview}</p>
-          <button
-            type="button"
-            onClick={() =>
-              publishContribution(meetingId, preview)
-                .then(() => {
-                  setNotice("內容已發布");
-                  setPreview("");
-                })
-                .catch(() => setNotice("發布失敗"))
-            }
-            className="mt-3 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white"
-          >
-            確認發布
-          </button>
-        </div>
-      )}
-      {notice && (
-        <p role="status" className="mt-3 text-xs text-[#787774]">
-          {notice}
-        </p>
-      )}
-    </section>
-  );
+  const prompts = ["幫我釐清目前最重要的問題", "有哪些風險或反例？", "幫我整理成可以提出的觀點"];
+  return <section><h2 className="text-lg font-semibold">Personal Sidekick</h2><p className="mt-2 text-xs text-[#787774]">只有你看得到，會中可隨時和私人 Agent 討論，不會自動公開。</p><div className="mt-4 max-h-64 space-y-3 overflow-y-auto">{messages.length ? messages.map((message) => <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[90%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === "user" ? "rounded-br-md bg-[#0f9f8a] text-white" : "rounded-bl-md bg-[#f7f7f5] text-[#2f5446]"}`}>{message.content}</div></div>) : <p className="rounded-xl border border-dashed border-[#d8d8d5] p-4 text-sm text-[#787774]">先從一個問題開始，Agent 會協助你整理假設、風險與可提出的觀點。</p>}{sending && <p className="text-xs text-[#787774]">Agent 正在整理想法…</p>}</div><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => setDraft(prompt)} className="shrink-0 rounded-full border border-[#d7e8e5] px-3 py-1.5 text-[11px] text-[#087e6d]">{prompt}</button>)}</div><textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} className="control-primary mt-3 min-h-20 w-full" placeholder="和 Agent 討論一個問題…" aria-label="Sidekick 訊息" /><div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={!draft.trim() || sending} onClick={() => void send()} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">{sending ? "整理中…" : "送出訊息"}</button><button type="button" disabled={!draft.trim() || sending} onClick={() => void previewAndPublish()} className="rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold disabled:opacity-40">預覽發布</button></div>{preview && <div className="mt-4 rounded-xl border border-[#b9e9cc] bg-[#effbf4] p-3 text-sm"><p className="text-xs font-semibold text-[#087f5b]">公開內容預覽</p><p className="mt-2">{preview}</p><button type="button" onClick={() => publishContribution(meetingId, preview).then(() => { setNotice("內容已發布"); setPreview(""); }).catch(() => setNotice("發布失敗"))} className="mt-3 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white">確認提出觀點</button></div>}{notice && <p role="status" className="mt-3 text-xs text-[#787774]">{notice}</p>}</section>;
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {

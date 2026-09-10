@@ -3,6 +3,7 @@ import type { MeetingBrief, MeetingCreateRequest, MeetingSummary, MeetingUpdateR
 
 export function listMeetings() { return request<MeetingSummary[]>(() => http.get("/api/v1/meetings")); }
 export function getMeeting(meetingId: string) { return request<MeetingSummary>(() => http.get(`/api/v1/meetings/${meetingId}`)); }
+export function getMeetingByGoogleId(googleMeetingId: string) { return request<MeetingSummary>(() => http.get(`/api/v1/meetings/by-google-id/${encodeURIComponent(googleMeetingId)}`)); }
 export function createMeeting(payload: MeetingCreateRequest) { return request<MeetingSummary>(() => http.post("/api/v1/meetings", payload)); }
 export function updateMeeting(meetingId: string, payload: MeetingUpdateRequest) { return request<MeetingSummary>(() => http.patch(`/api/v1/meetings/${meetingId}`, payload)); }
 export function startMeeting(meetingId: string) { return request<MeetingSummary>(() => http.post(`/api/v1/meetings/${meetingId}/start`)); }

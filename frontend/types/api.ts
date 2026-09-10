@@ -82,6 +82,8 @@ export type VoteChoice = "support" | "later" | "ignore";
 export type LiveSnapshotResponse = {
   meeting?: MeetingSummary;
   state?: Record<string, unknown>;
+  state_version?: number;
+  updated_at?: string | null;
   participants?: Array<Record<string, unknown>>;
   suggestions?: Array<Record<string, unknown>>;
   policy?: Record<string, unknown>;
@@ -92,6 +94,7 @@ export type MeetingSummary = {
   team_id: string;
   title: string;
   scheduled_at: string | null;
+  google_meeting_id: string | null;
   status: string;
   ai_intervention_level: string;
 };
@@ -100,12 +103,14 @@ export type MeetingCreateRequest = {
   team_id: string;
   title: string;
   scheduled_at?: string | null;
+  google_meeting_id?: string | null;
   ai_intervention_level?: string;
 };
 
 export type MeetingUpdateRequest = {
   title?: string | null;
   scheduled_at?: string | null;
+  google_meeting_id?: string | null;
   ai_intervention_level?: string | null;
 };
 export type MeetingBrief = {
@@ -318,6 +323,7 @@ export type RealtimeEvent = {
   timestamp: string;
   schema_version: string;
   event_type: string;
+  cursor: number;
   payload: unknown;
 };
 export type VoiceBotStatus =

@@ -8,13 +8,14 @@ export function MeetingWorkspaceHeader({
   title,
 }: {
   meetingId?: string;
-  phase: "prepare" | "summary" | "review" | "audio" | "live";
+  phase: "prepare" | "summary" | "start" | "review" | "audio" | "live";
   title?: string;
 }) {
   const router = useRouter();
   const phaseLabel = {
     prepare: "議前討論",
     summary: "議前整理",
+    start: "開始會議",
     review: "會後回顧",
     audio: "收音設定",
     live: "即時會議",

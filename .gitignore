@@ -10,6 +10,9 @@ frontend/out/
 frontend/.vercel/
 frontend/*.tsbuildinfo
 
+# Local Remotion showcase assets (kept out of GitHub)
+video/
+
 # Backend
 backend/.venv/
 backend/.uv-cache/
