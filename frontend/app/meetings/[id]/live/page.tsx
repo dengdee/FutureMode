@@ -345,6 +345,9 @@ export default function LivePage() {
       setBotLoading(false);
     }
   }
+  const botIsActive = Boolean(
+    botId && !["completed", "left", "ended", "failed"].includes(botStatus ?? ""),
+  );
   async function stopMeetingBot() {
     if (!botId || botLoading) return;
     setBotLoading(true);
@@ -552,13 +555,13 @@ export default function LivePage() {
                   ? "尚未加入這場 Google Meet。"
                   : "這場會議尚未設定 Google Meet 連結。"}
             </p>
-            {botId ? (
+            {botIsActive ? (
               <button type="button" onClick={() => void stopMeetingBot()} disabled={botLoading} className="mt-4 w-full rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">
                 {botLoading ? "處理中…" : "讓 Bot 離開會議"}
               </button>
             ) : (
               <button type="button" onClick={() => void startMeetingBot()} disabled={botLoading || !meeting?.google_meeting_url} className="mt-4 w-full rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
-                {botLoading ? "正在加入…" : "讓 Bot 加入會議"}
+                {botLoading ? "正在加入…" : botStatus === "completed" ? "重新讓 Bot 加入" : "讓 Bot 加入會議"}
               </button>
             )}
           </section>

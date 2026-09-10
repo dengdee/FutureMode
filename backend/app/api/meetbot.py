@@ -411,11 +411,14 @@ async def join_meeting(
     if request.meeting_id:
         existing = await _find_bot_session(request.meeting_id, client.settings)
         if existing and existing.provider_bot_id:
-            return JoinMeetingResponse(
-                bot_id=existing.provider_bot_id,
-                status=existing.status,
-                idempotency_key=key,
-            )
+            if existing.status not in {"left", "ended", "completed", "failed"}:
+                return JoinMeetingResponse(
+                    bot_id=existing.provider_bot_id,
+                    status=existing.status,
+                    idempotency_key=key,
+                )
+            # A terminal provider session must not be reused on the next join.
+            join_registry._responses.pop(key, None)
 
     payload: dict[str, Any] = {
         "meeting_url": str(request.meeting_url),
