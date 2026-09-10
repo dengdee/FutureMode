@@ -115,3 +115,11 @@ export const searchMemory = (
       params: { q, limit, ...params },
     }),
   );
+
+/** Search only this meeting's published preparation documents. */
+export const searchMeetingMemory = (meetingId: string, q: string, limit = 10) =>
+  request<DocumentSearchResult[]>(() =>
+    http.get(`/api/v1/meetings/${meetingId}/memory/hybrid-search`, {
+      params: { q, limit },
+    }),
+  );

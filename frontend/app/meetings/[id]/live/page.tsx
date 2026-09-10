@@ -1,8 +1,8 @@
 "use client";
 
-import { IconRefresh, IconWifi } from "@tabler/icons-react";
+import { IconRefresh, IconSearch, IconWifi } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import {
@@ -10,6 +10,7 @@ import {
   voteSuggestion,
 } from "../../../../lib/api/meeting-features";
 import { getMeeting } from "../../../../lib/api/meetings";
+import { searchMeetingMemory } from "../../../../lib/api/documents";
 import {
   getMeetingState,
   RealtimeEventAdapter,
@@ -23,6 +24,7 @@ import type {
   MeetingStateSnapshot,
   MeetingSummary,
   Suggestion,
+  DocumentSearchResult,
 } from "../../../../types/api";
 
 function socketUrl(meetingId: string) {
@@ -47,6 +49,9 @@ export default function LivePage() {
     null,
   );
   const [speaking, setSpeaking] = useState(false);
+  const [memoryQuery, setMemoryQuery] = useState("");
+  const [memoryResults, setMemoryResults] = useState<DocumentSearchResult[]>([]);
+  const [memoryLoading, setMemoryLoading] = useState(false);
   const [connection, setConnection] = useState<
     "connecting" | "connected" | "reconnecting" | "stale" | "offline"
   >("connecting");
@@ -207,6 +212,21 @@ export default function LivePage() {
       setSpeaking(false);
     }
   }
+  async function searchMeetingMemoryNow(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = memoryQuery.trim();
+    if (!query) return;
+    setMemoryLoading(true);
+    setError("");
+    try {
+      setMemoryResults(await searchMeetingMemory(id, query));
+    } catch (cause) {
+      setMemoryResults([]);
+      setError(cause instanceof Error ? cause.message : "查詢會議記憶失敗。");
+    } finally {
+      setMemoryLoading(false);
+    }
+  }
   return (
     <AppShell>
       <MeetingWorkspaceHeader phase="live" title={meeting?.title} />
@@ -269,6 +289,39 @@ export default function LivePage() {
                 empty="尚未形成暫定決策。"
               />
             </div>
+          </section>
+          <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <IconSearch size={19} className="text-[#0f9f8a]" />
+              <div>
+                <h2 className="text-lg font-semibold">查詢議前記憶</h2>
+                <p className="mt-1 text-sm text-[#787774]">只搜尋本場會議已發布的議前文件。</p>
+              </div>
+            </div>
+            <form onSubmit={searchMeetingMemoryNow} className="mt-4 flex gap-2">
+              <input
+                value={memoryQuery}
+                onChange={(event) => setMemoryQuery(event.target.value)}
+                className="control-primary min-w-0 flex-1"
+                placeholder="例如：上線風險、決策依據"
+                aria-label="查詢議前記憶"
+              />
+              <button type="submit" disabled={memoryLoading || !memoryQuery.trim()} className="rounded-lg bg-[#0f9f8a] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                {memoryLoading ? "搜尋中…" : "搜尋"}
+              </button>
+            </form>
+            {memoryResults.length > 0 ? (
+              <div className="mt-4 space-y-3">
+                {memoryResults.map((result) => (
+                  <article key={result.chunk_id} className="rounded-xl bg-[#f7f7f5] p-3">
+                    <p className="text-xs font-medium text-[#087e6d]">{result.document_name}</p>
+                    <p className="mt-1 text-sm leading-6 text-[#4f4f4b]">{result.content}</p>
+                  </article>
+                ))}
+              </div>
+            ) : memoryQuery && !memoryLoading ? (
+              <p className="mt-4 text-sm text-[#787774]">找不到與此問題相關的議前內容。</p>
+            ) : null}
           </section>
           <section className="rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-6">
             <h2 className="text-lg font-semibold">最新逐字稿</h2>
