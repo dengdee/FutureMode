@@ -30,6 +30,7 @@ from app.models import BotSession, Transcript
 import edge_tts
 import miniaudio
 import httpx
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 settings = get_settings()
 
@@ -153,6 +154,14 @@ def _idempotency_key(
     scope = f"{meeting_url}|{meeting_id or ''}"
     return hashlib.sha256(scope.encode()).hexdigest()
 
+def _meeting_input_url(base_url: str | None, meeting_id: str | None) -> str | None:
+    """Attach an optional meeting scope without breaking existing provider URLs."""
+    if not base_url or not meeting_id:
+        return base_url
+    parts = urlsplit(base_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["meeting_id"] = meeting_id
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 def _provider_data(
     response: dict[str, Any],
@@ -324,7 +333,7 @@ async def join_meeting(
         "streaming_enabled": True,
         "streaming_config": {
             "output_url": None,
-            "input_url": client.settings.meeting_baas_input_url,
+            "input_url":  _meeting_input_url(client.settings.meeting_baas_input_url, request.meeting_id),
             "audio_frequency": 24000,
         },
     }
@@ -559,8 +568,6 @@ async def speak_text_to_meeting(
             missing_ok=True
         )
 
-class SpeakRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=1000)
 
 async def text_to_speech(text: str, output_file: Path) -> Path:
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -638,7 +645,8 @@ async def text_to_speech(text: str, output_file: Path) -> Path:
 
     finally:
         mp3_file.unlink(missing_ok=True)
-    
+
+
 @router.post("/speak")
 async def speak(
     request: SpeakRequest,
@@ -648,7 +656,8 @@ async def speak(
 
     print("\n========== SPEAK DEBUG START ==========")
     print(f"[1] 收到文字: {request.text}")
-    print(f"[2] Render Speak URL: {render_speak_url}")
+    print(f"[2] Meeting ID: {request.meeting_id}")
+    print(f"[3] Render Speak URL: {render_speak_url}")
 
     try:
         async with httpx.AsyncClient(
@@ -661,7 +670,10 @@ async def speak(
         ) as http_client:
             response = await http_client.post(
                 render_speak_url,
-                json={"text": request.text},
+                json={
+                    "text": request.text,
+                    "meeting_id": request.meeting_id,
+                },
             )
 
         if response.status_code >= 400:
@@ -676,7 +688,7 @@ async def speak(
                 detail=f"Render speak service error: {response.text}",
             )
 
-        print("[3] Render TTS / WebSocket 傳送成功")
+        print("[4] Render TTS / WebSocket 傳送成功")
         print("========== SPEAK DEBUG SUCCESS ==========\n")
 
         return response.json()
