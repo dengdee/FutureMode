@@ -4,6 +4,33 @@ import { IconAlertTriangle, IconMicrophone, IconPlayerStop, IconShieldCheck } fr
 import { useEffect, useRef, useState } from "react";
 import { transcribeAudio } from "../lib/api/meeting-features";
 
+type BrowserVad = {
+  start: () => void;
+  pause: () => void;
+};
+type VadApi = {
+  MicVAD: { new: (options: Record<string, unknown>) => Promise<BrowserVad> };
+};
+
+async function loadVadApi(): Promise<VadApi> {
+  if (window.vad) return window.vad as unknown as VadApi;
+  const load = (src: string) => new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("VAD 資源載入失敗"));
+    document.head.appendChild(script);
+  });
+  await load("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.js");
+  await load("https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js");
+  if (!window.vad) throw new Error("VAD 初始化失敗");
+  return window.vad as unknown as VadApi;
+}
+
+declare global {
+  interface Window { vad?: VadApi; }
+}
+
 type CaptureState = "idle" | "recording" | "uploading" | "ready" | "error";
 const activeRecorders = new Map<string, MediaRecorder>();
 
@@ -40,6 +67,16 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
       maxSignal.current = 0;
       chunks.current = [];
       const next = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      let speechDetected = false;
+      const vadApi = await loadVadApi();
+      const vad = await vadApi.MicVAD.new({
+        getStream: async () => stream,
+        model: "v5",
+        onSpeechStart: () => { speechDetected = true; },
+        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
+        baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/",
+      });
+      vad.start();
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 512;
@@ -57,8 +94,9 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
         window.localStorage.removeItem(`meeting-audio-recording:${meetingId}`);
         window.clearInterval(vadTimer);
         await audioContext.close();
+        vad.pause();
         activeRecorders.delete(meetingId);
-        if (maxSignal.current < 8) {
+        if (!speechDetected || maxSignal.current < 8) {
           setState("ready");
           setMessage("未偵測到人聲，已略過這段轉錄。");
           return;
