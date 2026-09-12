@@ -378,6 +378,11 @@ async def _transition_meeting(
 ) -> Meeting:
     try:
         meeting = await authorized_meeting(meeting_id, principal, session, write=True)
+        # Ending a meeting is intentionally idempotent: a second click (or a
+        # retry after the first request succeeded) should return the completed
+        # meeting instead of surfacing a confusing 409 conflict.
+        if target == "completed" and meeting.status == "completed":
+            return meeting
         if meeting.status not in allowed:
             raise HTTPException(status_code=409, detail="invalid meeting state transition")
         meeting.status = target
