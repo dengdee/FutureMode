@@ -31,14 +31,16 @@ import type {
 import { LiveStateTab } from "./live-state";
 
 type Tab = "brief" | "live" | "sidekick";
-type Status = "loading" | "connected" | "unauthorized" | "error";
+type Status = "loading" | "connected" | "unauthorized" | "unbound" | "error";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function AddonShell({
   meetingId,
+  meetingCode,
   preview = false,
 }: {
   meetingId: string;
+  meetingCode?: string;
   preview?: boolean;
 }) {
   const embedded = useSyncExternalStore(
@@ -63,9 +65,26 @@ export function AddonShell({
     setStatus("loading");
     setErrorMessage("");
     try {
-      const appMeetingId = uuidPattern.test(meetingId)
-        ? meetingId
-        : (await getMeetingByGoogleId(meetingId)).id;
+      const identifiers = uuidPattern.test(meetingId)
+        ? [meetingId]
+        : [meetingId, meetingCode].filter((value): value is string => Boolean(value));
+      let appMeetingId: string | null = null;
+      for (const identifier of identifiers) {
+        try {
+          appMeetingId = uuidPattern.test(identifier)
+            ? identifier
+            : (await getMeetingByGoogleId(identifier)).id;
+          break;
+        } catch (error) {
+          const apiError = error as { status?: number };
+          if (apiError.status !== 404) throw error;
+        }
+      }
+      if (!appMeetingId) {
+        setStatus("unbound");
+        setErrorMessage("這個 Google Meet 尚未綁定 Proximate 會議。");
+        return;
+      }
       setApiMeetingId(appMeetingId);
       const snapshotResponse = await getLiveSnapshot(appMeetingId);
       setMeeting(snapshotResponse.meeting ?? null);
@@ -73,14 +92,10 @@ export function AddonShell({
       setStatus("connected");
     } catch (error) {
       const apiError = error as { status?: number; message?: string };
-      setStatus(
-        apiError.status === 401 || apiError.status === 403
-          ? "unauthorized"
-          : "error",
-      );
+      setStatus(apiError.status === 401 || apiError.status === 403 ? "unauthorized" : "error");
       setErrorMessage(apiError.message ?? "無法載入會議資料。");
     }
-  }, [meetingId, preview]);
+  }, [meetingCode, meetingId, preview]);
 
   useEffect(() => {
     if (preview) return;
@@ -139,15 +154,21 @@ export function AddonShell({
         <div className="addon-panel-content min-h-0 flex-1 overflow-y-auto p-[clamp(12px,3vw,20px)]">
           {status === "loading" ? (
             <LoadingState />
-          ) : status === "unauthorized" ? (
+          ) : status === "unbound" ? (
             <StateMessage
-              title={uuidPattern.test(meetingId) ? "需要重新開啟會議" : "尚未綁定 Proximate 會議"}
-              description={uuidPattern.test(meetingId) ? "此 Add-on 沒有有效的會議權限，請先在同一個網站登入 Proximate，再重新開啟會議。" : `Google Meet 傳回會議代碼「${meetingId}」，但 Proximate API 需要會議 UUID。請從 Proximate 的「開始會議」進入，或先完成此 Meet 與 Proximate 會議的綁定。`}
+              title="尚未綁定 Proximate 會議"
+              description={`Google Meet 提供了永久 space ID${meetingCode ? `與會議代碼「${meetingCode}」` : ""}，但找不到對應的 Proximate 會議。請在 Proximate 的「開始會議」頁儲存同一個 Google Meet 連結後，再回到此面板重新連線。`}
               action={
-                <a href={uuidPattern.test(meetingId) ? `/meetings/${meetingId}/start` : "/dashboard"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">
+                <a href="/dashboard" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">
                   開啟 Proximate Web App
                 </a>
               }
+            />
+          ) : status === "unauthorized" ? (
+            <StateMessage
+              title="需要重新登入"
+              description="此 Add-on 沒有有效的 Proximate 登入狀態。請先在同一個網站登入 Proximate，再重新開啟會議。"
+              action={<a href="/sign-in" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">登入 Proximate</a>}
             />
           ) : status === "error" ? (
             <StateMessage

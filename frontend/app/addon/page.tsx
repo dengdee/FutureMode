@@ -6,7 +6,7 @@ import { AddonShell } from "../../components/meeting-addon/addon-shell";
 const CLOUD_PROJECT_NUMBER = "446517015863";
 
 type MeetClient = {
-  getMeetingInfo: () => Promise<{ meetingId?: string }>;
+  getMeetingInfo: () => Promise<{ meetingId?: string; meetingCode?: string }>;
 };
 
 type MeetRuntime = {
@@ -26,6 +26,7 @@ declare global {
 export default function AddonEntryPage() {
   const [message, setMessage] = useState("正在取得 Google Meet 會議 context…");
   const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [meetingCode, setMeetingCode] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function AddonEntryPage() {
     const previewMode = params.get("preview") === "live";
     if (requestedMeetingId) {
       setMeetingId(requestedMeetingId);
+      setMeetingCode(params.get("meetingCode"));
       setPreview(previewMode);
       return;
     }
@@ -56,8 +58,9 @@ export default function AddonEntryPage() {
         });
         const client = await session.createSidePanelClient();
         const info = await client.getMeetingInfo();
-        if (!info.meetingId) throw new Error("Google Meet 未提供 meeting ID");
-        setMeetingId(info.meetingId);
+        if (!info.meetingId && !info.meetingCode) throw new Error("Google Meet 未提供 meeting context");
+        setMeetingId(info.meetingId ?? info.meetingCode ?? null);
+        setMeetingCode(info.meetingCode ?? null);
       } catch {
         if (!cancelled) {
           setMessage("無法取得會議 context，請從 Google Meet 的活動面板重新開啟 Proximate。");
@@ -70,7 +73,7 @@ export default function AddonEntryPage() {
     };
   }, []);
 
-  if (meetingId) return <AddonShell meetingId={meetingId} preview={preview} />;
+  if (meetingId) return <AddonShell meetingId={meetingId} meetingCode={meetingCode ?? undefined} preview={preview} />;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] p-6 text-center text-sm text-[#787774]">

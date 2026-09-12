@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingAudioCapture } from "../../../../components/meeting-audio-capture";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
-import { getMeeting } from "../../../../lib/api/meetings";
+import { getMeeting, updateMeeting } from "../../../../lib/api/meetings";
 import type { MeetingSummary } from "../../../../types/api";
 
 export default function StartMeetingPage() {
@@ -15,6 +15,7 @@ export default function StartMeetingPage() {
   const [meeting, setMeeting] = useState<MeetingSummary | null>(null);
   const [deadline, setDeadline] = useState("");
   const [meetUrl, setMeetUrl] = useState("");
+  const [savingMeetUrl, setSavingMeetUrl] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -31,6 +32,26 @@ export default function StartMeetingPage() {
 
   function enterLive() { router.push(`/meetings/${id}/start/live`); }
 
+  async function saveMeetUrl() {
+    const normalized = meetUrl.trim();
+    const googleMeetingId = normalized.match(/meet\.google\.com\/([a-z0-9-]+)/i)?.[1];
+    if (!googleMeetingId) {
+      setError("請輸入有效的 Google Meet 連結，例如 https://meet.google.com/abc-defg-hij。");
+      return;
+    }
+    setSavingMeetUrl(true);
+    setError("");
+    try {
+      const updated = await updateMeeting(id, { google_meeting_id: googleMeetingId, google_meeting_url: normalized });
+      setMeeting(updated);
+      setMeetUrl(updated.google_meeting_url ?? normalized);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "無法儲存 Google Meet 連結。");
+    } finally {
+      setSavingMeetUrl(false);
+    }
+  }
+
   if (loading) return <AppShell><p className="text-sm text-[#787774]">正在載入開始會議設定…</p></AppShell>;
   if (!meeting) return <AppShell><p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || "找不到此會議。"}</p></AppShell>;
   const ready = Boolean(deadline) && new Date(deadline).getTime() <= Date.now();
@@ -45,6 +66,13 @@ export default function StartMeetingPage() {
       <div className="mt-5 flex flex-wrap gap-2">
         {meetUrl ? <a href={meetUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#9ddbc8] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]"><IconExternalLink size={16} />前往 Google Meet</a> : <span title="建立會議時尚未設定 Google Meet 連結" className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-[#dededb] bg-white/60 px-4 py-2.5 text-sm font-semibold text-[#9b9a97]"><IconExternalLink size={16} />尚未設定 Google Meet 連結</span>}
         <button type="button" onClick={enterLive} className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white"><IconPlayerPlay size={16} />進入即時會議</button>
+      </div>
+      <div className="mt-5 rounded-xl border border-[#d7e8e5] bg-white/80 p-4">
+        <label className="block text-sm font-semibold text-[#27554c]">Google Meet 連結
+          <input value={meetUrl} onChange={(event) => setMeetUrl(event.target.value)} className="control-primary mt-2" placeholder="https://meet.google.com/abc-defg-hij" />
+        </label>
+        <p className="mt-2 text-xs leading-5 text-[#787774]">儲存後，Google Meet Add-on 才能辨識並載入這場 Proximate 會議。</p>
+        <button type="button" onClick={() => void saveMeetUrl()} disabled={savingMeetUrl} className="mt-3 rounded-lg border border-[#9ddbc8] px-3 py-2 text-sm font-semibold text-[#087e6d] disabled:opacity-50">{savingMeetUrl ? "儲存中…" : "儲存並綁定 Meet"}</button>
       </div>
     </section>
   </AppShell>;
