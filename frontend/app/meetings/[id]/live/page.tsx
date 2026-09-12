@@ -1,7 +1,7 @@
 "use client";
 
-import { IconRefresh, IconSearch, IconWifi } from "@tabler/icons-react";
-import { useParams } from "next/navigation";
+import { IconRefresh, IconSearch, IconWifi, IconPlayerStop } from "@tabler/icons-react";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
@@ -9,7 +9,7 @@ import {
   listSuggestions,
   voteSuggestion,
 } from "../../../../lib/api/meeting-features";
-import { getMeeting } from "../../../../lib/api/meetings";
+import { endMeeting, getMeeting } from "../../../../lib/api/meetings";
 import { searchMeetingMemory } from "../../../../lib/api/documents";
 import {
   getMeetingBotStatus,
@@ -68,6 +68,8 @@ export default function LivePage() {
   >("connecting");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [ending, setEnding] = useState(false);
+  const router = useRouter();
   const state = snapshot?.state ?? {};
   const meetingInProgress = Boolean(
     meeting &&
@@ -262,6 +264,18 @@ export default function LivePage() {
       setError(cause instanceof Error ? cause.message : "投票失敗。 ");
     }
   }
+  async function finishMeeting() {
+    if (ending || !window.confirm("確定要結束這場會議嗎？結束後將無法繼續即時協作。")) return;
+    setEnding(true);
+    setError("");
+    try {
+      await endMeeting(id);
+      router.push(`/meetings/${id}/review`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "無法結束會議。");
+      setEnding(false);
+    }
+  }
   async function generateAndSpeak() {
     setSpeaking(true);
     setError("");
@@ -395,6 +409,7 @@ export default function LivePage() {
           <IconRefresh size={16} />
           重新整理
         </button>
+        {meetingInProgress && <button type="button" disabled={ending} onClick={() => void finishMeeting()} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"><IconPlayerStop size={16} />{ending ? "結束中…" : "結束會議"}</button>}
       </div>
       {error && (
         <p
