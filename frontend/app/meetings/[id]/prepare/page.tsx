@@ -356,10 +356,11 @@ export default function PreparePage() {
             <button
               type="button"
               disabled={busy || !messages.length}
+              title={document ? "依目前議前對話重新生成，會覆蓋目前草稿" : "依目前議前對話生成文件"}
               onClick={() => void createDocument()}
               className="ml-auto rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {document ? "重新整理" : "整理成文件"}
+              {document ? "重新生成文件" : "整理成文件"}
             </button>
             <button
               type="button"
