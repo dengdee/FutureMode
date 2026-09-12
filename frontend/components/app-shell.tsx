@@ -470,7 +470,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             return (
               <div
                 key={href}
-                className={`group/team relative ${sidebarCollapsed ? "md:hidden" : ""}`}
+                className="group/team relative"
                 onMouseEnter={() => setTeamMenuOpen(true)}
                 onMouseLeave={() => setTeamMenuOpen(false)}
               >
