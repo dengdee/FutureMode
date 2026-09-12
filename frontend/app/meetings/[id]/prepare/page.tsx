@@ -183,20 +183,24 @@ export default function PreparePage() {
   }
   async function publishDocument() {
     if (!document) return;
-    const published = await run(
-      async () => {
-        // Re-ingest before publishing so legacy `ready` documents cannot
-        // short-circuit the publish endpoint without being embedded.
-        await ingestDocument(document.document_id, documentDraft);
-        setDocument((current) => current ? { ...current, content: documentDraft, status: "draft" } : current);
-        await publishPreparationToRag(id, document.document_id);
-      },
-      "已發布到團隊共用記憶，會議中可用 RAG 查詢。",
-    );
-    if (published) {
-      setDocument((current) =>
-        current ? { ...current, status: "embedded" } : current,
-      );
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      // Re-ingest before publishing so legacy `ready` documents cannot
+      // short-circuit the publish endpoint without being embedded.
+      await ingestDocument(document.document_id, documentDraft);
+      const published = await publishPreparationToRag(id, document.document_id);
+      setDocument((current) => current ? {
+        ...current,
+        content: documentDraft,
+        status: published.status === "embedded" ? "embedded" : published.status,
+      } : current);
+      setNotice("已發布到團隊共用記憶，會議中可用 RAG 查詢。");
+    } catch (cause) {
+      setError(errorMessage(cause, "發布失敗，請稍後再試。"));
+    } finally {
+      setBusy(false);
     }
   }
   async function saveDelegate() {
