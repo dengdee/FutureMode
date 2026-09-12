@@ -8,6 +8,7 @@ type CaptureState = "idle" | "recording" | "uploading" | "ready" | "error";
 const activeRecorders = new Map<string, MediaRecorder>();
 
 export function stopMeetingAudioCapture(meetingId: string) {
+  window.localStorage.removeItem(`meeting-audio-recording:${meetingId}`);
   const recorder = activeRecorders.get(meetingId);
   if (recorder?.state === "recording") recorder.stop();
 }
@@ -24,6 +25,9 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
       setConsent(true);
       setMessage(activeRecorders.has(meetingId) ? "正在收音；結束會議時會自動停止。" : "已同意收音範圍，尚未開始收音。");
       if (activeRecorders.has(meetingId)) setState("recording");
+      else if (window.localStorage.getItem(`meeting-audio-recording:${meetingId}`) === "true") {
+        void startCapture();
+      }
     }
   }, [meetingId]);
 
@@ -31,11 +35,13 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
     if (!consent) { setMessage("請先同意收音範圍。"); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      window.localStorage.setItem(`meeting-audio-recording:${meetingId}`, "true");
       chunks.current = [];
       const next = new MediaRecorder(stream, { mimeType: "audio/webm" });
       activeRecorders.set(meetingId, next);
       next.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
       next.onstop = async () => {
+        window.localStorage.removeItem(`meeting-audio-recording:${meetingId}`);
         activeRecorders.delete(meetingId);
         stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(chunks.current, { type: "audio/webm" });
