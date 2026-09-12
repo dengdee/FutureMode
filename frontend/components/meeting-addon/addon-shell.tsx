@@ -9,6 +9,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -60,9 +61,12 @@ export function AddonShell({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [apiMeetingId, setApiMeetingId] = useState<string | null>(null);
+  const hasLoadedRef = useRef(preview);
   const loadContext = useCallback(async () => {
     if (preview) return;
-    setStatus("loading");
+    // Polling refreshes data in the background. Keep the existing panel visible
+    // instead of flashing the whole Add-on back to a loading skeleton.
+    if (!hasLoadedRef.current) setStatus("loading");
     setErrorMessage("");
     try {
       const identifiers = uuidPattern.test(meetingId)
@@ -89,9 +93,15 @@ export function AddonShell({
       const snapshotResponse = await getLiveSnapshot(appMeetingId);
       setMeeting(snapshotResponse.meeting ?? null);
       setSnapshot(snapshotResponse);
+      hasLoadedRef.current = true;
       setStatus("connected");
     } catch (error) {
       const apiError = error as { status?: number; message?: string };
+      if (hasLoadedRef.current) {
+        // A transient refresh failure should not interrupt an otherwise usable
+        // meeting panel. The next interval or manual refresh can recover it.
+        return;
+      }
       setStatus(apiError.status === 401 || apiError.status === 403 ? "unauthorized" : "error");
       setErrorMessage(apiError.message ?? "無法載入會議資料。");
     }
