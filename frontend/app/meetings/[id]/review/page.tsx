@@ -118,11 +118,11 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     } catch (cause) { setError(cause instanceof Error ? cause.message : "更新行動項目失敗。"); }
   }
 
-  return <main>
+  return <main className="px-4 sm:px-8 lg:px-12">
     <MeetingWorkspaceHeader meetingId={id} title={title || undefined} phase="review" />
     {error && <p role="alert" className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
     {notice && <p role="status" className="mt-5 rounded-lg bg-[#e9f7f4] px-4 py-3 text-sm text-[#087e6d]">{notice}</p>}
-    <div className="mt-7 px-4 pb-12 sm:px-8 lg:px-12">
+    <div className="mt-7 pb-12">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-6">
         <section className="rounded-2xl border border-[#cde5df] bg-[#f1fbf8] p-5 sm:p-6">
