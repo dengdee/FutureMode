@@ -33,15 +33,26 @@ declare global {
 
 type CaptureState = "idle" | "recording" | "uploading" | "ready" | "error";
 const activeRecorders = new Map<string, MediaRecorder>();
+const cancelledCaptures = new Set<string>();
 
-export function stopMeetingAudioCapture(meetingId: string) {
+function stopActiveRecorder(meetingId: string) {
+  cancelledCaptures.add(meetingId);
   window.localStorage.removeItem(`meeting-audio-recording:${meetingId}`);
   const recorder = activeRecorders.get(meetingId);
   if (recorder?.state === "recording") recorder.stop();
 }
 
+export function stopMeetingAudioCapture(meetingId: string) {
+  stopActiveRecorder(meetingId);
+  window.dispatchEvent(new CustomEvent("meeting-audio-stop", { detail: { meetingId } }));
+}
+
 export function isMeetingAudioCapturing(meetingId: string) {
   return activeRecorders.get(meetingId)?.state === "recording";
+}
+
+export function hasMeetingAudioCaptureIntent(meetingId: string) {
+  return window.localStorage.getItem(`meeting-audio-recording:${meetingId}`) === "true";
 }
 
 export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
@@ -51,6 +62,15 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<CaptureState>("idle");
   const [message, setMessage] = useState("尚未請求瀏覽器麥克風權限。");
+
+  useEffect(() => {
+    const onStop = (event: Event) => {
+      const detail = (event as CustomEvent<{ meetingId?: string }>).detail;
+      if (detail?.meetingId === meetingId) stopActiveRecorder(meetingId);
+    };
+    window.addEventListener("meeting-audio-stop", onStop);
+    return () => window.removeEventListener("meeting-audio-stop", onStop);
+  }, [meetingId]);
 
   useEffect(() => {
     if (window.localStorage.getItem(`meeting-audio-consent:${meetingId}`) === "true") {
@@ -65,14 +85,20 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
 
   async function startCapture() {
     if (!consent) { setMessage("請先同意收音範圍。"); return; }
+    cancelledCaptures.delete(meetingId);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       window.localStorage.setItem(`meeting-audio-recording:${meetingId}`, "true");
+      window.dispatchEvent(new CustomEvent("meeting-audio-start", { detail: { meetingId } }));
       maxSignal.current = 0;
       chunks.current = [];
       const next = new MediaRecorder(stream, { mimeType: "audio/webm" });
       let speechDetected = false;
       const vadApi = await loadVadApi();
+      if (cancelledCaptures.has(meetingId)) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const vad = await vadApi.MicVAD.new({
         getStream: async () => stream,
         model: "v5",
@@ -80,6 +106,11 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
         onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
         baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/",
       });
+      if (cancelledCaptures.has(meetingId)) {
+        vad.pause();
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       vad.start();
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
@@ -100,12 +131,12 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
         await audioContext.close();
         vad.pause();
         activeRecorders.delete(meetingId);
+        stream.getTracks().forEach((track) => track.stop());
         if (!speechDetected || maxSignal.current < 8) {
           setState("ready");
           setMessage("未偵測到人聲，已略過這段轉錄。");
           return;
         }
-        stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(chunks.current, { type: "audio/webm" });
         setState("uploading"); setMessage("正在送交後端轉錄…");
         try {

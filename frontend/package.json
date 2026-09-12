@@ -18,6 +18,7 @@
     "@radix-ui/react-tabs": "^1.1.21",
     "@radix-ui/react-toast": "^1.2.23",
     "@radix-ui/react-tooltip": "^1.2.16",
+    "@ricky0123/vad-web": "^0.0.29",
     "@tabler/icons-react": "^3.46.0",
     "axios": "^1.20.0",
     "class-variance-authority": "^0.7.1",
