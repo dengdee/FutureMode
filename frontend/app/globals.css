@@ -38,6 +38,14 @@ body {
 }
 
 @layer components {
+  .markdown-content { @apply space-y-2; }
+  .markdown-content h2, .markdown-content h3, .markdown-content h4 { @apply mt-3 font-semibold text-slate-800; }
+  .markdown-content h2 { @apply text-base; }
+  .markdown-content h3 { @apply text-sm; }
+  .markdown-content h4 { @apply text-sm; }
+  .markdown-content p { @apply leading-7; }
+  .markdown-content li { @apply ml-5 list-disc leading-7; }
+  .markdown-content code { @apply rounded bg-slate-200 px-1 py-0.5 text-xs; }
   .rounded-primary { border-radius: 0.75rem; }
   .control-primary {
     width: 100%;

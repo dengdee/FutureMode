@@ -237,6 +237,7 @@ function previewMeeting(meetingId: string): MeetingSummary {
     team_id: "preview-team",
     title: "MVP 共識會議",
     scheduled_at: null,
+    preparation_deadline: null,
     google_meeting_id: null,
     google_meeting_url: null,
     status: "in_progress",

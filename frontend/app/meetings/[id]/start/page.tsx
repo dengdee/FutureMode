@@ -24,13 +24,16 @@ export default function StartMeetingPage() {
       .then((current) => {
         setMeeting(current);
         setMeetUrl(current.google_meeting_url ?? "");
+        setDeadline(current.preparation_deadline ?? "");
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "無法讀取會議。"))
       .finally(() => setLoading(false));
-    setDeadline(localStorage.getItem(`proximate:prep-deadline:${id}`) ?? "");
   }, [id]);
 
-  function enterLive() { router.push(`/meetings/${id}/start/live`); }
+  function enterLive() {
+    if (meeting?.scheduled_at && new Date(meeting.scheduled_at).getTime() > Date.now()) return;
+    router.push(`/meetings/${id}/start/live`);
+  }
 
   async function saveMeetUrl() {
     const normalized = meetUrl.trim();
@@ -55,6 +58,7 @@ export default function StartMeetingPage() {
   if (loading) return <AppShell><p className="text-sm text-[#787774]">正在載入開始會議設定…</p></AppShell>;
   if (!meeting) return <AppShell><p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || "找不到此會議。"}</p></AppShell>;
   const ready = Boolean(deadline) && new Date(deadline).getTime() <= Date.now();
+  const canStart = !meeting.scheduled_at || new Date(meeting.scheduled_at).getTime() <= Date.now();
 
   return <AppShell>
     <MeetingWorkspaceHeader phase="start" title={meeting.title} />
@@ -65,7 +69,7 @@ export default function StartMeetingPage() {
       <div className="mt-5">{ready ? <MeetingAudioCapture meetingId={id} /> : <p className="rounded-xl bg-[#fffaf0] p-4 text-sm text-[#715b1e]">議前討論填寫期限尚未到，收音設定會在期限到後開放。</p>}</div>
       <div className="mt-5 flex flex-wrap gap-2">
         {meetUrl ? <a href={meetUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#9ddbc8] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]"><IconExternalLink size={16} />前往 Google Meet</a> : <span title="建立會議時尚未設定 Google Meet 連結" className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-[#dededb] bg-white/60 px-4 py-2.5 text-sm font-semibold text-[#9b9a97]"><IconExternalLink size={16} />尚未設定 Google Meet 連結</span>}
-        <button type="button" onClick={enterLive} className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white"><IconPlayerPlay size={16} />進入即時會議</button>
+        <button type="button" onClick={enterLive} disabled={!canStart} title={!canStart ? "尚未到會議時間" : undefined} className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#b8d8d0]"><IconPlayerPlay size={16} />進入即時會議</button>
       </div>
       <div className="mt-5 rounded-xl border border-[#d7e8e5] bg-white/80 p-4">
         <label className="block text-sm font-semibold text-[#27554c]">Google Meet 連結

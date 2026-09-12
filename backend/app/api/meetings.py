@@ -86,6 +86,7 @@ async def create_meeting(
             host_user_id=user_id,
             title=payload.title,
             scheduled_at=payload.scheduled_at,
+            preparation_deadline=payload.preparation_deadline,
             google_meeting_id=payload.google_meeting_id,
             google_meeting_url=payload.google_meeting_url,
             ai_intervention_level=payload.ai_intervention_level,

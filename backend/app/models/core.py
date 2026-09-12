@@ -136,6 +136,7 @@ class Meeting(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     google_meeting_id: Mapped[str | None] = mapped_column(String(128), unique=True)
     google_meeting_url: Mapped[str | None] = mapped_column(Text)
+    preparation_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(
         String(32), default=MeetingStatus.DRAFT.value, nullable=False

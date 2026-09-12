@@ -10,6 +10,7 @@ class MeetingCreate(BaseModel):
     scheduled_at: datetime | None = None
     google_meeting_id: str | None = Field(default=None, max_length=128)
     google_meeting_url: str | None = Field(default=None, max_length=2048)
+    preparation_deadline: datetime
     ai_intervention_level: str = Field(default="medium", min_length=1, max_length=32)
 
 
@@ -18,6 +19,7 @@ class MeetingUpdate(BaseModel):
     scheduled_at: datetime | None = None
     google_meeting_id: str | None = Field(default=None, max_length=128)
     google_meeting_url: str | None = Field(default=None, max_length=2048)
+    preparation_deadline: datetime | None = None
     ai_intervention_level: str | None = Field(default=None, min_length=1, max_length=32)
 
 
@@ -53,6 +55,7 @@ class MeetingSummary(BaseModel):
     scheduled_at: datetime | None
     google_meeting_id: str | None
     google_meeting_url: str | None
+    preparation_deadline: datetime | None
     status: str
     ai_intervention_level: str
 

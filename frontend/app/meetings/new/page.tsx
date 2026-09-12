@@ -159,14 +159,11 @@ export default function NewMeetingPage() {
         team_id: teamId,
         title: title.trim(),
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        preparation_deadline: new Date(prepDeadline).toISOString(),
         google_meeting_id: meetUrl.trim().match(/meet\.google\.com\/([a-z0-9-]+)/i)?.[1] ?? null,
         google_meeting_url: meetUrl.trim() || null,
         ai_intervention_level: level,
       });
-      localStorage.setItem(
-        `proximate:prep-deadline:${meeting.id}`,
-        prepDeadline,
-      );
       for (const member of members.filter(
         (member) => selectedMembers[member.user_id],
       )) {

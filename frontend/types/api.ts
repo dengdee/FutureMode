@@ -97,6 +97,7 @@ export type MeetingSummary = {
   scheduled_at: string | null;
   google_meeting_id: string | null;
   google_meeting_url: string | null;
+  preparation_deadline: string | null;
   status: string;
   ai_intervention_level: string;
 };
@@ -107,6 +108,7 @@ export type MeetingCreateRequest = {
   scheduled_at?: string | null;
   google_meeting_id?: string | null;
   google_meeting_url?: string | null;
+  preparation_deadline?: string | null;
   ai_intervention_level?: string;
 };
 
@@ -115,6 +117,7 @@ export type MeetingUpdateRequest = {
   scheduled_at?: string | null;
   google_meeting_id?: string | null;
   google_meeting_url?: string | null;
+  preparation_deadline?: string | null;
   ai_intervention_level?: string | null;
 };
 export type MeetingBrief = {

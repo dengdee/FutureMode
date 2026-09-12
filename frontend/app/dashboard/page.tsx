@@ -32,11 +32,10 @@ const timeValue = (meeting: MeetingSummary) =>
     ? new Date(meeting.scheduled_at).getTime()
     : Number.MAX_SAFE_INTEGER;
 
-const preparationDeadline = (meetingId: string) =>
-  window.localStorage.getItem(`proximate:prep-deadline:${meetingId}`);
+const preparationDeadline = (meeting: MeetingSummary) => meeting.preparation_deadline;
 
 const isPreparationReady = (meeting: MeetingSummary) => {
-  const deadline = preparationDeadline(meeting.id);
+  const deadline = preparationDeadline(meeting);
   return meeting.status === "draft" && Boolean(deadline) && new Date(deadline!).getTime() <= Date.now();
 };
 
@@ -51,6 +50,23 @@ const meetingStatusLabel = (meeting: MeetingSummary) =>
 
 const meetingStatusClass = (meeting: MeetingSummary) =>
   effectiveStatus(meeting) === "in_progress" ? statusClass.in_progress : isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : (statusClass[meeting.status] ?? "bg-slate-100 text-slate-700");
+
+const meetingStart = (meeting: MeetingSummary) =>
+  meeting.scheduled_at ? new Date(meeting.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+const deadlineTime = (meeting: MeetingSummary) =>
+  meeting.preparation_deadline ? new Date(meeting.preparation_deadline).getTime() : Number.POSITIVE_INFINITY;
+const actionState = (meeting: MeetingSummary) => {
+  const now = Date.now();
+  const finished = ["completed", "cancelled"].includes(meeting.status);
+  return {
+    prepare: !finished && now < deadlineTime(meeting),
+    summary: !finished && now >= deadlineTime(meeting) && now < meetingStart(meeting),
+    start: !finished && now >= meetingStart(meeting),
+  };
+};
+const disabledAction = (label: string) => (
+  <span title="目前尚未到可操作時間" className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]">{label}</span>
+);
 
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString("zh-TW") : "尚未設定時間";
@@ -71,7 +87,7 @@ export default function DashboardPage() {
         setSummaryReady(
           Object.fromEntries(
             ordered.map((meeting) => {
-              const deadline = preparationDeadline(meeting.id);
+              const deadline = preparationDeadline(meeting);
               return [
                 meeting.id,
                 Boolean(deadline) &&
@@ -134,19 +150,17 @@ export default function DashboardPage() {
                 {teamName(nextMeeting.team_id)} · 會議時間：
                 {formatDateTime(nextMeeting.scheduled_at)}
                 <br />
-                議前討論填寫期限：
-                {preparationDeadline(nextMeeting.id)
-                  ? formatDateTime(preparationDeadline(nextMeeting.id))
+                議前討論期限：
+                {preparationDeadline(nextMeeting)
+                  ? formatDateTime(preparationDeadline(nextMeeting))
                   : "尚未設定"}
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
-                <Link
+                {actionState(nextMeeting).prepare ? <Link
                   href={`/meetings/${nextMeeting.id}/prepare`}
                   className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white"
-                >
-                  議前討論 <IconArrowRight size={17} />
-                </Link>
-                {summaryReady[nextMeeting.id] ? (
+                >議前討論 <IconArrowRight size={17} /></Link> : disabledAction("議前討論")}
+                {actionState(nextMeeting).summary && summaryReady[nextMeeting.id] ? (
                   <Link
                     href={`/meetings/${nextMeeting.id}/pre-meeting-summary`}
                     className="inline-flex items-center gap-2 rounded-lg border border-[#9ddbc8] px-4 py-2.5 text-sm font-semibold text-[#087e6d]"
@@ -161,12 +175,12 @@ export default function DashboardPage() {
                     議前整理
                   </span>
                 )}
-                <Link
+                {actionState(nextMeeting).start ? <Link
                   href={`/meetings/${nextMeeting.id}/start`}
                   className="rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white"
                 >
                   開始會議
-                </Link>
+                </Link> : disabledAction("開始會議")}
                 {nextMeeting.status === "completed" ? (
                   <Link href={`/meetings/${nextMeeting.id}/review`} className="rounded-lg border border-[#cde5df] px-4 py-2.5 text-sm font-semibold text-[#087e6d]">議後總結</Link>
                 ) : null}
@@ -228,9 +242,9 @@ export default function DashboardPage() {
                     {teamName(meeting.team_id)} · 會議時間：
                     {formatDateTime(meeting.scheduled_at)}
                     <br />
-                    議前討論填寫期限：
-                    {preparationDeadline(meeting.id)
-                      ? formatDateTime(preparationDeadline(meeting.id))
+                    議前討論期限：
+                    {preparationDeadline(meeting)
+                      ? formatDateTime(preparationDeadline(meeting))
                       : "尚未設定"}
                   </p>
                 </div>
@@ -240,13 +254,13 @@ export default function DashboardPage() {
                   >
                     {meetingStatusLabel(meeting)}
                   </span>
-                  <Link
+                  {actionState(meeting).prepare ? <Link
                     href={`/meetings/${meeting.id}/prepare`}
                     className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d] hover:bg-[#f0fbf8]"
                   >
                     議前討論
-                  </Link>
-                  {summaryReady[meeting.id] ? (
+                  </Link> : disabledAction("議前討論")}
+                  {actionState(meeting).summary && summaryReady[meeting.id] ? (
                     <Link
                       href={`/meetings/${meeting.id}/pre-meeting-summary`}
                       className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
@@ -261,12 +275,12 @@ export default function DashboardPage() {
                   議前整理
                     </span>
                   )}
-                  <Link
+                  {actionState(meeting).start ? <Link
                     href={`/meetings/${meeting.id}/start`}
                     className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white"
                   >
                     開始會議
-                  </Link>
+                  </Link> : disabledAction("開始會議")}
                   {meeting.status === "completed" ? (
                     <Link href={`/meetings/${meeting.id}/review`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d]">議後總結</Link>
                   ) : null}

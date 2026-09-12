@@ -22,6 +22,7 @@ import {
 import { AppShell } from "../../../../components/app-shell";
 import { createDelegate, listDelegates } from "../../../../lib/api/delegates";
 import { listAgendaItems } from "../../../../lib/api/agenda";
+import { ingestDocument } from "../../../../lib/api/documents";
 import { getMeeting } from "../../../../lib/api/meetings";
 import {
   createPreparationMessage,
@@ -54,6 +55,7 @@ export default function PreparePage() {
   const [messages, setMessages] = useState<PreparationMessage[]>([]);
   const [delegates, setDelegates] = useState<DelegateProfile[]>([]);
   const [document, setDocument] = useState<PreparationDocument | null>(null);
+  const [documentDraft, setDocumentDraft] = useState("");
   const [draft, setDraft] = useState("");
   const [delegateEnabled, setDelegateEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,8 @@ export default function PreparePage() {
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const content = draft.trim();
-    if (!content || sending) return;
+    const deadlinePassed = Boolean(meeting?.preparation_deadline) && new Date(meeting?.preparation_deadline ?? 0).getTime() <= Date.now();
+    if (!content || sending || deadlinePassed) return;
     setSending(true);
     setSaveStatus("saving");
     setError("");
@@ -147,13 +150,25 @@ export default function PreparePage() {
     setError("");
     setNotice("");
     try {
-      setDocument(await generatePreparationDocument(id));
+      const generated = await generatePreparationDocument(id);
+      setDocument(generated);
+      setDocumentDraft(generated.content);
       setNotice("議前文件已整理完成，確認後即可發布到團隊共用記憶。");
     } catch (cause) {
       setError(errorMessage(cause, "目前還不能產生文件。"));
     } finally {
       setBusy(false);
     }
+  }
+  async function saveDocument() {
+    if (!document || !documentDraft.trim()) return;
+    await run(
+      async () => {
+        await ingestDocument(document.document_id, documentDraft);
+        setDocument((current) => current ? { ...current, content: documentDraft, status: "draft" } : current);
+      },
+      "議前文件已儲存。",
+    );
   }
   async function publishDocument() {
     if (!document) return;
@@ -198,6 +213,7 @@ export default function PreparePage() {
       </AppShell>
     );
   const isPublished = document?.status === "embedded";
+  const deadlinePassed = Boolean(meeting.preparation_deadline) && new Date(meeting.preparation_deadline!).getTime() <= Date.now();
 
   return (
     <AppShell>
@@ -246,6 +262,7 @@ export default function PreparePage() {
               {error || notice}
             </p>
           )}
+          {deadlinePassed && <p className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">議前討論期限已到，內容已鎖定；你仍可查看已儲存的討論。</p>}
           <div className="flex-1 space-y-6">
             {messages.length === 0 && (
               <p className="border-b border-slate-200 pb-6 text-sm leading-7 text-slate-500">
@@ -267,7 +284,7 @@ export default function PreparePage() {
                   <div
                     className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-teal-600 text-white" : "rounded-bl-md bg-slate-100 text-slate-700"}`}
                   >
-                    {message.content}
+                    {message.role === "assistant" ? <MarkdownContent content={message.content} /> : message.content}
                   </div>
                 </div>
               ))}
@@ -309,7 +326,7 @@ export default function PreparePage() {
               />
               <button
                 type="submit"
-                disabled={!draft.trim() || sending}
+                disabled={!draft.trim() || sending || deadlinePassed}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="送出訊息"
               >
@@ -347,6 +364,16 @@ export default function PreparePage() {
               {isPublished ? "已發布" : "發布到共用記憶"}
             </button>
           </div>
+          {document && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <label className="block text-xs font-semibold text-slate-600" htmlFor="preparation-document">議前文件內容（可編輯）</label>
+              <textarea id="preparation-document" value={documentDraft} onChange={(event) => setDocumentDraft(event.target.value)} disabled={isPublished || busy} className="mt-2 min-h-48 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm leading-7 text-slate-700 outline-none focus:border-teal-500 disabled:bg-slate-100" />
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-slate-500">支援 Markdown 文字格式，儲存後才會用於共用記憶。</span>
+                <button type="button" disabled={isPublished || busy || !documentDraft.trim()} onClick={() => void saveDocument()} className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40">儲存文件</button>
+              </div>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center gap-3 border-b border-slate-200 pb-5 text-sm">
             <IconUsers size={17} className="text-teal-600" />
             <label className="flex items-center gap-2 text-slate-700">
@@ -384,4 +411,21 @@ export default function PreparePage() {
       </div>
     </AppShell>
   );
+}
+
+function MarkdownContent({ content }: { content: string }) {
+  const html = content
+    .split("\n")
+    .map((line) => {
+      const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const inline = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>");
+      if (/^###\s+/.test(line)) return `<h4>${inline.replace(/^###\s+/, "")}</h4>`;
+      if (/^##\s+/.test(line)) return `<h3>${inline.replace(/^##\s+/, "")}</h3>`;
+      if (/^#\s+/.test(line)) return `<h2>${inline.replace(/^#\s+/, "")}</h2>`;
+      if (/^[-*]\s+/.test(line)) return `<li>${inline.replace(/^[-*]\s+/, "")}</li>`;
+      if (/^\d+\.\s+/.test(line)) return `<li>${inline.replace(/^\d+\.\s+/, "")}</li>`;
+      return inline ? `<p>${inline}</p>` : "";
+    })
+    .join("");
+  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: html }} />;
 }

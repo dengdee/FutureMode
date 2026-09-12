@@ -45,12 +45,12 @@ function statusClass(status: string) {
   );
 }
 
-function preparationDeadline(meetingId: string) {
-  return window.localStorage.getItem(`proximate:prep-deadline:${meetingId}`);
+function preparationDeadline(meeting: MeetingSummary) {
+  return meeting.preparation_deadline;
 }
 
 function isPreparationReady(meeting: MeetingSummary) {
-  const deadline = preparationDeadline(meeting.id);
+  const deadline = preparationDeadline(meeting);
   return meeting.status === "draft" && Boolean(deadline) && new Date(deadline!).getTime() <= Date.now();
 }
 
@@ -67,6 +67,14 @@ function meetingStatusLabel(meeting: MeetingSummary) {
 function meetingStatusClass(meeting: MeetingSummary) {
   return effectiveStatus(meeting) === "in_progress" ? statusClass("in_progress") : isPreparationReady(meeting) ? "bg-teal-50 text-teal-700" : statusClass(meeting.status);
 }
+function actionState(meeting: MeetingSummary) {
+  const now = Date.now();
+  const finished = ["completed", "cancelled"].includes(meeting.status);
+  const deadline = meeting.preparation_deadline ? new Date(meeting.preparation_deadline).getTime() : Number.POSITIVE_INFINITY;
+  const start = meeting.scheduled_at ? new Date(meeting.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+  return { prepare: !finished && now < deadline, summary: !finished && now >= deadline && now < start, start: !finished && now >= start };
+}
+const disabledAction = (label: string) => <span title="目前尚未到可操作時間" className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]">{label}</span>;
 
 export default function TeamOverviewPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -94,18 +102,17 @@ export default function TeamOverviewPage() {
         setMeetings(teamMeetings);
         setPrepDeadlines(
           Object.fromEntries(
-            teamMeetings.flatMap((meeting) => {
-              const deadline = window.localStorage.getItem(
-                `proximate:prep-deadline:${meeting.id}`,
-              );
-              return deadline ? [[meeting.id, deadline]] : [];
-            }),
+            teamMeetings.flatMap((meeting) =>
+              meeting.preparation_deadline
+                ? [[meeting.id, meeting.preparation_deadline]]
+                : [],
+            ),
           ),
         );
         setSummaryReady(
           Object.fromEntries(
             teamMeetings.map((meeting) => {
-              const deadline = preparationDeadline(meeting.id);
+              const deadline = preparationDeadline(meeting);
               return [
                 meeting.id,
                 Boolean(deadline) &&
@@ -254,9 +261,9 @@ export default function TeamOverviewPage() {
                             )
                           : "尚未設定時間"}
                         {prepDeadlines[meeting.id]
-                          ? ` · 準備期限 ${new Date(prepDeadlines[meeting.id]).toLocaleDateString("zh-TW")}`
+                          ? ` · 議前討論期限 ${new Date(prepDeadlines[meeting.id]).toLocaleString("zh-TW")}`
                           : (meeting.status === "draft" || meeting.status === "scheduled")
-                            ? " · 準備期限尚未設定"
+                            ? " · 議前討論期限尚未設定"
                             : ""}
                           </p>
                         </div>
@@ -265,9 +272,9 @@ export default function TeamOverviewPage() {
                     </summary>
                     <div className="border-t border-[#ededeb] px-4 pb-4 pt-3 pl-14">
                       <div className="flex flex-wrap gap-2">
-                        <Link href={`/meetings/${meeting.id}/prepare`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d] hover:bg-[#f0fbf8]">議前討論</Link>
-                        {summaryReady[meeting.id] ? <Link href={`/meetings/${meeting.id}/pre-meeting-summary`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">議前整理</Link> : <span title="參與者填寫期限到後開放" className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]">議前整理</span>}
-                        <Link href={`/meetings/${meeting.id}/start`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">開始會議</Link>
+                        {actionState(meeting).prepare ? <Link href={`/meetings/${meeting.id}/prepare`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d] hover:bg-[#f0fbf8]">議前討論</Link> : disabledAction("議前討論")}
+                        {actionState(meeting).summary && summaryReady[meeting.id] ? <Link href={`/meetings/${meeting.id}/pre-meeting-summary`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">議前整理</Link> : disabledAction("議前整理")}
+                        {actionState(meeting).start ? <Link href={`/meetings/${meeting.id}/start`} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-sm font-semibold text-white">開始會議</Link> : disabledAction("開始會議")}
                         {meeting.status === "completed" ? <Link href={`/meetings/${meeting.id}/review`} className="rounded-lg border border-[#cde5df] px-3 py-2 text-sm font-semibold text-[#087e6d]">議後總結</Link> : null}
                       </div>
                     </div>

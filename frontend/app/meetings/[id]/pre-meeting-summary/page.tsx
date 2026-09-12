@@ -7,13 +7,15 @@ import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import { listAgendaItems } from "../../../../lib/api/agenda";
+import { listDocumentChunks, listDocuments } from "../../../../lib/api/documents";
 import { getMeeting } from "../../../../lib/api/meetings";
-import type { AgendaItem, MeetingSummary } from "../../../../types/api";
+import type { AgendaItem, DocumentSummary, MeetingSummary } from "../../../../types/api";
 
 export default function PreMeetingSummaryPage() {
   const { id } = useParams<{ id: string }>();
   const [meeting, setMeeting] = useState<MeetingSummary | null>(null);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
+  const [sharedDocuments, setSharedDocuments] = useState<Array<{ document: DocumentSummary; content: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -25,6 +27,12 @@ export default function PreMeetingSummaryPage() {
     ]);
     setMeeting(current);
     setAgenda(agendaResult.items);
+    const documents = await listDocuments(current.team_id, { scope: "meeting", meeting_id: id });
+    const loaded = await Promise.all(documents.map(async (document) => {
+      const chunks = await listDocumentChunks(document.id);
+      return { document, content: chunks.sort((a, b) => a.position - b.position).map((chunk) => chunk.content).join("\n\n") };
+    }));
+    setSharedDocuments(loaded.filter((item) => item.content.trim()));
   }
   useEffect(() => {
     refresh()
@@ -73,6 +81,16 @@ export default function PreMeetingSummaryPage() {
             </p>
           </div>
         </div>
+      </section>
+      <section className="mt-6 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
+        <h2 className="text-lg font-semibold">團隊共識與待釐清衝突</h2>
+        <p className="mt-1 text-sm leading-6 text-[#787774]">以下內容來自議前討論發布到團隊共用記憶的文件。</p>
+        {sharedDocuments.length ? sharedDocuments.map(({ document, content }) => (
+          <article key={document.id} className="mt-5 rounded-xl bg-[#f7f7f5] p-4">
+            <p className="text-xs font-semibold text-[#087e6d]">{document.name}</p>
+            <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#4c4c49]">{content}</div>
+          </article>
+        )) : <p className="mt-5 rounded-xl bg-[#f7f7f5] p-4 text-sm text-[#787774]">尚未有成員發布議前文件。</p>}
       </section>
       <section className="mt-6 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
         <h2 className="text-lg font-semibold">本場共同議程</h2>
