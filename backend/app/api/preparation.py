@@ -362,20 +362,24 @@ async def publish_preparation_to_rag(
             published_at=document.indexed_at or datetime.now(UTC),
         )
 
+    embedding_error: str | None = None
     try:
         vectors = await embed_texts([chunk.content for chunk in chunks], settings)
     except EmbeddingConfigurationError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        vectors = []
+        embedding_error = str(exc)
     except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="embedding provider unavailable") from None
-    for chunk, vector in zip(chunks, vectors, strict=True):
-        chunk.embedding = vector
+        vectors = []
+        embedding_error = "embedding provider unavailable"
+    if vectors:
+        for chunk, vector in zip(chunks, vectors, strict=True):
+            chunk.embedding = vector
 
     published_at = datetime.now(UTC)
     content = "\n\n".join(chunk.content for chunk in chunks)
     document.status = "embedded"
     document.indexed_at = published_at
-    document.index_error = None
+    document.index_error = embedding_error
     document.metadata_json = {**document.metadata_json, "published_to_rag": True}
     session.add(
         DocumentVersion(
