@@ -14,8 +14,15 @@ class LLMProviderError(RuntimeError):
 
 
 async def complete_preparation(messages: list[dict[str, str]], settings: Settings) -> str:
+    concise_instruction = (
+        "回覆請保持精簡：先給一個直接結論，再列最多 3 個必要重點或問題；"
+        "避免重述使用者內容、長篇背景說明與免責聲明。一般回覆控制在 180 字內，"
+        "只有在使用者要求深入整理時才展開。使用繁體中文。"
+    )
     if settings.llm_provider == "gemini":
-        return await _complete_gemini(messages, settings)
+        return await _complete_gemini(
+            [{"role": "user", "content": concise_instruction}, *messages], settings
+        )
     api_key = settings.llm_api_key or settings.groq_api_key
     if settings.llm_provider not in {"groq", "openai"} or not api_key:
         raise LLMConfigurationError("LLM provider is not configured")
@@ -23,7 +30,7 @@ async def complete_preparation(messages: list[dict[str, str]], settings: Setting
         "role": "system",
         "content": (
             "你是會議前準備助理。請用繁體中文協助使用者釐清問題、風險與需要在會議"
-            "決定的事項；不要假造外部事實。"
+            "決定的事項；不要假造外部事實。" + concise_instruction
         ),
     }
     try:
@@ -60,9 +67,9 @@ async def generate_preparation_document(
         "role": "user",
         "content": (
             "請將以上議前對話整理成可供會議中檢索的繁體中文 Markdown 文件。"
-            "請包含：背景與目標、已確認的事實、待決問題、不同觀點、風險與限制、"
-            "建議的會議討論順序，以及明確的待辦事項。只整理對話中出現的資訊；"
-            "不確定的內容請標記為待確認，不要捏造。"
+            "請用精簡格式，最多 6 個小節、總長控制在 800 字內；只保留會議需要的"
+            "背景、共識、待決問題、風險、討論順序與待辦事項。只整理對話中出現的"
+            "資訊；不確定的內容請標記為待確認，不要捏造。"
         ),
     }
     return await complete_preparation([*messages, instruction], settings)
