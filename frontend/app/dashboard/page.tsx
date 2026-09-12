@@ -231,7 +231,7 @@ export default function DashboardPage() {
         </div>
         {activeMeetings.length ? (
           <div className="mt-5 grid gap-3">
-            {activeMeetings.slice(0, 6).map((meeting) => (
+            {activeMeetings.map((meeting) => (
               <article
                 key={meeting.id}
                 className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6e6e3] bg-white p-5"
