@@ -70,6 +70,17 @@ export default function StartMeetingPage() {
       await endMeeting(id);
       router.push(`/meetings/${id}/review`);
     } catch (cause) {
+      if ((cause as { status?: number }).status === 409) {
+        try {
+          const latest = await getMeeting(id);
+          if (latest.status === "completed") {
+            router.push(`/meetings/${id}/review`);
+            return;
+          }
+        } catch {
+          // Keep the original conflict message below when the refresh fails.
+        }
+      }
       setError(cause instanceof Error ? cause.message : "無法結束會議。");
       setEnding(false);
     }
