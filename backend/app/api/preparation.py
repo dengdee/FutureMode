@@ -110,12 +110,7 @@ async def get_preparation_document(
     """Load the latest preparation document created by the current participant."""
     meeting = await authorized_meeting(meeting_id, principal, session)
     user_id = await find_user_id(session, principal.subject)
-    published_rank = case(
-        (Document.status == "embedded", 1),
-        (Document.metadata_json["published_to_rag"].astext == "true", 1),
-        else_=0,
-    )
-    document = await session.scalar(
+    documents = list((await session.scalars(
         select(Document)
         .where(
             Document.team_id == meeting.team_id,
@@ -123,7 +118,17 @@ async def get_preparation_document(
             Document.source_type == "preparation",
             Document.metadata_json["meeting_id"].astext == str(meeting_id),
         )
-        .order_by(desc(published_rank), desc(Document.created_at))
+        .order_by(desc(Document.created_at))
+    )).all())
+    # Do the publication preference in Python as well as SQL.  This keeps the
+    # read-after-publish result correct across PostgreSQL/SQLite JSON behavior.
+    document = next(
+        (
+            item for item in documents
+            if item.status == "embedded"
+            or item.metadata_json.get("published_to_rag") is True
+        ),
+        documents[0] if documents else None,
     )
     if document is None:
         raise HTTPException(status_code=404, detail="preparation document not found")
