@@ -323,8 +323,35 @@ function TabContent({
           正式會議資料已載入。Brief 詳細內容將由後續正式 API 欄位提供。
         </p>
         <InfoCard label="會議狀態" value={meeting?.status ?? "未知"} />
-        <InfoCard label="目前議題" value={agenda.length ? agenda.map((item) => `${item.position}. ${item.title}`).join("\n") : "尚未設定公開議題"} />
-        <InfoCard label="團隊共識文件" value={sharedDocuments.length ? sharedDocuments.join("\n\n") : "尚未發布團隊共識"} />
+        <InfoCard
+          label="目前議題"
+          value={
+            agenda.length ? (
+              <div className="mt-2 space-y-2">
+                {agenda.map((item) => (
+                  <div key={item.id} className="rounded-lg bg-white px-3 py-2 leading-5">
+                    <span className="mr-1 text-[#0f9f8a]">{item.position}.</span>
+                    {item.title}
+                  </div>
+                ))}
+              </div>
+            ) : "尚未設定公開議題"
+          }
+        />
+        <InfoCard
+          label="團隊共識文件"
+          value={
+            sharedDocuments.length ? (
+              <div className="mt-2 space-y-3">
+                {sharedDocuments.map((content, index) => (
+                  <div key={`${index}-${content.slice(0, 20)}`} className="whitespace-pre-wrap break-words rounded-lg bg-white px-3 py-2 leading-5">
+                    {content}
+                  </div>
+                ))}
+              </div>
+            ) : "尚未發布團隊共識"
+          }
+        />
       </section>
     );
   if (tab === "live")
@@ -376,11 +403,11 @@ function SidekickTab({ meetingId }: { meetingId: string }) {
   return <section><h2 className="text-lg font-semibold">Personal Sidekick</h2><p className="mt-2 text-xs text-[#787774]">只有你看得到，會中可隨時和私人 Agent 討論，不會自動公開。</p><div className="mt-4 max-h-64 space-y-3 overflow-y-auto">{messages.length ? messages.map((message) => <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[90%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === "user" ? "rounded-br-md bg-[#0f9f8a] text-white" : "rounded-bl-md bg-[#f7f7f5] text-[#2f5446]"}`}>{message.content}</div></div>) : <p className="rounded-xl border border-dashed border-[#d8d8d5] p-4 text-sm text-[#787774]">先從一個問題開始，Agent 會協助你整理假設、風險與可提出的觀點。</p>}{sending && <p className="text-xs text-[#787774]">Agent 正在整理想法…</p>}</div><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => setDraft(prompt)} className="shrink-0 rounded-full border border-[#d7e8e5] px-3 py-1.5 text-[11px] text-[#087e6d]">{prompt}</button>)}</div><textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} className="control-primary mt-3 min-h-20 w-full" placeholder="和 Agent 討論一個問題…" aria-label="Sidekick 訊息" /><div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={!draft.trim() || sending} onClick={() => void send()} className="rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">{sending ? "整理中…" : "送出訊息"}</button><button type="button" disabled={!draft.trim() || sending} onClick={() => void previewAndPublish()} className="rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold disabled:opacity-40">預覽發布</button></div>{preview && <div className="mt-4 rounded-xl border border-[#b9e9cc] bg-[#effbf4] p-3 text-sm"><p className="text-xs font-semibold text-[#087f5b]">公開內容預覽</p><p className="mt-2">{preview}</p><button type="button" onClick={() => publishContribution(meetingId, preview).then(() => { setNotice("內容已發布"); setPreview(""); }).catch(() => setNotice("發布失敗"))} className="mt-3 rounded-lg bg-[#0f9f8a] px-3 py-2 text-xs font-semibold text-white">確認提出觀點</button></div>}{notice && <p role="status" className="mt-3 text-xs text-[#787774]">{notice}</p>}</section>;
 }
 
-function InfoCard({ label, value }: { label: string; value: string }) {
+function InfoCard({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="mt-5 rounded-xl bg-[#f7f7f5] p-4">
       <p className="text-xs text-[#8b8b87]">{label}</p>
-      <p className="mt-1 text-sm font-medium">{value}</p>
+      <div className="mt-1 text-sm font-medium">{value}</div>
     </div>
   );
 }
