@@ -227,7 +227,9 @@ export default function PreparePage() {
         </p>
       </AppShell>
     );
-  const isPublished = document?.status === "embedded";
+  // `ready` means the document is indexed and available as a published
+  // document; `embedded` additionally has vector embeddings for RAG.
+  const isPublished = document?.status === "ready" || document?.status === "embedded";
   const deadlinePassed = Boolean(meeting.preparation_deadline) && new Date(meeting.preparation_deadline!).getTime() <= Date.now();
 
   return (

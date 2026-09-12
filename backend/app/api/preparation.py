@@ -136,7 +136,13 @@ async def get_preparation_document(
         document_id=document.id,
         name=document.name,
         content="\n\n".join(chunk.content for chunk in chunks),
-        status=document.status,
+        # Ingesting a draft marks its chunks as ready, but it is not shared
+        # until the explicit publish action completes.
+        status=(
+            "embedded"
+            if document.metadata_json.get("published_to_rag") is True
+            else "draft"
+        ),
         generated_at=document.created_at,
     )
 
@@ -338,7 +344,10 @@ async def publish_preparation_to_rag(
     )
     if not chunks:
         raise HTTPException(status_code=409, detail="preparation document has no content")
-    if document.status in {"ready", "embedded"}:
+    # A ready document has persisted chunks but has not necessarily been
+    # published to the shared vector memory yet. Only an embedded document is
+    # already published and can safely short-circuit this operation.
+    if document.status == "embedded":
         return PreparationPublishResponse(
             meeting_id=meeting_id,
             document_id=document.id,

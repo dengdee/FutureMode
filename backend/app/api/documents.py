@@ -98,6 +98,15 @@ async def list_documents(
         filters.append(Document.status.in_(["ready", "embedded"]))
         filters.append(Document.metadata_json["meeting_id"].astext == str(meeting_id))
     docs = (await session.scalars(select(Document).where(*filters))).all()
+    if scope == "meeting":
+        # Preparation drafts are indexed for editing but must not appear as
+        # team-shared memory until the user explicitly publishes them.
+        docs = [
+            document
+            for document in docs
+            if document.source_type != "preparation"
+            or document.metadata_json.get("published_to_rag") is True
+        ]
     return [
         {
             "id": str(d.id),
