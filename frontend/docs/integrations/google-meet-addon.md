@@ -2,7 +2,9 @@
 
 ## 使用方式
 
-Add-on iframe 入口固定為 `/meetings/[id]/addon`。使用者在 Web App 以 Neon Auth Email／密碼登入；Add-on 沿用目前登入 session，不重複顯示登入頁，也不把長效 session 或 API key 放進 URL。Add-on 可直接使用現有 Bearer session 呼叫會議 API。
+Add-on iframe 的固定入口是 `/addon`，供 Google Meet manifest 的 `sidePanelUrl` 使用。入口會透過 Meet Add-ons SDK 取得目前會議資訊，再載入同一場 Proximate 會議的精簡面板（Brief、Live State、Personal Sidekick）。
+
+Proximate 建立會議時會把 Google Meet 連結與會議代碼存入資料庫，而不是存在瀏覽器 local storage。Add-on 會依序以 Meet 的永久 space ID 與會議代碼查找對應的 Proximate 會議；這能避免兩種 Google 識別碼不同時，面板誤判為找不到會議。
 
 ## Token 與登入邊界
 
@@ -45,4 +47,15 @@ Manifest、OAuth secret、短效 token 簽發與撤銷由後端／Google Cloud �
 - Google Workspace Marketplace SDK（`appsmarket-component.googleapis.com`）
 - Google Workspace Add-ons API（`gsuiteaddons.googleapis.com`）
 
-前端現在提供固定的 `/addon` context 入口：它會使用 Meet Add-ons Web SDK 取得目前會議的 `meetingId`，再導向既有的 `/meetings/[id]/addon` 面板；若從一般瀏覽器開啟且沒有 Meet context，會顯示重新從 Meet 活動面板開啟的提示。
+前端提供固定的 `/addon` context 入口：它會使用 Meet Add-ons Web SDK 取得目前會議的 space ID 與 meeting code，並在 iframe 內載入面板；不會將登入 token、API key 或會議機密放進 URL。若從一般瀏覽器開啟而沒有 Meet context，會顯示重新從 Meet 活動面板開啟的提示。
+
+## 將既有會議綁定至 Google Meet
+
+若 Add-on 顯示「尚未綁定 Proximate 會議」：
+
+1. 在 Proximate 開啟該會議的 **開始會議** 頁。
+2. 在 **Google Meet 連結** 欄位貼上目前這場 Meet 的完整連結，例如 `https://meet.google.com/abc-defg-hij`。
+3. 按 **儲存並綁定 Meet**。
+4. 回到同一場 Google Meet，重新開啟或重新連線 Proximate 活動面板。
+
+新建立的會議只要在建立時填入 Google Meet 連結，就會自動完成相同的資料庫綁定。
