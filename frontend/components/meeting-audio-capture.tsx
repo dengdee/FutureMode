@@ -16,6 +16,7 @@ export function stopMeetingAudioCapture(meetingId: string) {
 export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const maxSignal = useRef(0);
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<CaptureState>("idle");
   const [message, setMessage] = useState("尚未請求瀏覽器麥克風權限。");
@@ -36,13 +37,32 @@ export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       window.localStorage.setItem(`meeting-audio-recording:${meetingId}`, "true");
+      maxSignal.current = 0;
       chunks.current = [];
       const next = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 512;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      const vadTimer = window.setInterval(() => {
+        analyser.getByteTimeDomainData(samples);
+        let energy = 0;
+        for (const sample of samples) energy += (sample - 128) ** 2;
+        maxSignal.current = Math.max(maxSignal.current, Math.sqrt(energy / samples.length));
+      }, 100);
       activeRecorders.set(meetingId, next);
       next.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
       next.onstop = async () => {
         window.localStorage.removeItem(`meeting-audio-recording:${meetingId}`);
+        window.clearInterval(vadTimer);
+        await audioContext.close();
         activeRecorders.delete(meetingId);
+        if (maxSignal.current < 8) {
+          setState("ready");
+          setMessage("未偵測到人聲，已略過這段轉錄。");
+          return;
+        }
         stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(chunks.current, { type: "audio/webm" });
         setState("uploading"); setMessage("正在送交後端轉錄…");
