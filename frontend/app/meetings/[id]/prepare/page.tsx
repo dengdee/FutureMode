@@ -140,7 +140,7 @@ export default function PreparePage() {
       setSending(false);
     }
   }
-  async function run(action: () => Promise<unknown>, success: string) {
+  async function run(action: () => Promise<unknown>, success: string): Promise<boolean> {
     setBusy(true);
     setError("");
     setNotice("");
@@ -148,8 +148,10 @@ export default function PreparePage() {
       await action();
       setNotice(success);
       await refresh();
+      return true;
     } catch (cause) {
       setError(errorMessage(cause, "操作失敗，請稍後再試。"));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -181,7 +183,7 @@ export default function PreparePage() {
   }
   async function publishDocument() {
     if (!document) return;
-    await run(
+    const published = await run(
       async () => {
         // Re-ingest before publishing so legacy `ready` documents cannot
         // short-circuit the publish endpoint without being embedded.
@@ -191,9 +193,11 @@ export default function PreparePage() {
       },
       "已發布到團隊共用記憶，會議中可用 RAG 查詢。",
     );
-    setDocument((current) =>
-      current ? { ...current, status: "embedded" } : current,
-    );
+    if (published) {
+      setDocument((current) =>
+        current ? { ...current, status: "embedded" } : current,
+      );
+    }
   }
   async function saveDelegate() {
     const privateNotes = messages
