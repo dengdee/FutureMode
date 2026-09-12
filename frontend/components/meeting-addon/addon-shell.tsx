@@ -15,6 +15,8 @@ import {
   type ReactNode,
 } from "react";
 import { getLiveSnapshot } from "../../lib/api/addon";
+import { listAgendaItems } from "../../lib/api/agenda";
+import { listDocumentChunks, listDocuments } from "../../lib/api/documents";
 import { getMeetingByGoogleId } from "../../lib/api/meetings";
 import {
   previewContribution,
@@ -28,6 +30,7 @@ import type {
   LiveSnapshotResponse,
   MeetingSummary,
   PreparationMessage,
+  AgendaItem,
 } from "../../types/api";
 import { LiveStateTab } from "./live-state";
 
@@ -61,6 +64,8 @@ export function AddonShell({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [apiMeetingId, setApiMeetingId] = useState<string | null>(null);
+  const [agenda, setAgenda] = useState<AgendaItem[]>([]);
+  const [sharedDocuments, setSharedDocuments] = useState<string[]>([]);
   const hasLoadedRef = useRef(preview);
   const loadContext = useCallback(async () => {
     if (preview) return;
@@ -91,8 +96,18 @@ export function AddonShell({
       }
       setApiMeetingId(appMeetingId);
       const snapshotResponse = await getLiveSnapshot(appMeetingId);
+      const agendaResponse = await listAgendaItems(appMeetingId);
+      const publishedDocuments = snapshotResponse.meeting
+        ? await listDocuments(snapshotResponse.meeting.team_id, { scope: "meeting", meeting_id: appMeetingId })
+        : [];
+      const documentContents = await Promise.all(publishedDocuments.map(async (document) => {
+        const chunks = await listDocumentChunks(document.id);
+        return chunks.sort((a, b) => a.position - b.position).map((chunk) => chunk.content).join("\n\n");
+      }));
       setMeeting(snapshotResponse.meeting ?? null);
       setSnapshot(snapshotResponse);
+      setAgenda(agendaResponse.items);
+      setSharedDocuments(documentContents.filter((content) => content.trim()));
       hasLoadedRef.current = true;
       setStatus("connected");
     } catch (error) {
@@ -201,6 +216,8 @@ export function AddonShell({
               meetingId={apiMeetingId ?? meetingId}
               meeting={meeting}
               snapshot={snapshot}
+              agenda={agenda}
+              sharedDocuments={sharedDocuments}
             />
           )}
         </div>
@@ -283,11 +300,15 @@ function TabContent({
   meetingId,
   meeting,
   snapshot,
+  agenda,
+  sharedDocuments,
 }: {
   tab: Tab;
   meetingId: string;
   meeting: MeetingSummary | null;
   snapshot: LiveSnapshotResponse | null;
+  agenda: AgendaItem[];
+  sharedDocuments: string[];
 }) {
   if (tab === "brief")
     return (
@@ -302,6 +323,8 @@ function TabContent({
           正式會議資料已載入。Brief 詳細內容將由後續正式 API 欄位提供。
         </p>
         <InfoCard label="會議狀態" value={meeting?.status ?? "未知"} />
+        <InfoCard label="目前議題" value={agenda.length ? agenda.map((item) => `${item.position}. ${item.title}`).join("\n") : "尚未設定公開議題"} />
+        <InfoCard label="團隊共識文件" value={sharedDocuments.length ? sharedDocuments.join("\n\n") : "尚未發布團隊共識"} />
       </section>
     );
   if (tab === "live")

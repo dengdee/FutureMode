@@ -95,6 +95,7 @@ async def list_documents(
         if meeting_id is None:
             return []
         filters.append(Document.source_type.in_(["meeting", "preparation"]))
+        filters.append(Document.status.in_(["ready", "embedded"]))
         filters.append(Document.metadata_json["meeting_id"].astext == str(meeting_id))
     docs = (await session.scalars(select(Document).where(*filters))).all()
     return [
