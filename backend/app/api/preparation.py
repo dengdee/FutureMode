@@ -4,7 +4,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import desc, select
+from sqlalchemy import case, desc, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -110,6 +110,11 @@ async def get_preparation_document(
     """Load the latest preparation document created by the current participant."""
     meeting = await authorized_meeting(meeting_id, principal, session)
     user_id = await find_user_id(session, principal.subject)
+    published_rank = case(
+        (Document.status == "embedded", 1),
+        (Document.metadata_json["published_to_rag"].astext == "true", 1),
+        else_=0,
+    )
     document = await session.scalar(
         select(Document)
         .where(
@@ -118,7 +123,7 @@ async def get_preparation_document(
             Document.source_type == "preparation",
             Document.metadata_json["meeting_id"].astext == str(meeting_id),
         )
-        .order_by(desc(Document.created_at))
+        .order_by(desc(published_rank), desc(Document.created_at))
     )
     if document is None:
         raise HTTPException(status_code=404, detail="preparation document not found")
