@@ -183,10 +183,10 @@ export default function PreparePage() {
     if (!document) return;
     await run(
       async () => {
-        if (documentDraft.trim() !== document.content.trim()) {
-          await ingestDocument(document.document_id, documentDraft);
-          setDocument((current) => current ? { ...current, content: documentDraft, status: "draft" } : current);
-        }
+        // Re-ingest before publishing so legacy `ready` documents cannot
+        // short-circuit the publish endpoint without being embedded.
+        await ingestDocument(document.document_id, documentDraft);
+        setDocument((current) => current ? { ...current, content: documentDraft, status: "draft" } : current);
         await publishPreparationToRag(id, document.document_id);
       },
       "已發布到團隊共用記憶，會議中可用 RAG 查詢。",
