@@ -72,7 +72,7 @@ function actionState(meeting: MeetingSummary) {
   const finished = ["completed", "cancelled"].includes(meeting.status);
   const deadline = meeting.preparation_deadline ? new Date(meeting.preparation_deadline).getTime() : Number.POSITIVE_INFINITY;
   const start = meeting.scheduled_at ? new Date(meeting.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
-  return { prepare: !finished && now < deadline, summary: !finished && now >= deadline && now < start, start: !finished && now >= start };
+  return { prepare: !finished, summary: !finished && now >= deadline && now < start, start: !finished && now >= start };
 }
 const disabledAction = (label: string) => <span title="目前尚未到可操作時間" className="cursor-not-allowed rounded-lg bg-[#e6e6e3] px-3 py-2 text-sm font-semibold text-[#9b9a97]">{label}</span>;
 

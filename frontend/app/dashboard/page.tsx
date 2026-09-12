@@ -59,7 +59,9 @@ const actionState = (meeting: MeetingSummary) => {
   const now = Date.now();
   const finished = ["completed", "cancelled"].includes(meeting.status);
   return {
-    prepare: !finished && now < deadlineTime(meeting),
+    // The preparation page remains accessible after the deadline so members
+    // can review their saved discussion; the page itself switches to read-only.
+    prepare: !finished,
     summary: !finished && now >= deadlineTime(meeting) && now < meetingStart(meeting),
     start: !finished && now >= meetingStart(meeting),
   };

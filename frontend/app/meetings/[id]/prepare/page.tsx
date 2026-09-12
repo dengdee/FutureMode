@@ -364,7 +364,7 @@ export default function PreparePage() {
             </span>
             <button
               type="button"
-              disabled={busy || !messages.length}
+              disabled={busy || deadlinePassed || !messages.length}
               title={document ? "依目前議前對話重新生成，會覆蓋目前草稿" : "依目前議前對話生成文件"}
               onClick={() => void createDocument()}
               className="ml-auto rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -373,7 +373,7 @@ export default function PreparePage() {
             </button>
             <button
               type="button"
-              disabled={busy || !document || isPublished}
+              disabled={busy || deadlinePassed || !document || isPublished}
               onClick={() => void publishDocument()}
               className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -383,10 +383,10 @@ export default function PreparePage() {
           {document && (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <label className="block text-xs font-semibold text-slate-600" htmlFor="preparation-document">議前文件內容（可編輯）</label>
-              <textarea id="preparation-document" value={documentDraft} onChange={(event) => setDocumentDraft(event.target.value)} disabled={isPublished || busy} className="mt-2 min-h-48 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm leading-7 text-slate-700 outline-none focus:border-teal-500 disabled:bg-slate-100" />
+              <textarea id="preparation-document" value={documentDraft} onChange={(event) => setDocumentDraft(event.target.value)} disabled={isPublished || deadlinePassed || busy} className="mt-2 min-h-48 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm leading-7 text-slate-700 outline-none focus:border-teal-500 disabled:bg-slate-100" />
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-xs text-slate-500">先儲存草稿，再發布到團隊共用記憶；發布按鈕也會自動帶上最新編輯。</span>
-                <button type="button" disabled={isPublished || busy || !documentDraft.trim()} onClick={() => void saveDocument()} className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40">儲存草稿</button>
+                <button type="button" disabled={isPublished || deadlinePassed || busy || !documentDraft.trim()} onClick={() => void saveDocument()} className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40">儲存草稿</button>
               </div>
             </div>
           )}
