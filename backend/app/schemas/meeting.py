@@ -212,6 +212,13 @@ class PreparationDocumentGenerateResponse(BaseModel):
     generated_at: datetime
 
 
+class PreparationConsensusResponse(BaseModel):
+    meeting_id: UUID
+    content: str
+    source_count: int
+    generated_at: datetime
+
+
 class PreparationPublishRequest(BaseModel):
     document_id: UUID
 

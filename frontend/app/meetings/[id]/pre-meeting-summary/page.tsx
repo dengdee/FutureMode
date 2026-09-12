@@ -8,6 +8,7 @@ import { AppShell } from "../../../../components/app-shell";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import { listAgendaItems } from "../../../../lib/api/agenda";
 import { listDocumentChunks, listDocuments } from "../../../../lib/api/documents";
+import { compilePreparationConsensus } from "../../../../lib/api/preparation";
 import { getMeeting } from "../../../../lib/api/meetings";
 import type { AgendaItem, DocumentSummary, MeetingSummary } from "../../../../types/api";
 
@@ -16,6 +17,8 @@ export default function PreMeetingSummaryPage() {
   const [meeting, setMeeting] = useState<MeetingSummary | null>(null);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [sharedDocuments, setSharedDocuments] = useState<Array<{ document: DocumentSummary; content: string }>>([]);
+  const [consensus, setConsensus] = useState<string | null>(null);
+  const [compiling, setCompiling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -41,6 +44,19 @@ export default function PreMeetingSummaryPage() {
       )
       .finally(() => setLoading(false));
   }, [id]);
+  async function compileConsensus() {
+    setCompiling(true);
+    setError("");
+    try {
+      const result = await compilePreparationConsensus(id);
+      setConsensus(result.content);
+      setNotice(`已整合 ${result.source_count} 份已發布文件。`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "無法整合團隊意見。");
+    } finally {
+      setCompiling(false);
+    }
+  }
   if (loading)
     return (
       <AppShell>
@@ -85,6 +101,8 @@ export default function PreMeetingSummaryPage() {
       <section className="mt-6 rounded-2xl border border-[#e6e6e3] bg-white p-5 sm:p-7">
         <h2 className="text-lg font-semibold">團隊共識與待釐清衝突</h2>
         <p className="mt-1 text-sm leading-6 text-[#787774]">以下內容來自議前討論發布到團隊共用記憶的文件。</p>
+        <button type="button" disabled={!sharedDocuments.length || compiling} onClick={() => void compileConsensus()} className="mt-4 rounded-xl bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{compiling ? "AI 整合中…" : "AI 整合團隊意見"}</button>
+        {consensus && <article className="mt-5 rounded-xl border border-[#cde5df] bg-[#f0fbf8] p-4"><p className="text-xs font-semibold text-[#087e6d]">AI 整合結果</p><div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#34534b]">{consensus}</div></article>}
         {sharedDocuments.length ? sharedDocuments.map(({ document, content }) => (
           <article key={document.id} className="mt-5 rounded-xl bg-[#f7f7f5] p-4">
             <p className="text-xs font-semibold text-[#087e6d]">{document.name}</p>

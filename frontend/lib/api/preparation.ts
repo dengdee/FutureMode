@@ -23,6 +23,10 @@ export const getPreparationDocument = (meetingId: string) =>
   request<PreparationDocument>(() =>
     http.get(`/api/v1/meetings/${meetingId}/preparation/document`),
   );
+export const compilePreparationConsensus = (meetingId: string) =>
+  request<{ meeting_id: string; content: string; source_count: number; generated_at: string }>(() =>
+    http.post(`/api/v1/meetings/${meetingId}/preparation/compile-consensus`),
+  );
 
 export const publishPreparationToRag = (meetingId: string, documentId: string) =>
   request<PreparationPublishResult>(() =>

@@ -14,6 +14,7 @@ from app.config import Settings, get_settings
 from app.models import Document, DocumentChunk, DocumentVersion, PreparationMessage
 from app.schemas.meeting import (
     PreparationDocumentGenerateResponse,
+    PreparationConsensusResponse,
     PreparationMessageCreate,
     PreparationMessageSummary,
     PreparationPublishRequest,
@@ -29,6 +30,72 @@ from app.services.llm import (
 
 router = APIRouter(prefix="/api/v1", tags=["preparation"])
 PREPARATION_CHUNK_SIZE = 4_000
+
+
+@router.post(
+    "/meetings/{meeting_id}/preparation/compile-consensus",
+    response_model=PreparationConsensusResponse,
+)
+async def compile_preparation_consensus(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+    settings: Settings = Depends(get_settings),
+) -> PreparationConsensusResponse:
+    """Ask the meeting agent to synthesize all published participant documents."""
+    meeting = await authorized_meeting(meeting_id, principal, session)
+    documents = list(
+        (
+            await session.scalars(
+                select(Document)
+                .where(
+                    Document.team_id == meeting.team_id,
+                    Document.source_type == "preparation",
+                    Document.status.in_(["ready", "embedded"]),
+                    Document.metadata_json["meeting_id"].astext == str(meeting_id),
+                )
+                .order_by(Document.created_at)
+            )
+        ).all()
+    )
+    if not documents:
+        raise HTTPException(status_code=409, detail="no published preparation documents")
+    sections: list[str] = []
+    for index, document in enumerate(documents, start=1):
+        chunks = list(
+            (
+                await session.scalars(
+                    select(DocumentChunk)
+                    .where(DocumentChunk.document_id == document.id)
+                    .order_by(DocumentChunk.position)
+                )
+            ).all()
+        )
+        content = "\n\n".join(chunk.content for chunk in chunks).strip()
+        if content:
+            sections.append(f"## 成員文件 {index}\n{content}")
+    if not sections:
+        raise HTTPException(status_code=409, detail="published preparation documents are empty")
+    prompt = {
+        "role": "user",
+        "content": (
+            "請整合以下多位成員的議前文件，輸出繁體中文 Markdown。只能根據文件內容，不要捏造。"
+            "請分成三段：## 共同共識、## 意見衝突與差異、## 會議待確認事項。"
+            "若某段沒有內容，請明確寫「目前沒有」。\n\n" + "\n\n".join(sections)
+        ),
+    }
+    try:
+        content = await complete_preparation([prompt], settings)
+    except LLMConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except LLMProviderError:
+        raise HTTPException(status_code=502, detail="LLM provider unavailable") from None
+    return PreparationConsensusResponse(
+        meeting_id=meeting_id,
+        content=content,
+        source_count=len(sections),
+        generated_at=datetime.now(UTC),
+    )
 
 
 @router.get(
