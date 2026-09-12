@@ -22,7 +22,7 @@ export function MeetingWorkspaceHeader({
   }[phase];
 
   return (
-    <div className="border-b border-[#e6e6e3] pb-6">
+    <div className="border-b border-[#e6e6e3] px-4 pb-6 pt-4 sm:px-8 lg:px-12">
       <button
         type="button"
         onClick={() => {
