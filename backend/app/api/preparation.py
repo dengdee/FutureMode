@@ -140,7 +140,8 @@ async def get_preparation_document(
         # until the explicit publish action completes.
         status=(
             "embedded"
-            if document.metadata_json.get("published_to_rag") is True
+            if document.status == "embedded"
+            or document.metadata_json.get("published_to_rag") is True
             else "draft"
         ),
         generated_at=document.created_at,
