@@ -19,6 +19,10 @@ export const generatePreparationDocument = (meetingId: string) =>
   request<PreparationDocument>(() =>
     http.post(`/api/v1/meetings/${meetingId}/preparation/generate-document`),
   );
+export const getPreparationDocument = (meetingId: string) =>
+  request<PreparationDocument>(() =>
+    http.get(`/api/v1/meetings/${meetingId}/preparation/document`),
+  );
 
 export const publishPreparationToRag = (meetingId: string, documentId: string) =>
   request<PreparationPublishResult>(() =>

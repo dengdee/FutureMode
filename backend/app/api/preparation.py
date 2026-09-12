@@ -4,7 +4,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,49 @@ from app.services.llm import (
 
 router = APIRouter(prefix="/api/v1", tags=["preparation"])
 PREPARATION_CHUNK_SIZE = 4_000
+
+
+@router.get(
+    "/meetings/{meeting_id}/preparation/document",
+    response_model=PreparationDocumentGenerateResponse,
+)
+async def get_preparation_document(
+    meeting_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    session: AsyncSession = Depends(database_session),
+) -> PreparationDocumentGenerateResponse:
+    """Load the latest preparation document created by the current participant."""
+    meeting = await authorized_meeting(meeting_id, principal, session)
+    user_id = await find_user_id(session, principal.subject)
+    document = await session.scalar(
+        select(Document)
+        .where(
+            Document.team_id == meeting.team_id,
+            Document.uploaded_by == user_id,
+            Document.source_type == "preparation",
+            Document.metadata_json["meeting_id"].astext == str(meeting_id),
+        )
+        .order_by(desc(Document.created_at))
+    )
+    if document is None:
+        raise HTTPException(status_code=404, detail="preparation document not found")
+    chunks = list(
+        (
+            await session.scalars(
+                select(DocumentChunk)
+                .where(DocumentChunk.document_id == document.id)
+                .order_by(DocumentChunk.position)
+            )
+        ).all()
+    )
+    return PreparationDocumentGenerateResponse(
+        meeting_id=meeting_id,
+        document_id=document.id,
+        name=document.name,
+        content="\n\n".join(chunk.content for chunk in chunks),
+        status=document.status,
+        generated_at=document.created_at,
+    )
 
 
 @router.get(

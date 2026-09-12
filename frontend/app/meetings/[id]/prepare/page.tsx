@@ -27,6 +27,7 @@ import { getMeeting } from "../../../../lib/api/meetings";
 import {
   createPreparationMessage,
   generatePreparationDocument,
+  getPreparationDocument,
   listPreparationMessages,
   publishPreparationToRag,
 } from "../../../../lib/api/preparation";
@@ -75,12 +76,20 @@ export default function PreparePage() {
       listPreparationMessages(id),
       listDelegates(id),
     ]);
+    let existingDocument: PreparationDocument | null = null;
+    try {
+      existingDocument = await getPreparationDocument(id);
+    } catch (cause) {
+      if ((cause as { status?: number }).status !== 404) throw cause;
+    }
     setMeeting(current);
     setAgenda(agendaResult.items);
     setMessages(preparation);
     setSaveStatus(preparation.length ? "saved" : "idle");
     setDelegates(delegateResult);
     setDelegateEnabled(delegateResult.length > 0);
+    setDocument(existingDocument);
+    setDocumentDraft(existingDocument?.content ?? "");
   }, [id]);
   useEffect(() => {
     let active = true;
