@@ -4,7 +4,7 @@ import { IconExternalLink, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
-import { MeetingAudioCapture } from "../../../../components/meeting-audio-capture";
+import { MeetingAudioCapture, stopMeetingAudioCapture } from "../../../../components/meeting-audio-capture";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import { endMeeting, getMeeting, updateMeeting } from "../../../../lib/api/meetings";
 import type { MeetingSummary } from "../../../../types/api";
@@ -61,6 +61,7 @@ export default function StartMeetingPage() {
     setEnding(true);
     setError("");
     try {
+      stopMeetingAudioCapture(id);
       await endMeeting(id);
       router.push(`/meetings/${id}/review`);
     } catch (cause) {

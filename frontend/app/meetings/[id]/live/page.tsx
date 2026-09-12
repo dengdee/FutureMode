@@ -4,6 +4,7 @@ import { IconRefresh, IconSearch, IconWifi, IconPlayerStop } from "@tabler/icons
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell } from "../../../../components/app-shell";
+import { stopMeetingAudioCapture } from "../../../../components/meeting-audio-capture";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import {
   listSuggestions,
@@ -269,6 +270,7 @@ export default function LivePage() {
     setEnding(true);
     setError("");
     try {
+      stopMeetingAudioCapture(id);
       await endMeeting(id);
       router.push(`/meetings/${id}/review`);
     } catch (cause) {
