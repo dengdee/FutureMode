@@ -4,7 +4,7 @@ import { IconExternalLink, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../../../components/app-shell";
-import { MeetingAudioCapture, stopMeetingAudioCapture } from "../../../../components/meeting-audio-capture";
+import { isMeetingAudioCapturing, MeetingAudioCapture, stopMeetingAudioCapture } from "../../../../components/meeting-audio-capture";
 import { MeetingWorkspaceHeader } from "../../../../components/meeting-workspace-header";
 import { endMeeting, getMeeting, startMeeting, updateMeeting } from "../../../../lib/api/meetings";
 import type { MeetingSummary } from "../../../../types/api";
@@ -62,11 +62,13 @@ export default function StartMeetingPage() {
   }
 
   async function finishMeeting() {
+    if (!meeting) return;
     if (!window.confirm("確定要結束這場會議嗎？結束後將無法繼續收音。")) return;
     setEnding(true);
     setError("");
     try {
       stopMeetingAudioCapture(id);
+      if (meeting.status !== "in_progress") await startMeeting(id);
       await endMeeting(id);
       router.push(`/meetings/${id}/review`);
     } catch (cause) {
@@ -101,7 +103,7 @@ export default function StartMeetingPage() {
       <div className="mt-5 flex flex-wrap gap-2">
         {meetUrl ? <a href={meetUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#9ddbc8] bg-white px-4 py-2.5 text-sm font-semibold text-[#087e6d]"><IconExternalLink size={16} />前往 Google Meet</a> : <span title="建立會議時尚未設定 Google Meet 連結" className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-[#dededb] bg-white/60 px-4 py-2.5 text-sm font-semibold text-[#9b9a97]"><IconExternalLink size={16} />尚未設定 Google Meet 連結</span>}
         <button type="button" onClick={() => void enterLive()} disabled={!canStart} title={!canStart ? "尚未到會議時間" : undefined} className="inline-flex items-center gap-2 rounded-lg bg-[#0f9f8a] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#b8d8d0]"><IconPlayerPlay size={16} />進入即時會議</button>
-        {meeting.status !== "completed" && meeting.status !== "cancelled" && <button type="button" onClick={() => void finishMeeting()} disabled={ending || meeting.status !== "in_progress"} title={meeting.status !== "in_progress" ? "請先進入即時會議" : undefined} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"><IconPlayerStop size={16} />{ending ? "結束中…" : "結束會議"}</button>}
+        {meeting.status !== "completed" && meeting.status !== "cancelled" && <button type="button" onClick={() => void finishMeeting()} disabled={ending || (meeting.status !== "in_progress" && !isMeetingAudioCapturing(id))} title={meeting.status !== "in_progress" && !isMeetingAudioCapturing(id) ? "請先進入即時會議或開始收音" : undefined} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"><IconPlayerStop size={16} />{ending ? "結束中…" : "結束會議"}</button>}
       </div>
       <div className="mt-5 rounded-xl border border-[#d7e8e5] bg-white/80 p-4">
         <label className="block text-sm font-semibold text-[#27554c]">Google Meet 連結

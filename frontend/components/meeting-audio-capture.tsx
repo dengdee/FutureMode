@@ -40,6 +40,10 @@ export function stopMeetingAudioCapture(meetingId: string) {
   if (recorder?.state === "recording") recorder.stop();
 }
 
+export function isMeetingAudioCapturing(meetingId: string) {
+  return activeRecorders.get(meetingId)?.state === "recording";
+}
+
 export function MeetingAudioCapture({ meetingId }: { meetingId: string }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
