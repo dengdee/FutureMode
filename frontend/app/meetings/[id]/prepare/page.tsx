@@ -173,7 +173,13 @@ export default function PreparePage() {
   async function publishDocument() {
     if (!document) return;
     await run(
-      () => publishPreparationToRag(id, document.document_id),
+      async () => {
+        if (documentDraft.trim() !== document.content.trim()) {
+          await ingestDocument(document.document_id, documentDraft);
+          setDocument((current) => current ? { ...current, content: documentDraft, status: "draft" } : current);
+        }
+        await publishPreparationToRag(id, document.document_id);
+      },
       "已發布到團隊共用記憶，會議中可用 RAG 查詢。",
     );
     setDocument((current) =>
@@ -344,7 +350,7 @@ export default function PreparePage() {
               {document
                 ? isPublished
                   ? "已發布到團隊共用記憶"
-                  : "已整理草稿，尚未共用"
+                  : "已儲存草稿，尚未發布"
                 : "尚未整理"}
             </span>
             <button
@@ -361,7 +367,7 @@ export default function PreparePage() {
               onClick={() => void publishDocument()}
               className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isPublished ? "已發布" : "發布到共用記憶"}
+              {isPublished ? "已發布到團隊共用記憶" : "發布到團隊共用記憶"}
             </button>
           </div>
           {document && (
@@ -369,8 +375,8 @@ export default function PreparePage() {
               <label className="block text-xs font-semibold text-slate-600" htmlFor="preparation-document">議前文件內容（可編輯）</label>
               <textarea id="preparation-document" value={documentDraft} onChange={(event) => setDocumentDraft(event.target.value)} disabled={isPublished || busy} className="mt-2 min-h-48 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm leading-7 text-slate-700 outline-none focus:border-teal-500 disabled:bg-slate-100" />
               <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-xs text-slate-500">支援 Markdown 文字格式，儲存後才會用於共用記憶。</span>
-                <button type="button" disabled={isPublished || busy || !documentDraft.trim()} onClick={() => void saveDocument()} className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40">儲存文件</button>
+                <span className="text-xs text-slate-500">先儲存草稿，再發布到團隊共用記憶；發布按鈕也會自動帶上最新編輯。</span>
+                <button type="button" disabled={isPublished || busy || !documentDraft.trim()} onClick={() => void saveDocument()} className="rounded-xl border border-teal-600 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40">儲存草稿</button>
               </div>
             </div>
           )}
