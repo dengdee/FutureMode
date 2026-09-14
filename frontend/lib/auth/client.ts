@@ -13,6 +13,9 @@ export function toAuthErrorMessage(error: unknown, action: "登入" | "註冊") 
   if (/email.?not.?verified|verify.?email|email.?verification|EMAIL_NOT_VERIFIED/i.test(message)) {
     return action === "登入" ? "請先完成 Email 驗證，再登入 Proximate。" : "請確認你的 Email 驗證設定。";
   }
+  if (/already.?registered|already.?exists|duplicate|unique constraint|email.*taken/i.test(message)) {
+    return action === "註冊" ? "這個 Email 已經註冊過，請直接登入。" : "此帳號已存在，請確認登入方式。";
+  }
   if (/\b(502|503|504)\b|bad gateway|gateway timeout|failed to fetch|network/i.test(message)) {
     return `${action}服務暫時無法連線，請稍後再試；若持續發生，請確認 Neon Auth 設定。`;
   }

@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.teams import principal_name
@@ -30,19 +30,26 @@ async def get_me(
     """Return the canonical local profile for the authenticated subject."""
     user = await session.scalar(select(User).where(User.external_id == principal.subject))
     claim_name = principal_name(principal)
+    claim_email = principal.claims.get("email")
+    normalized_email = (
+        claim_email.strip().lower()
+        if isinstance(claim_email, str) and claim_email.strip()
+        else None
+    )
     if user is None:
         user = User(
             external_id=principal.subject,
             display_name=claim_name,
-            email=principal.claims.get("email")
-            if isinstance(principal.claims.get("email"), str)
-            else None,
+            email=normalized_email,
         )
         session.add(user)
     elif not user.display_name and claim_name:
         user.display_name = claim_name
     try:
         await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="email is already registered") from None
     except SQLAlchemyError:
         await session.rollback()
         raise HTTPException(status_code=503, detail="database is unavailable") from None
@@ -64,9 +71,14 @@ async def update_me(
     if user is None:
         raise HTTPException(status_code=404, detail="user not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "email" and isinstance(value, str):
+            value = value.strip().lower()
         setattr(user, field, value)
     try:
         await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="email is already registered") from None
     except SQLAlchemyError:
         await session.rollback()
         raise HTTPException(status_code=409, detail="profile update conflicts") from None
