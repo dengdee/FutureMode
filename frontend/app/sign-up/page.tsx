@@ -18,7 +18,7 @@ export default function SignUpPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null);
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.trim();
     const normalizedName = name.trim();
     if (!normalizedName) { setError("請輸入名稱。"); return; }
     if (password !== confirmPassword) { setError("兩次輸入的密碼不一致。"); return; }

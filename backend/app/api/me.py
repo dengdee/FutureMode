@@ -32,7 +32,7 @@ async def get_me(
     claim_name = principal_name(principal)
     claim_email = principal.claims.get("email")
     normalized_email = (
-        claim_email.strip().lower()
+        claim_email.strip()
         if isinstance(claim_email, str) and claim_email.strip()
         else None
     )
@@ -72,7 +72,7 @@ async def update_me(
         raise HTTPException(status_code=404, detail="user not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         if field == "email" and isinstance(value, str):
-            value = value.strip().lower()
+            value = value.strip()
         setattr(user, field, value)
     try:
         await session.commit()
