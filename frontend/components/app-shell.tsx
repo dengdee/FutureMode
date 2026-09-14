@@ -51,7 +51,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         event instanceof CustomEvent && typeof event.detail === "string"
           ? event.detail
           : window.localStorage.getItem("proximate:profile-name");
-      if (updatedName) setApiProfileName(updatedName);
       try {
         const currentUser = await getCurrentUser();
         const [teams, meetings] = await Promise.all([listTeams(), listMeetings()]);
@@ -77,19 +76,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         else setHasTeamUpdates(seenTeamSignature !== teamSignature);
         if (seenMeetingSignature === null) window.localStorage.setItem("proximate:sidebar-meeting-seen", meetingSignature);
         else setHasMeetingUpdates(seenMeetingSignature !== meetingSignature);
-        const currentMember = memberLists
-          .flatMap((result) => result.members)
-          .find((member) => member.external_id === currentUser.id);
         const currentName =
-          currentMember?.display_name ??
           currentUser.display_name ??
+          authSession?.user?.name ??
           updatedName;
         if (currentName) {
           window.localStorage.setItem("proximate:profile-name", currentName);
           setApiProfileName(currentName);
         }
       } catch {
-        /* Keep the authenticated or cached label if the profile lookup is unavailable. */
+        /* Keep the cached label only while the canonical profile is unavailable. */
+        if (updatedName) setApiProfileName(updatedName);
       }
     };
     refreshProfile();
