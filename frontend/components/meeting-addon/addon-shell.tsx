@@ -193,7 +193,7 @@ export function AddonShell({
             <StateMessage
               title="需要重新登入"
               description="此 Add-on 沒有有效的 Proximate 登入狀態。請先在同一個網站登入 Proximate，再重新開啟會議。"
-              action={<a href="/sign-in" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">登入 Proximate</a>}
+              action={<a href="https://future-mode-proximate-v2.vercel.app/sign-in" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[#dededb] px-3 py-2 text-xs font-semibold">登入 Proximate</a>}
             />
           ) : status === "error" ? (
             <StateMessage
